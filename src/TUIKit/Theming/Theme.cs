@@ -68,52 +68,60 @@ namespace TUIKit.Theming
         }
 
         /// <summary>
-        /// Gets a dark theme.
+        /// Gets a dark theme: light text on a dark background.
         /// </summary>
         public static Theme Dark
         {
             get
             {
+                Color background = Color.FromRgb(0x1E, 0x1E, 0x1E);
                 return new Theme(
                     "Dark",
-                    CellStyle.Default.WithForeground(Color.FromRgb(0xD0, 0xD0, 0xD0)),
-                    CellStyle.Default.WithForeground(Color.FromRgb(0x4F, 0xC1, 0xE9)),
-                    CellStyle.Default.WithForeground(Color.FromRgb(0x50, 0x50, 0x60)),
-                    CellStyle.Default.WithForeground(Color.FromRgb(0x80, 0x80, 0x90)));
+                    Styled(Color.FromRgb(0xD0, 0xD0, 0xD0), background),
+                    Styled(Color.FromRgb(0x4F, 0xC1, 0xE9), background),
+                    Styled(Color.FromRgb(0x5A, 0x5A, 0x6A), background),
+                    Styled(Color.FromRgb(0x8A, 0x8A, 0x9A), background));
             }
         }
 
         /// <summary>
-        /// Gets a light theme.
+        /// Gets a light theme: dark text on a light background (the reverse of <see cref="Dark"/>).
         /// </summary>
         public static Theme Light
         {
             get
             {
+                Color background = Color.FromRgb(0xE8, 0xE8, 0xE8);
                 return new Theme(
                     "Light",
-                    CellStyle.Default.WithForeground(Color.FromRgb(0x20, 0x20, 0x20)),
-                    CellStyle.Default.WithForeground(Color.FromRgb(0x0A, 0x6C, 0xB0)),
-                    CellStyle.Default.WithForeground(Color.FromRgb(0xB0, 0xB0, 0xB0)),
-                    CellStyle.Default.WithForeground(Color.FromRgb(0x60, 0x60, 0x60)));
+                    Styled(Color.FromRgb(0x20, 0x20, 0x20), background),
+                    Styled(Color.FromRgb(0x0A, 0x5C, 0xA0), background),
+                    Styled(Color.FromRgb(0x90, 0x90, 0x90), background),
+                    Styled(Color.FromRgb(0x55, 0x55, 0x55), background));
             }
         }
 
         /// <summary>
-        /// Gets a high-contrast theme that also uses ASCII borders.
+        /// Gets a high-contrast theme (white on black) that also uses ASCII borders.
         /// </summary>
         public static Theme HighContrast
         {
             get
             {
+                Color background = Color.FromRgb(0x00, 0x00, 0x00);
                 return new Theme(
                     "HighContrast",
-                    CellStyle.Default.WithForeground(Color.FromRgb(0xFF, 0xFF, 0xFF)),
-                    CellStyle.Default.WithForeground(Color.FromRgb(0xFF, 0xFF, 0x00)),
-                    CellStyle.Default.WithForeground(Color.FromRgb(0xFF, 0xFF, 0xFF)),
-                    CellStyle.Default.WithForeground(Color.FromRgb(0xC0, 0xC0, 0xC0)),
+                    Styled(Color.FromRgb(0xFF, 0xFF, 0xFF), background),
+                    Styled(Color.FromRgb(0xFF, 0xFF, 0x00), background),
+                    Styled(Color.FromRgb(0xFF, 0xFF, 0xFF), background),
+                    Styled(Color.FromRgb(0xC0, 0xC0, 0xC0), background),
                     true);
             }
+        }
+
+        private static CellStyle Styled(Color foreground, Color background)
+        {
+            return CellStyle.Default.WithForeground(foreground).WithBackground(background);
         }
 
         /// <summary>

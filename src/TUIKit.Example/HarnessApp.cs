@@ -95,11 +95,18 @@ namespace TUIKit.Example
         /// <param name="width">The frame width.</param>
         /// <param name="height">The frame height.</param>
         /// <returns>The frame as text.</returns>
-        internal string RenderSeededFrame(int width, int height, bool debug = false)
+        internal string RenderSeededFrame(int width, int height, bool debug = false, bool help = false, bool confirm = false, bool light = false)
         {
+            if (light)
+                _App.Theme = Theming.Theme.Light;
+
             _ShowDebug = debug;
+            _ShowHelp = help;
             _Agent.SeedOnce();
             _App.Notifications.Add("Tool finished: dotnet test", Modals.NotificationSeverity.Info, 0, 0);
+            if (confirm)
+                OpenConfirmation();
+
             CellBuffer buffer = new CellBuffer(width, height);
             BufferSurface surface = new BufferSurface(buffer);
             surface.Fill(new Rect(0, 0, width, height), Cell.Blank(_App.Theme.Text));
@@ -107,6 +114,7 @@ namespace TUIKit.Example
             _Transcript.Render(surface.CreateView(RegionFor("transcript").ContentRect(buffer.Size)), _App.Theme.Text);
             _Tools.Render(surface.CreateView(RegionFor("tools").ContentRect(buffer.Size)), _App.Theme.Text);
             DrawOverlay(surface);
+            _App.Modals.Render(surface);
             return TUIKit.Testing.Snapshot.ToText(buffer);
         }
 
@@ -395,15 +403,30 @@ namespace TUIKit.Example
                 "  F1 / ?       toggle this help"
             };
 
-            int width = 46;
-            int height = lines.Length + 2;
+            // Size the box to the longest line, add one cell of padding on every side, and render the
+            // lines into a clipped view so nothing spills outside the modal.
+            const int padLeft = 1;
+            const int padTop = 1;
+            int contentWidth = 0;
+            for (int i = 0; i < lines.Length; i++)
+                contentWidth = Math.Max(contentWidth, TUIKit.Unicode.Graphemes.MeasureWidth(lines[i]));
+
+            int width = Math.Min(size.Width, contentWidth + 2 + (padLeft * 2));
+            int height = Math.Min(size.Height, lines.Length + 2 + (padTop * 2));
             int x = Math.Max(0, (size.Width - width) / 2);
             int y = Math.Max(0, (size.Height - height) / 2);
-            Rect box = new Rect(x, y, Math.Min(width, size.Width), Math.Min(height, size.Height));
+            Rect box = new Rect(x, y, width, height);
+
             root.Fill(box, Cell.Blank(CellStyle.Default));
             root.DrawBox(box, CellStyle.Default.WithForeground(Color.FromPalette(3)), "Help");
-            for (int i = 0; i < lines.Length && y + 1 + i < size.Height; i++)
-                root.DrawText(x + 2, y + 1 + i, lines[i], CellStyle.Default);
+
+            BufferSurface? buffer = root as BufferSurface;
+            if (buffer == null)
+                return;
+
+            BufferSurface inner = buffer.CreateView(new Rect(x + 1 + padLeft, y + 1 + padTop, width - 2 - (padLeft * 2), height - 2 - (padTop * 2)));
+            for (int i = 0; i < lines.Length; i++)
+                inner.DrawText(0, i, lines[i], CellStyle.Default);
         }
     }
 }

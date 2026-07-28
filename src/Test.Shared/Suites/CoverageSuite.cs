@@ -42,6 +42,12 @@ namespace Test.Shared.Suites
                             Check.True(new Size(2, 2) != new Size(3, 3), "Size inequality");
                             Check.True(CellStyle.Default != CellStyle.Default.WithAttribute(CellAttributes.Bold, true), "Style inequality");
                             Check.Equal(Point.Origin, new Rect(0, 0, 5, 5).Location, "Location");
+
+                            CellStyle merged = CellStyle.Default
+                                .WithForeground(Color.FromPalette(1))
+                                .Over(CellStyle.Default.WithBackground(Color.FromRgb(10, 20, 30)));
+                            Check.Equal(Color.FromPalette(1), merged.Foreground, "Over keeps explicit foreground");
+                            Check.Equal(Color.FromRgb(10, 20, 30), merged.Background, "Over inherits background");
                             return Task.CompletedTask;
                         }),
 

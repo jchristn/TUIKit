@@ -192,6 +192,27 @@
                             custom.SetStyle("banner", CellStyle.Default.WithForeground(Color.FromPalette(5)));
                             Check.Equal(Color.FromPalette(5), custom.GetStyle("banner").Foreground, "Named style stored");
                             return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Hosting", "ThemeBackgroundEmitted", "Switching to the light theme reverses the background",
+                        _ =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(30, 6);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                app.Layout = Layout.Create().Add("log", r => r.FillWidth().FillHeight()).Build();
+                                Pane pane = new Pane("log");
+                                pane.WriteLine("hi");
+                                app.BindPane("log", pane);
+                                app.Theme = Theme.Light;
+                                app.Start();
+                                app.RenderOnce();
+                                string output = backend.PeekOutput();
+                                Check.True(output.Contains("48;2;232;232;232"), "Light background color is emitted");
+                                app.Stop();
+                            }
+
+                            return Task.CompletedTask;
                         })
                 });
         }

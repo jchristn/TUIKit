@@ -52,7 +52,10 @@ namespace TUIKit.Example
                 HarnessApp harness = new HarnessApp(app);
                 app.Start();
                 bool debug = Array.IndexOf(args, "--debug") >= 0;
-                string frame = harness.RenderSeededFrame(100, 30, debug);
+                bool help = Array.IndexOf(args, "--help") >= 0;
+                bool confirm = Array.IndexOf(args, "--confirm") >= 0;
+                bool light = Array.IndexOf(args, "--light") >= 0;
+                string frame = harness.RenderSeededFrame(100, 30, debug, help, confirm, light);
                 app.Stop();
 
                 Console.WriteLine("TUIKit example — headless snapshot (--once)");

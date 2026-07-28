@@ -3,6 +3,7 @@ namespace TUIKit.Modals
     using System.Threading.Tasks;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Layout;
 
     /// <summary>
     /// Base class for a modal dialog. A modal renders into a surface, handles keys while it holds the
@@ -38,6 +39,13 @@ namespace TUIKit.Modals
         {
             get { return true; }
         }
+
+        /// <summary>
+        /// Gets or sets the padding kept between the modal's border and its contents. Implementations
+        /// inset their content by this amount so text never touches the frame. Defaults to one cell on
+        /// every side.
+        /// </summary>
+        public Padding ContentPadding { get; set; } = Padding.Uniform(1);
 
         /// <summary>
         /// Renders the modal into the supplied surface, which covers the whole screen. The modal

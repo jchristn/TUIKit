@@ -106,6 +106,21 @@ namespace TUIKit
         }
 
         /// <summary>
+        /// Composes this style over a background style: any channel left at
+        /// <see cref="ColorKind.Default"/> here inherits the corresponding color from
+        /// <paramref name="background"/>. Attributes and link id are taken from this style. Used so
+        /// themed panes show their background behind text that does not set its own colors.
+        /// </summary>
+        /// <param name="background">The background style to inherit default colors from.</param>
+        /// <returns>The composed style.</returns>
+        public CellStyle Over(CellStyle background)
+        {
+            Color foreground = Foreground.Kind != ColorKind.Default ? Foreground : background.Foreground;
+            Color back = Background.Kind != ColorKind.Default ? Background : background.Background;
+            return new CellStyle(foreground, back, Attributes, LinkId);
+        }
+
+        /// <summary>
         /// Determines whether the supplied attribute is present.
         /// </summary>
         /// <param name="attribute">The attribute to test.</param>

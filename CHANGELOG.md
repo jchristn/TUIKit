@@ -25,4 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Example**: a full simulated agent-control harness demonstrating every capability, with a capability-coverage matrix.
 - Repository scaffolding, four Touchstone test projects, CI workflow, and documentation (README, LICENSE, CLAUDE, conformance and coverage reports).
 
+### Changed
+- Layout regions default to one cell of interior padding on every side, and `Padding` supports vertical as well as horizontal insets. Content and debug outlines no longer touch region edges.
+- Themes now set an explicit background, so switching between dark, light, and high-contrast reverses the whole palette. Pane content composes over the theme background via `CellStyle.Over`.
+
+### Fixed
+- Modals (`Modal.ContentPadding`) inset their content from the border; the example's confirmation, palette, settings, and help dialogs now keep a cell of padding on every side.
+- `DrawBox` clips an over-long title, and the example help overlay renders into a clipped, sized box so its text no longer spills outside the frame.
+- The example transcript no longer stacks blank lines between streamed paragraphs and list items.
+
 [Unreleased]: https://github.com/jchristn/TUIKit/commits/main

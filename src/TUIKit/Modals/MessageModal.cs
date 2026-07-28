@@ -91,14 +91,18 @@ namespace TUIKit.Modals
 
             int screenWidth = surface.Size.Width;
             int screenHeight = surface.Size.Height;
+            TUIKit.Layout.Padding pad = ContentPadding;
 
-            int inner = Math.Min(screenWidth - 4, Math.Max(30, TUIKit.Unicode.Graphemes.MeasureWidth(_Message) + 2));
-            if (inner < 10)
-                inner = Math.Max(10, screenWidth - 4);
+            // Content is inset from the border by ContentPadding on every side.
+            int frame = 2 + pad.Horizontal;
+            int contentWidth = Math.Min(screenWidth - frame, Math.Max(28, TUIKit.Unicode.Graphemes.MeasureWidth(_Message)));
+            if (contentWidth < 8)
+                contentWidth = Math.Max(8, screenWidth - frame);
 
-            IReadOnlyList<StyledText> messageLines = TextWrapper.Wrap(Text.From(_Message), inner);
-            int boxWidth = inner + 2;
-            int boxHeight = messageLines.Count + 4;
+            IReadOnlyList<StyledText> messageLines = TextWrapper.Wrap(Text.From(_Message), contentWidth);
+            int contentHeight = messageLines.Count + 1 + 1; // message lines, a gap, then the buttons row
+            int boxWidth = contentWidth + 2 + pad.Horizontal;
+            int boxHeight = contentHeight + 2 + pad.Vertical;
 
             int boxX = Math.Max(0, (screenWidth - boxWidth) / 2);
             int boxY = Math.Max(0, (screenHeight - boxHeight) / 2);
@@ -107,19 +111,22 @@ namespace TUIKit.Modals
             surface.Fill(box, Cell.Blank(CellStyle.Default));
             surface.DrawBox(box, _BorderStyle, _Title);
 
+            int contentX = boxX + 1 + pad.Left;
+            int contentY = boxY + 1 + pad.Top;
             for (int i = 0; i < messageLines.Count; i++)
-                surface.DrawStyledText(boxX + 1, boxY + 1 + i, messageLines[i]);
+                surface.DrawStyledText(contentX, contentY + i, messageLines[i]);
 
-            RenderButtons(surface, boxX, boxY + boxHeight - 2, boxWidth);
+            int buttonsRow = contentY + messageLines.Count + 1;
+            RenderButtons(surface, contentX, buttonsRow, contentWidth);
         }
 
-        private void RenderButtons(ISurface surface, int boxX, int row, int boxWidth)
+        private void RenderButtons(ISurface surface, int startX, int row, int width)
         {
             int totalWidth = 0;
             for (int i = 0; i < _Buttons.Length; i++)
                 totalWidth += _Buttons[i].Length + 4 + 1;
 
-            int cursor = boxX + Math.Max(1, (boxWidth - totalWidth) / 2);
+            int cursor = startX + Math.Max(0, (width - totalWidth) / 2);
             for (int i = 0; i < _Buttons.Length; i++)
             {
                 string label = "[ " + _Buttons[i] + " ]";

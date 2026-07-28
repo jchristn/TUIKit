@@ -3,6 +3,7 @@ namespace TUIKit.Example
     using System;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Layout;
     using TUIKit.Modals;
     using TUIKit.Widgets;
 
@@ -66,9 +67,15 @@ namespace TUIKit.Example
             if (surface == null)
                 throw new ArgumentNullException(nameof(surface));
 
-            int width = Math.Min(44, surface.Size.Width - 4);
-            int height = Math.Min(11, surface.Size.Height - 2);
-            if (width < 10 || height < 8)
+            Padding pad = ContentPadding;
+            const int contentRows = 7; // theme label, 3 radio rows, checkbox, label, field
+            int contentWidth = Math.Min(40, surface.Size.Width - 4 - pad.Horizontal);
+            if (contentWidth < 12)
+                return;
+
+            int width = contentWidth + 2 + pad.Horizontal;
+            int height = contentRows + 2 + pad.Vertical;
+            if (height > surface.Size.Height || width > surface.Size.Width)
                 return;
 
             int x = (surface.Size.Width - width) / 2;
@@ -76,18 +83,22 @@ namespace TUIKit.Example
             Rect box = new Rect(x, y, width, height);
 
             surface.Fill(box, Cell.Blank(CellStyle.Default));
-            surface.DrawBox(box, CellStyle.Default.WithForeground(Color.FromPalette(6)), "Settings  (Tab to move, Enter to apply)");
+            surface.DrawBox(box, CellStyle.Default.WithForeground(Color.FromPalette(6)), "Settings (Tab / Enter)");
 
             if (surface is BufferSurface buffer)
             {
-                surface.DrawText(x + 2, y + 1, "Theme:" + (_Focus == 0 ? "  <" : ""), CellStyle.Default.WithForeground(Color.FromPalette(3)));
-                _Theme.Render(buffer.CreateView(new Rect(x + 2, y + 2, width - 4, 3)));
+                int cx = x + 1 + pad.Left;
+                int cy = y + 1 + pad.Top;
+                CellStyle labelStyle = CellStyle.Default.WithForeground(Color.FromPalette(3));
 
-                surface.DrawText(x + 2, y + 5, _Focus == 1 ? "> " : "  ", CellStyle.Default);
-                _Ascii.Render(buffer.CreateView(new Rect(x + 4, y + 5, width - 6, 1)));
+                surface.DrawText(cx, cy, "Theme:" + (_Focus == 0 ? "  <" : ""), labelStyle);
+                _Theme.Render(buffer.CreateView(new Rect(cx, cy + 1, contentWidth, 3)));
 
-                surface.DrawText(x + 2, y + 7, "Label:" + (_Focus == 2 ? "  <" : ""), CellStyle.Default.WithForeground(Color.FromPalette(3)));
-                _Label.Render(buffer.CreateView(new Rect(x + 2, y + 8, width - 4, 1)));
+                surface.DrawText(cx, cy + 4, _Focus == 1 ? "> " : "  ", CellStyle.Default);
+                _Ascii.Render(buffer.CreateView(new Rect(cx + 2, cy + 4, contentWidth - 2, 1)));
+
+                surface.DrawText(cx, cy + 5, "Label:" + (_Focus == 2 ? "  <" : ""), labelStyle);
+                _Label.Render(buffer.CreateView(new Rect(cx, cy + 6, contentWidth, 1)));
             }
         }
     }

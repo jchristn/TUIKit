@@ -327,7 +327,7 @@ namespace TUIKit.Content
                 _ViewTop = top;
 
                 for (int r = 0; r < height && top + r < rows.Count; r++)
-                    surface.DrawStyledText(0, r, rows[top + r]);
+                    surface.DrawStyledText(0, r, rows[top + r], background);
             }
         }
 

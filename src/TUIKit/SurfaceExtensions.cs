@@ -93,6 +93,34 @@ namespace TUIKit
         }
 
         /// <summary>
+        /// Draws styled text, composing each span over a base style so spans that do not set their
+        /// own foreground or background inherit it (for example a themed pane background).
+        /// </summary>
+        /// <param name="surface">The target surface. Must not be null.</param>
+        /// <param name="x">The starting zero-based column.</param>
+        /// <param name="y">The zero-based row.</param>
+        /// <param name="text">The styled text to draw. Must not be null.</param>
+        /// <param name="baseStyle">The base style to inherit default colors from.</param>
+        /// <returns>The number of columns advanced.</returns>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="surface"/> or <paramref name="text"/> is null.
+        /// </exception>
+        public static int DrawStyledText(this ISurface surface, int x, int y, StyledText text, CellStyle baseStyle)
+        {
+            if (surface == null)
+                throw new ArgumentNullException(nameof(surface));
+            if (text == null)
+                throw new ArgumentNullException(nameof(text));
+
+            int cursor = x;
+            IReadOnlyList<StyledSpan> spans = text.Spans;
+            for (int i = 0; i < spans.Count; i++)
+                cursor += surface.DrawText(cursor, y, spans[i].Text, spans[i].Style.Over(baseStyle));
+
+            return cursor - x;
+        }
+
+        /// <summary>
         /// Draws a single-line box (border) around the supplied rectangle using box-drawing glyphs,
         /// with an optional title centered on the top edge.
         /// </summary>
@@ -141,6 +169,10 @@ namespace TUIKit
             if (!string.IsNullOrEmpty(title))
             {
                 string label = " " + title + " ";
+                int available = right - left - 1;
+                if (available > 1 && label.Length > available)
+                    label = label.Substring(0, available);
+
                 int titleWidth = TUIKit.Unicode.Graphemes.MeasureWidth(label);
                 int start = left + 1 + Math.Max(0, ((right - left - 1) - titleWidth) / 2);
                 surface.DrawText(start, top, label, style);

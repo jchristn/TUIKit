@@ -4,6 +4,7 @@ namespace TUIKit.Example
     using System.Collections.Generic;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Layout;
     using TUIKit.Modals;
     using TUIKit.Widgets;
 
@@ -49,11 +50,14 @@ namespace TUIKit.Example
             if (surface == null)
                 throw new ArgumentNullException(nameof(surface));
 
-            int width = Math.Min(48, surface.Size.Width - 4);
-            int height = Math.Min(_List.Items.Count + 2, surface.Size.Height - 4);
-            if (width < 6 || height < 3)
+            Padding pad = ContentPadding;
+            int innerWidth = Math.Min(46, surface.Size.Width - 4 - pad.Horizontal);
+            int innerHeight = Math.Min(_List.Items.Count, surface.Size.Height - 4 - pad.Vertical);
+            if (innerWidth < 4 || innerHeight < 1)
                 return;
 
+            int width = innerWidth + 2 + pad.Horizontal;
+            int height = innerHeight + 2 + pad.Vertical;
             int x = (surface.Size.Width - width) / 2;
             int y = (surface.Size.Height - height) / 2;
             Rect box = new Rect(x, y, width, height);
@@ -63,7 +67,7 @@ namespace TUIKit.Example
 
             if (surface is BufferSurface buffer)
             {
-                BufferSurface inner = buffer.CreateView(new Rect(x + 1, y + 1, width - 2, height - 2));
+                BufferSurface inner = buffer.CreateView(new Rect(x + 1 + pad.Left, y + 1 + pad.Top, innerWidth, innerHeight));
                 _List.Render(inner);
             }
         }
