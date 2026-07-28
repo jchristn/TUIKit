@@ -175,3 +175,10 @@ Bug reports, feature requests, and questions are all welcome on GitHub:
 ## License
 
 TUIKit is released under the [MIT License](LICENSE.md). Copyright (c) 2026 Joel Christner.
+
+## Logo Attribution
+
+The TUIKit logo is composed from the following sources:
+
+- [Terminalicon2](https://commons.wikimedia.org/wiki/File:Terminalicon2.png) — Wikimedia Commons
+- [Toolkit icon](https://www.flaticon.com/free-icon/toolkit_7854841) — Flaticon

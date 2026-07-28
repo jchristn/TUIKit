@@ -269,7 +269,151 @@ Everything in Tier 1 is achievable on the current engine without touching the re
 
 ---
 
-## 8. Appendix — everything evaluated
+## 8. Developer experience — reducing friction
+
+Capability is only half the battle. The frameworks people love — Spectre.Console, Textual, Bubble Tea — win as much on *ergonomics* as on features. Having built the example harness and the test suite against TUIKit's own API, the friction is visible and specific. This section is an honest critique of the current surface and a concrete plan to make it easier, more approachable, and more consistent, **without weakening the powerful low-level engine underneath.** The guiding principle is additive: keep the precise API, add a batteries-included layer on top.
+
+### 8.1 Where it fights you today
+
+A handful of rough edges show up immediately when you write a real app:
+
+- **Ceremony to start.** The smallest useful app creates a backend, creates an application, builds a layout, creates a pane, binds the pane, registers a chord, maps the chord to a command name, maps the command name to an action, and then runs. That is a lot of moving parts before anything appears on screen.
+- **Namespace sprawl.** A basic app pulls in `TUIKit`, `TUIKit.Content`, `TUIKit.Hosting`, `TUIKit.Input`, `TUIKit.Layout`, and `TUIKit.Terminal` — six `using`s before the first line of logic. A widget-heavy app adds three or four more.
+- **Only panes can bind to regions.** `BindPane` exists, but widgets (a gauge, a table, an editor) have no equivalent. In the example, every telemetry widget and the composer are positioned by hand in a `RenderOverlay` callback with manual `CreateView` and `ContentRect` math. That hand-layout is the single biggest source of code in the example, and it's exactly what a layout engine should remove.
+- **Two-step keybinding.** Binding a key is `Commands.Register(chord, "id")` *and* `RegisterCommand("id", action)`. The indirection is valuable for config-file rebinding, but it's overkill for "Ctrl+Q quits."
+- **Modal boilerplate.** A custom dialog means deriving from `Modal`, implementing `Render` and `HandleKey`, computing a centered box, pushing it, and — because there's no first-class await on the app — observing `Completion` with a `ContinueWith` on the thread pool. A confirm prompt should be one line.
+- **Verbose styling for the common case.** `Text.From("done").Green().Bold().Append(Text.From("  1.2s").Dim())` is precise but heavy for what Rich/Spectre express as `[green bold]done[/] [dim] 1.2s[/]`.
+- **Two vocabularies for the same idea.** `AxisConstraint.FromEnd` and `RightAnchored`, `Stretch` and `FillWidth`, `RequestStop` and (mentally) "quit" — the same concept has more than one name, which slows discovery.
+
+### 8.2 Approachability — a batteries-included entry point
+
+The fastest win is a one-call host that supplies the obvious defaults (a `ConsoleBackend`, a full-screen single region, Ctrl+C to quit, the dark theme) so a first program is tiny.
+
+```csharp
+// Today
+using System.Threading;
+using System.Threading.Tasks;
+using TUIKit;
+using TUIKit.Content;
+using TUIKit.Hosting;
+using TUIKit.Input;
+using TUIKit.Layout;
+using TUIKit.Terminal;
+
+using ConsoleBackend backend = new ConsoleBackend();
+using TuiApplication app = new TuiApplication(backend);
+app.Layout = Layout.Create().Add("log", r => r.FillWidth().FillHeight()).Build();
+Pane log = new Pane("log");
+app.BindPane("log", log);
+app.Commands.Register(KeyChord.Parse("ctrl+q"), "quit");
+app.RegisterCommand("quit", () => app.RequestStop());
+await app.RunAsync(CancellationToken.None);
+```
+
+```csharp
+// Proposed — same behavior
+using TUIKit;
+
+await TuiApp.RunAsync(app =>
+{
+    Pane log = app.AddPane("log");          // creates + binds to a full-screen region
+    app.Bind("ctrl+q", app.Quit);           // one-step keybinding
+    log.WriteLine("ready.");
+});
+```
+
+Concrete proposals:
+
+1. **`TuiApp.RunAsync(Action<TuiApplication> configure, CancellationToken)`** and a `TuiApp.Create()` builder that default the backend, a single full-screen region, and Ctrl+Q-to-quit.
+2. **A facade namespace or a shipped `GlobalUsings`** so `using TUIKit;` is enough for the common types. Re-export `Pane`, `Text`, `KeyChord`, the widgets, and `Layout` from the root, or provide `TUIKit.All` global usings.
+3. **`dotnet new` templates and a copy-pasteable "hello, panes" in the README** — the first five minutes decide adoption.
+4. **Sensible defaults everywhere**: a default theme, a default layout when none is set, and Ctrl+C-quits out of the box (already the policy default) so nothing is required to get a runnable screen.
+
+### 8.3 Syntax — say more with less
+
+The library should offer a short path for the 90% case and keep the explicit path for the 10%.
+
+**Bind a widget to a region** (removes the example's hand-layout entirely):
+
+```csharp
+// Today: manual placement in a RenderOverlay callback
+Rect rect = RegionFor("telemetry").ContentRect(buffer.Size);
+gauge.Render(buffer.CreateView(new Rect(0, 1, rect.Width, 1)));
+
+// Proposed
+app.AddWidget("telemetry", gauge);   // host measures, arranges, and renders it
+```
+
+**Inline markup** (a Tier-1 capability that doubles as a DX win):
+
+```csharp
+// Today
+pane.WriteLine(Text.From("done").Green().Bold().Append(Text.From("  1.2s").Dim()));
+
+// Proposed (markup parser produces StyledText; the fluent builder stays for programmatic styling)
+pane.WriteLine(Markup.Parse("[green bold]done[/] [dim] 1.2s[/]"));
+// or an overload: pane.WriteMarkup("[green bold]done[/] [dim] 1.2s[/]");
+```
+
+**Await a dialog** instead of deriving a type and wiring a continuation:
+
+```csharp
+// Today: derive from Modal, implement Render/HandleKey, push, observe Completion via ContinueWith
+
+// Proposed
+bool ok = await app.ConfirmAsync("Allow tool call?", "Allow", "Deny");
+string name = await app.PromptAsync("Project name?");
+int pick = await app.SelectAsync("Theme", "Dark", "Light", "High-contrast");
+object? result = await app.ShowAsync(myCustomModal);   // for the custom case
+```
+
+**One-step keybindings** for the simple case, keeping the command-id route for rebinding:
+
+```csharp
+// Today
+app.Commands.Register(KeyChord.Parse("ctrl+p"), "palette");
+app.RegisterCommand("palette", OpenPalette);
+
+// Proposed (convenience overload; the two-step API remains for config-driven bindings)
+app.Bind("ctrl+p", OpenPalette);
+```
+
+**Layout that reads like the picture.** Keep `AxisConstraint` for full control, but offer a split/grid DSL for the common shapes so users rarely touch the raw constraint:
+
+```csharp
+// Today
+.Add("main",  r => r.Horizontal(AxisConstraint.Stretch(0, 34)).Vertical(AxisConstraint.Stretch(1, 6)))
+
+// Proposed helpers
+.Row(top => top.Left("main").Right("sidebar", width: 34))   // or a Column/Grid equivalent
+```
+
+### 8.4 Semantics — one obvious way
+
+Consistency lowers the cost of learning the whole surface.
+
+1. **Unify "things that live in a region."** Make `Pane` implement `IWidget` (it already has a `Render`), and let `BindPane`/`AddWidget` collapse into a single `Bind(regionId, IWidget)`. One concept — "content bound to a region" — instead of two parallel ones.
+2. **Pick one name per idea.** Prefer the intent-revealing convenience names (`FillWidth`, `RightAnchored`, `Quit`) in the docs and examples, and document the primitive (`AxisConstraint`, `RequestStop`) as the advanced escape hatch. Don't present both as equals.
+3. **State thread-safety at the call site.** Panes are thread-safe; most widgets are not. A short, consistent XML-doc convention ("thread-safe" / "render-thread only") on every public type removes guesswork; a `[ThreadSafe]`-style marker or a naming convention would make it scannable.
+4. **Make the async result API the primary modal path**, as the plan intended (`ShowModalAsync`), rather than the push-and-observe pattern the example currently uses.
+5. **Name for discovery.** `TuiApplication` is fine, but the common verbs (`Quit`, `Bind`, `AddPane`, `AddWidget`, `Log`, `Notify`) should exist on the app so IntelliSense on `app.` reveals the whole beginner surface.
+
+### 8.5 A prioritized DX backlog
+
+- **DX-1 (highest leverage): `Bind(regionId, IWidget)` with `Pane : IWidget`.** Removes the biggest chunk of hand-layout and unifies the content model. Everything in the example's `RenderOverlay` collapses.
+- **DX-2: `TuiApp.RunAsync`/`Create` bootstrap + sensible defaults + a single `using TUIKit;`.** The "first five minutes" fix.
+- **DX-3: `ConfirmAsync`/`PromptAsync`/`SelectAsync`/`ShowAsync` on the app.** Deletes modal boilerplate; pairs with the Spectre-style prompt suite from Section 4.
+- **DX-4: inline markup parser + `WriteMarkup`.** Shared with Tier-1 capability #9; the single biggest readability win for styled output.
+- **DX-5: `app.Bind(chord, action)` and app-level verbs (`Quit`, `Log`, `Notify`).** Collapses the two-step ceremony for the common case.
+- **DX-6: a split/grid layout DSL** over the constraint solver, so `AxisConstraint` becomes the advanced path, not the default one.
+- **DX-7: a `TuiTest`/driver harness** — feed keys, tick a frame, assert a `Snapshot` — so testing an app is as ergonomic as testing a widget already is.
+- **DX-8: documentation and templates** — a quick-start, a cookbook of recipes (streaming log, dashboard, form, wizard), and `dotnet new tuikit` templates.
+
+None of these removes anything. The retained engine, the region constraints, the command routing table, and the raw modal API all stay for the apps that need them. The point is that a newcomer should reach a beautiful, working screen in a dozen lines, and only meet `AxisConstraint`, `CommandRoutingTable`, and a hand-written `Modal` when they actually need that control.
+
+---
+
+## 9. Appendix — everything evaluated
 
 For transparency, this is the full inventory of what was examined for this report. Individual applications were assessed as representatives of their category rather than exhaustively; frameworks were examined for their model and capabilities.
 
