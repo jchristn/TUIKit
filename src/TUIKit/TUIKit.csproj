@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net8.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>TUIKit</PackageId>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Title>TUIKit</Title>
+    <Authors>Joel Christner</Authors>
+    <Company>Joel Christner</Company>
+    <Product>TUIKit</Product>
+    <Copyright>(c) 2026 Joel Christner</Copyright>
+    <Description>A concurrent, high-performance terminal UI framework for .NET. Build multi-pane console applications with developer-defined region layouts, thread-safe pane writes, streaming markdown, mutable lines, a smart scroll lock, correct Unicode width, enhanced keyboard input, mouse and links, modals and notifications, a widget toolkit, theming, and headless rendering for tests. Alpha: API and capabilities are subject to change.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>logo.png</PackageIcon>
+    <PackageProjectUrl>https://github.com/jchristn/TUIKit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/jchristn/TUIKit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>tui;terminal;console;ui;ansi;vt;tui-framework;agent;curses;ncurses;widgets;layout</PackageTags>
+    <PackageReleaseNotes>v0.1.0 (Alpha) — first public preview. Core rendering, layout, panes, input, mouse/links, modals, widgets, theming, hosting, and headless testing. API and capabilities are subject to change.</PackageReleaseNotes>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
+    <PackageReference Include="System.Memory" Version="4.6.0" />
+    <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\assets\logo.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
