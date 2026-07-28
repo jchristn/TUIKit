@@ -47,12 +47,15 @@ namespace TUIKit.Example
             // content never touches a border and the debug overlay (Ctrl+D) draws its outline in the
             // padding gap rather than over content. The single-row header and footer bars override the
             // vertical padding to zero; the composer widens its padding to leave a gap inside its border.
+            // Regions declare whether they draw a border and what kind. The tool, telemetry, and
+            // composer panels use rounded box-drawing borders; the header and footer are borderless
+            // single-row bars. The host draws the border and insets content for it automatically.
             _Layout = Layout.Create()
                 .Add("header", r => r.FillWidth().TopAnchored(0, 1).WithPadding(1, 0, 1, 0))
                 .Add("transcript", r => r.Horizontal(AxisConstraint.Stretch(0, 34)).Vertical(AxisConstraint.Stretch(1, 6)))
-                .Add("tools", r => r.RightAnchored(0, 33).TopAnchored(1, 11))
-                .Add("telemetry", r => r.RightAnchored(0, 33).Vertical(AxisConstraint.Stretch(12, 6)))
-                .Add("composer", r => r.FillWidth().BottomAnchored(1, 4).WithPadding(2, 1, 2, 1))
+                .Add("tools", r => r.RightAnchored(0, 33).TopAnchored(1, 11).WithBorder(BorderStyle.Rounded, "Tools"))
+                .Add("telemetry", r => r.RightAnchored(0, 33).Vertical(AxisConstraint.Stretch(12, 6)).WithBorder(BorderStyle.Rounded, "Telemetry"))
+                .Add("composer", r => r.FillWidth().BottomAnchored(1, 4).WithBorder(BorderStyle.Rounded, "Composer  (Enter to send)"))
                 .Add("footer", r => r.FillWidth().BottomAnchored(0, 1).WithPadding(1, 0, 1, 0))
                 .Build();
 
@@ -110,6 +113,15 @@ namespace TUIKit.Example
             CellBuffer buffer = new CellBuffer(width, height);
             BufferSurface surface = new BufferSurface(buffer);
             surface.Fill(new Rect(0, 0, width, height), Cell.Blank(_App.Theme.Text));
+
+            foreach (Region region in _Layout.Regions)
+            {
+                if (!region.HasBorder)
+                    continue;
+
+                BorderStyle style = _App.Theme.UseAsciiBorders ? BorderStyle.Ascii : region.Border;
+                surface.DrawBox(region.Resolve(buffer.Size), _App.Theme.Border, style, region.BorderTitle);
+            }
 
             _Transcript.Render(surface.CreateView(RegionFor("transcript").ContentRect(buffer.Size)), _App.Theme.Text);
             _Tools.Render(surface.CreateView(RegionFor("tools").ContentRect(buffer.Size)), _App.Theme.Text);
@@ -338,27 +350,20 @@ namespace TUIKit.Example
             if (rect.IsEmpty)
                 return;
 
+            // The "Telemetry" title is drawn on the region border; the widgets fill the content area.
             BufferSurface view = buffer.CreateView(rect);
-            view.DrawText(0, 0, "Telemetry", CellStyle.Default.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true));
-            _CpuGauge.Render(view.CreateView(new Rect(0, 1, rect.Width, 1)));
-            _CpuSpark.Render(view.CreateView(new Rect(0, 2, rect.Width, 1)));
-            _ToolBar.Render(view.CreateView(new Rect(0, 3, rect.Width, 1)));
-            if (rect.Height > 5)
-                _Telemetry.Render(view.CreateView(new Rect(0, 5, rect.Width, rect.Height - 5)));
+            _CpuGauge.Render(view.CreateView(new Rect(0, 0, rect.Width, 1)));
+            _CpuSpark.Render(view.CreateView(new Rect(0, 1, rect.Width, 1)));
+            _ToolBar.Render(view.CreateView(new Rect(0, 2, rect.Width, 1)));
+            if (rect.Height > 4)
+                _Telemetry.Render(view.CreateView(new Rect(0, 4, rect.Width, rect.Height - 4)));
         }
 
         private void DrawComposer(BufferSurface buffer)
         {
-            // The border is drawn on the full region rectangle; the editor renders into the region's
-            // padded content rectangle, so there is an explicit gap between the border and the text.
-            Region region = RegionFor("composer");
-            Rect rect = region.Resolve(buffer.Size);
-            if (rect.IsEmpty)
-                return;
-
-            buffer.CreateView(rect).DrawBox(new Rect(0, 0, rect.Width, rect.Height), _App.Theme.Border, "Composer  (Enter to send)", _App.Theme.UseAsciiBorders);
-
-            Rect content = region.ContentRect(buffer.Size);
+            // The composer region declares its own border (drawn by the host); the editor just renders
+            // into the region's content rectangle, which is already inset for the border and padding.
+            Rect content = RegionFor("composer").ContentRect(buffer.Size);
             if (!content.IsEmpty)
                 _Composer.Render(buffer.CreateView(content));
         }

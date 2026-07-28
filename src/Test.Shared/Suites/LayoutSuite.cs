@@ -112,6 +112,48 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("Layout", "Border", "Region border insets content and grows the minimum",
+                        _ =>
+                        {
+                            Region plain = Region.Define("p").FillWidth().FillHeight().WithPadding(0).Build();
+                            Check.False(plain.HasBorder, "No border by default");
+
+                            Region bordered = Region.Define("b").FillWidth().FillHeight().WithPadding(0).WithBorder(BorderStyle.Rounded, "Panel").Build();
+                            Check.True(bordered.HasBorder, "Border present");
+                            Check.Equal(BorderStyle.Rounded, bordered.Border, "Border style stored");
+                            Check.Equal("Panel", bordered.BorderTitle, "Border title stored");
+                            // Border insets content one cell on every side (padding here is zero).
+                            Check.Equal(new Rect(1, 1, 8, 8), bordered.ContentRect(new Size(10, 10)), "Content inset for the border");
+                            Check.Equal(3, bordered.MinimumSize.Width, "Minimum width includes the border (1 + 2)");
+
+                            // Border plus the default one-cell padding insets content by two.
+                            Region both = Region.Define("bp").FillWidth().FillHeight().WithBorder(BorderStyle.Double).Build();
+                            Check.Equal(new Rect(2, 2, 16, 16), both.ContentRect(new Size(20, 20)), "Border and padding both inset");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Layout", "BorderGlyphs", "Border styles render distinct corner glyphs",
+                        _ =>
+                        {
+                            CellBuffer buffer = new CellBuffer(6, 3);
+                            BufferSurface surface = new BufferSurface(buffer);
+                            surface.DrawBox(new Rect(0, 0, 6, 3), CellStyle.Default, BorderStyle.Rounded, null);
+                            Check.Equal("╭", buffer.Get(0, 0).Grapheme, "Rounded top-left");
+
+                            surface.Fill(new Rect(0, 0, 6, 3), Cell.Empty);
+                            surface.DrawBox(new Rect(0, 0, 6, 3), CellStyle.Default, BorderStyle.Double, null);
+                            Check.Equal("╔", buffer.Get(0, 0).Grapheme, "Double top-left");
+
+                            surface.Fill(new Rect(0, 0, 6, 3), Cell.Empty);
+                            surface.DrawBox(new Rect(0, 0, 6, 3), CellStyle.Default, BorderStyle.Ascii, null);
+                            Check.Equal("+", buffer.Get(0, 0).Grapheme, "ASCII top-left");
+
+                            surface.Fill(new Rect(0, 0, 6, 3), Cell.Empty);
+                            surface.DrawBox(new Rect(0, 0, 6, 3), CellStyle.Default, BorderStyle.None, null);
+                            Check.Equal(" ", buffer.Get(0, 0).Grapheme, "None draws nothing");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("Layout", "BlockScreen", "Block screen renders centered message",
                         _ =>
                         {

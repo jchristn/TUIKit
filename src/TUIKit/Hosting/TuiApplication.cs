@@ -398,6 +398,14 @@ namespace TUIKit.Hosting
                 for (int i = 0; i < _Layout.Regions.Count; i++)
                 {
                     Region region = _Layout.Regions[i];
+
+                    if (region.HasBorder)
+                    {
+                        Rect frame = region.Resolve(size).Intersect(new Rect(0, 0, size.Width, size.Height));
+                        BorderStyle borderStyle = _Theme.UseAsciiBorders ? BorderStyle.Ascii : region.Border;
+                        root.DrawBox(frame, _Theme.Border, borderStyle, region.BorderTitle);
+                    }
+
                     if (!_Panes.TryGetValue(region.Id, out Pane? pane))
                         continue;
 

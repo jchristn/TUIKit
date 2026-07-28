@@ -132,17 +132,33 @@ namespace TUIKit
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
         public static void DrawBox(this ISurface surface, Rect rect, CellStyle style, string? title = null, bool ascii = false)
         {
+            surface.DrawBox(rect, style, ascii ? BorderStyle.Ascii : BorderStyle.Line, title);
+        }
+
+        /// <summary>
+        /// Draws a single-cell box (border) around the supplied rectangle using the requested border
+        /// style, with an optional title centered on the top edge.
+        /// </summary>
+        /// <param name="surface">The target surface. Must not be null.</param>
+        /// <param name="rect">The rectangle to outline, in local coordinates.</param>
+        /// <param name="style">The style for the border and title.</param>
+        /// <param name="border">The border style. <see cref="BorderStyle.None"/> draws nothing.</param>
+        /// <param name="title">An optional title drawn on the top edge, or null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
+        public static void DrawBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title = null)
+        {
             if (surface == null)
                 throw new ArgumentNullException(nameof(surface));
-            if (rect.Width < 2 || rect.Height < 2)
+            if (border == BorderStyle.None || rect.Width < 2 || rect.Height < 2)
                 return;
 
-            string horizontal = ascii ? "-" : "─";
-            string vertical = ascii ? "|" : "│";
-            string topLeft = ascii ? "+" : "┌";
-            string topRight = ascii ? "+" : "┐";
-            string bottomLeft = ascii ? "+" : "└";
-            string bottomRight = ascii ? "+" : "┘";
+            string horizontal;
+            string vertical;
+            string topLeft;
+            string topRight;
+            string bottomLeft;
+            string bottomRight;
+            SelectGlyphs(border, out horizontal, out vertical, out topLeft, out topRight, out bottomLeft, out bottomRight);
 
             int left = rect.Left;
             int right = rect.Right - 1;
@@ -176,6 +192,53 @@ namespace TUIKit
                 int titleWidth = TUIKit.Unicode.Graphemes.MeasureWidth(label);
                 int start = left + 1 + Math.Max(0, ((right - left - 1) - titleWidth) / 2);
                 surface.DrawText(start, top, label, style);
+            }
+        }
+
+        private static void SelectGlyphs(BorderStyle border, out string horizontal, out string vertical, out string topLeft, out string topRight, out string bottomLeft, out string bottomRight)
+        {
+            switch (border)
+            {
+                case BorderStyle.Ascii:
+                    horizontal = "-";
+                    vertical = "|";
+                    topLeft = "+";
+                    topRight = "+";
+                    bottomLeft = "+";
+                    bottomRight = "+";
+                    break;
+                case BorderStyle.Rounded:
+                    horizontal = "─";
+                    vertical = "│";
+                    topLeft = "╭";
+                    topRight = "╮";
+                    bottomLeft = "╰";
+                    bottomRight = "╯";
+                    break;
+                case BorderStyle.Double:
+                    horizontal = "═";
+                    vertical = "║";
+                    topLeft = "╔";
+                    topRight = "╗";
+                    bottomLeft = "╚";
+                    bottomRight = "╝";
+                    break;
+                case BorderStyle.Thick:
+                    horizontal = "━";
+                    vertical = "┃";
+                    topLeft = "┏";
+                    topRight = "┓";
+                    bottomLeft = "┗";
+                    bottomRight = "┛";
+                    break;
+                default:
+                    horizontal = "─";
+                    vertical = "│";
+                    topLeft = "┌";
+                    topRight = "┐";
+                    bottomLeft = "└";
+                    bottomRight = "┘";
+                    break;
             }
         }
 

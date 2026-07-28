@@ -15,6 +15,8 @@ namespace TUIKit.Layout
         private AxisConstraint? _Horizontal;
         private AxisConstraint? _Vertical;
         private Padding _Padding = Padding.Uniform(1);
+        private BorderStyle _Border = BorderStyle.None;
+        private string? _BorderTitle;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RegionBuilder"/> class.
@@ -189,6 +191,31 @@ namespace TUIKit.Layout
         }
 
         /// <summary>
+        /// Sets the border drawn around the region and, optionally, a title on its top edge. The
+        /// content is inset by one cell to make room for the border.
+        /// </summary>
+        /// <param name="border">The border style.</param>
+        /// <param name="title">An optional title, or null.</param>
+        /// <returns>This builder.</returns>
+        public RegionBuilder WithBorder(BorderStyle border, string? title = null)
+        {
+            _Border = border;
+            _BorderTitle = title;
+            return this;
+        }
+
+        /// <summary>
+        /// Removes any border from the region.
+        /// </summary>
+        /// <returns>This builder.</returns>
+        public RegionBuilder NoBorder()
+        {
+            _Border = BorderStyle.None;
+            _BorderTitle = null;
+            return this;
+        }
+
+        /// <summary>
         /// Builds the region.
         /// </summary>
         /// <returns>The constructed region.</returns>
@@ -202,7 +229,7 @@ namespace TUIKit.Layout
             if (_Vertical == null)
                 throw new InvalidOperationException("Region '" + _Id + "' has no vertical constraint.");
 
-            return new Region(_Id, _Horizontal, _Vertical, _Padding);
+            return new Region(_Id, _Horizontal, _Vertical, _Padding, _Border, _BorderTitle);
         }
     }
 }

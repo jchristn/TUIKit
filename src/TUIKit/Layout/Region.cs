@@ -26,19 +26,46 @@ namespace TUIKit.Layout
         public AxisConstraint Vertical { get; }
 
         /// <summary>
-        /// Gets the padding reserved inside the region between its edges and its contents. Bound panes
-        /// and widgets render into the region's content rectangle, which is the resolved rectangle
-        /// inset by this padding.
+        /// Gets the padding reserved inside the region between its edges (or border) and its contents.
+        /// Bound panes and widgets render into the region's content rectangle, which is the resolved
+        /// rectangle inset by the border and then this padding.
         /// </summary>
         public Padding Padding { get; }
 
         /// <summary>
+        /// Gets the border drawn around the region. Defaults to <see cref="BorderStyle.None"/>. When a
+        /// border is present the content rectangle is inset by one cell on every side to make room for
+        /// it, in addition to <see cref="Padding"/>.
+        /// </summary>
+        public BorderStyle Border { get; }
+
+        /// <summary>
+        /// Gets the title drawn on the region's top border, or null. Ignored when <see cref="Border"/>
+        /// is <see cref="BorderStyle.None"/>.
+        /// </summary>
+        public string? BorderTitle { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the region draws a border.
+        /// </summary>
+        public bool HasBorder
+        {
+            get { return Border != BorderStyle.None; }
+        }
+
+        /// <summary>
         /// Gets the minimum surface size at which this region can be laid out while respecting its
-        /// minimum extents and padding.
+        /// minimum extents, border, and padding.
         /// </summary>
         public Size MinimumSize
         {
-            get { return new Size(Horizontal.MinimumExtent() + Padding.Horizontal, Vertical.MinimumExtent() + Padding.Vertical); }
+            get
+            {
+                int borderExtent = HasBorder ? 2 : 0;
+                return new Size(
+                    Horizontal.MinimumExtent() + Padding.Horizontal + borderExtent,
+                    Vertical.MinimumExtent() + Padding.Vertical + borderExtent);
+            }
         }
 
         /// <summary>
@@ -48,9 +75,11 @@ namespace TUIKit.Layout
         /// <param name="horizontal">The horizontal constraint. Must not be null.</param>
         /// <param name="vertical">The vertical constraint. Must not be null.</param>
         /// <param name="padding">The interior padding. Defaults to <see cref="Padding.Empty"/>.</param>
+        /// <param name="border">The border style. Defaults to <see cref="BorderStyle.None"/>.</param>
+        /// <param name="borderTitle">The optional border title. Defaults to null.</param>
         /// <exception cref="ArgumentException">Thrown when <paramref name="id"/> is null or empty.</exception>
         /// <exception cref="ArgumentNullException">Thrown when a constraint is null.</exception>
-        public Region(string id, AxisConstraint horizontal, AxisConstraint vertical, Padding padding = default)
+        public Region(string id, AxisConstraint horizontal, AxisConstraint vertical, Padding padding = default, BorderStyle border = BorderStyle.None, string? borderTitle = null)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Region id must not be null or empty.", nameof(id));
@@ -59,6 +88,8 @@ namespace TUIKit.Layout
             Horizontal = horizontal ?? throw new ArgumentNullException(nameof(horizontal));
             Vertical = vertical ?? throw new ArgumentNullException(nameof(vertical));
             Padding = padding;
+            Border = border;
+            BorderTitle = borderTitle;
         }
 
         /// <summary>
@@ -94,7 +125,11 @@ namespace TUIKit.Layout
         /// <returns>The padded content rectangle.</returns>
         public Rect ContentRect(Size surface)
         {
-            return Padding.Deflate(Resolve(surface));
+            Rect rect = Resolve(surface);
+            if (HasBorder && rect.Width >= 2 && rect.Height >= 2)
+                rect = new Rect(rect.X + 1, rect.Y + 1, rect.Width - 2, rect.Height - 2);
+
+            return Padding.Deflate(rect);
         }
     }
 }
