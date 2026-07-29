@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POSSIBLE_IMPROVEMENTS.md`: a capability analysis versus the agent CLIs, the awesome-tuis catalog, and the C#/.NET frameworks (Spectre.Console, Terminal.Gui, Consolonia, Terminaux), with a tiered improvement roadmap.
 
 ### Changed
+- `SplitView.MinRatio`/`MaxRatio` now clamp assignments to `[0.0, 1.0]`, `ResizeStep` rejects values outside `(0.0, 1.0]` with `ArgumentOutOfRangeException`, and the divider clamp is robust to an inverted min/max. Added a dedicated value-validation test suite asserting that every range-constrained input across the widgets (gauges, progress, sparkline, scroll view, split, color picker, braille canvas, tween, timer, cell buffer) either clamps or throws.
 - Layout regions default to one cell of interior padding on every side, and `Padding` supports vertical as well as horizontal insets. Content and debug outlines no longer touch region edges.
 - Themes now set an explicit background, so switching between dark, light, and high-contrast reverses the whole palette. Pane content composes over the theme background via `CellStyle.Over`.
 

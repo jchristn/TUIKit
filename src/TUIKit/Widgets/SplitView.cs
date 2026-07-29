@@ -16,6 +16,9 @@ namespace TUIKit.Widgets
         private readonly IWidget _First;
         private readonly IWidget _Second;
         private double _Ratio;
+        private double _MinRatio = 0.1;
+        private double _MaxRatio = 0.9;
+        private double _ResizeStep = 0.05;
 
         /// <summary>Gets or sets the split orientation.</summary>
         public SplitOrientation Orientation { get; set; }
@@ -23,14 +26,42 @@ namespace TUIKit.Widgets
         /// <summary>Gets or sets whether a divider line is drawn between the panes. Defaults to true.</summary>
         public bool ShowDivider { get; set; } = true;
 
-        /// <summary>Gets or sets the minimum split ratio. Defaults to 0.1.</summary>
-        public double MinRatio { get; set; } = 0.1;
+        /// <summary>
+        /// Gets or sets the minimum split ratio. Values are clamped to the range 0.0 through 1.0.
+        /// Defaults to 0.1.
+        /// </summary>
+        public double MinRatio
+        {
+            get { return _MinRatio; }
+            set { _MinRatio = value < 0.0 ? 0.0 : value > 1.0 ? 1.0 : value; }
+        }
 
-        /// <summary>Gets or sets the maximum split ratio. Defaults to 0.9.</summary>
-        public double MaxRatio { get; set; } = 0.9;
+        /// <summary>
+        /// Gets or sets the maximum split ratio. Values are clamped to the range 0.0 through 1.0.
+        /// Defaults to 0.9.
+        /// </summary>
+        public double MaxRatio
+        {
+            get { return _MaxRatio; }
+            set { _MaxRatio = value < 0.0 ? 0.0 : value > 1.0 ? 1.0 : value; }
+        }
 
-        /// <summary>Gets or sets the amount the ratio changes per resize key. Defaults to 0.05.</summary>
-        public double ResizeStep { get; set; } = 0.05;
+        /// <summary>
+        /// Gets or sets the amount the ratio changes per resize key. Must be greater than 0.0 and no
+        /// greater than 1.0. Defaults to 0.05.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the value is not in the range (0.0, 1.0].</exception>
+        public double ResizeStep
+        {
+            get { return _ResizeStep; }
+            set
+            {
+                if (value <= 0.0 || value > 1.0)
+                    throw new ArgumentOutOfRangeException(nameof(value), value, "Resize step must be greater than 0.0 and no greater than 1.0.");
+
+                _ResizeStep = value;
+            }
+        }
 
         /// <summary>
         /// Gets the current split ratio: the fraction of the area given to the first child.
@@ -152,8 +183,8 @@ namespace TUIKit.Widgets
 
         private double Clamp(double ratio)
         {
-            double min = MinRatio;
-            double max = MaxRatio;
+            double min = Math.Min(_MinRatio, _MaxRatio);
+            double max = Math.Max(_MinRatio, _MaxRatio);
             if (ratio < min)
                 return min;
             if (ratio > max)

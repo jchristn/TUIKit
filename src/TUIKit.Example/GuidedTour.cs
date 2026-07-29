@@ -218,7 +218,7 @@ namespace TUIKit.Example
                 new[]
                 {
                     "MultiProgress p = new MultiProgress();",
-                    "var t = p.Add(\"download\");",
+                    "ProgressTask t = p.Add(\"download\");",
                     "t.Report(0.72); // 0..1",
                     "// completed tasks turn green"
                 }));
@@ -284,10 +284,10 @@ namespace TUIKit.Example
                 new FuzzyList(new[] { "apple", "apricot", "banana", "grape", "grapefruit", "mango" }),
                 new[]
                 {
-                    "var list = new FuzzyList(items);",
+                    "FuzzyList list = new FuzzyList(items);",
                     "// typing filters:",
                     "list.Query = \"ap\";",
-                    "var pick = list.SelectedItem;"
+                    "string? pick = list.SelectedItem;"
                 }));
 
             MenuBar menu = new MenuBar();
@@ -300,7 +300,7 @@ namespace TUIKit.Example
                 menu,
                 new[]
                 {
-                    "var bar = new MenuBar();",
+                    "MenuBar bar = new MenuBar();",
                     "bar.AddMenu(\"File\")",
                     "   .Add(\"Open\", OpenFile)",
                     "   .Add(\"Quit\", app.Quit);"
@@ -329,7 +329,7 @@ namespace TUIKit.Example
                 new ColorPicker(Color.FromRgb(64, 160, 220)),
                 new[]
                 {
-                    "var picker = new ColorPicker(",
+                    "ColorPicker picker = new ColorPicker(",
                     "  Color.FromRgb(64, 160, 220));",
                     "// picker.Value is the chosen Color",
                     "// PgUp/PgDn jump by 16"
@@ -357,10 +357,10 @@ namespace TUIKit.Example
                 new KeyBindingEditor(bindings),
                 new[]
                 {
-                    "var set = new KeyBindingSet()",
+                    "KeyBindingSet set = new KeyBindingSet()",
                     "  .Add(\"save\", \"ctrl+s\")",
                     "  .Add(\"quit\", \"ctrl+q\");",
-                    "var editor =",
+                    "KeyBindingEditor editor =",
                     "  new KeyBindingEditor(set);"
                 }));
 
