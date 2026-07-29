@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "TUIKit",
+  "classifications": [ "Console", "TUI", "Terminal" ],
+  "identity": "TUIKit.App.CSharp",
+  "name": "TUIKit Terminal App",
+  "shortName": "tuikit-app",
+  "description": "A minimal cross-platform terminal UI application built on TUIKit.",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "sourceName": "TuiKitApp",
+  "preferNameDirectory": true,
+  "symbols": {
+    "Framework": {
+      "type": "parameter",
+      "description": "The target framework for the project.",
+      "datatype": "choice",
+      "choices": [
+        { "choice": "net8.0", "description": ".NET 8" },
+        { "choice": "net10.0", "description": ".NET 10" }
+      ],
+      "defaultValue": "net8.0",
+      "replaces": "net8.0"
+    }
+  }
+}

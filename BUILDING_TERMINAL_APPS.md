@@ -537,7 +537,7 @@ This library is under active development. The table below tracks which capabilit
 | 10.5 | Async prompts (`ConfirmAsync`/`PromptAsync`/`SelectAsync`) | **Implemented** |
 | 10.6 | Split / grid layout DSL | **Implemented** |
 | 10.7 | Status / hint bar widget | **Implemented** |
-| 10.8 | Docs, cookbook & templates | **Partial** (this guide; `dotnet new` templates planned) |
+| 10.8 | Docs, cookbook & templates | **Implemented** (this guide + `tuikit-app` `dotnet new` template under `templates/`) |
 | 10.9 | One-step `Bind(chord, action)` + app verbs | **Implemented** |
 | 10.10 | One-call bootstrap (`TuiApp.RunAsync`) | **Implemented** |
 | 10.11 | Tree / hierarchical list | **Implemented** |
@@ -570,7 +570,24 @@ This library is under active development. The table below tracks which capabilit
 | 10.38 | Box shadows / modal drop shadows (`ISurface.DrawShadow`) | **Implemented** |
 | 10.39 | Backdrop dimming behind modals (`Backdrop.Dim`) | **Implemented** |
 | 10.40 | Image rendering — half-block (`HalfBlockImage`) | **Implemented** (half-block; sixel/kitty not attempted) |
+| — | Keybinding editor / user-configurable keymap (`KeyBindingEditor`/`KeyBindingSet`) | **Implemented** |
 | — | Guided-tour example rewrite | Planned |
-| — | Keybinding editor modal | Planned |
+
+### Summary: included vs. excluded
+
+**Implemented (39 of the 40 catalogued items, plus the keybinding editor):** 10.1–10.18, 10.20–10.40. Every requested widget, layout, reactivity, animation, testing, terminal-integration, and visual-effect capability now ships with public XML docs and several positive/negative Touchstone tests each (194 cases, all green across the console, xUnit, and NUnit runners).
+
+**Deliberately excluded:**
+
+- **10.19 Autocomplete / typeahead popup** — excluded at the user's request.
+
+**Partial / scoped:**
+
+- **10.40 Image rendering** — the half-block (`▀`) renderer ships; sixel and kitty graphics protocols were not attempted (they need per-terminal capability negotiation and binary payloads out of scope for a dependency-free core).
+- **10.31 Suspend/resume signals** — event surface and POSIX signal wiring ship on .NET 8+ Unix; on `netstandard2.0` the signal hook is a documented no-op (the `PosixSignalRegistration` API is unavailable there).
+
+**Still outstanding:**
+
+- **Guided-tour example rewrite** — turning `TUIKit.Example` into a self-describing, feature-by-feature walkthrough with live demos and code snippets is in progress.
 
 Everything already shipped (core engine, layout, panes, input, mouse/links, modals, notifications, theming, diagnostics, headless testing) is documented in the sections above.
