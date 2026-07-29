@@ -555,8 +555,8 @@ This library is under active development. The table below tracks which capabilit
 | 10.23 | `TuiTest` / app-driver harness | Planned |
 | 10.24 | Multi-task progress / `Live` wrapper | Planned |
 | 10.25 | Menus / menu bar / context menus | Planned |
-| 10.26 | Nerd Font / icon glyphs + ASCII fallback | Planned |
-| 10.27 | Charts (braille canvas + line/bar) | Planned |
+| 10.26 | Nerd Font / icon glyphs + ASCII fallback (`Icons`/`Icon`/`IconMode`) | **Implemented** |
+| 10.27 | Charts — braille canvas + line/bar (`BrailleCanvas`/`LineChart`/`BarChart`) | **Implemented** |
 | 10.28 | Interactive split resize | Planned |
 | 10.29 | Markdown completeness (task/ordered lists, tables, nesting) | **Implemented** |
 | 10.30 | Data binding / reactive layer | Planned |
@@ -566,7 +566,7 @@ This library is under active development. The table below tracks which capabilit
 | 10.34 | OSC 8 emission + clipboard read + link hints | Planned |
 | 10.35 | File browser / open dialog widget | Planned |
 | 10.36 | FIGlet / banner text | Planned |
-| 10.37 | Color picker widget | Planned |
+| 10.37 | Color picker widget (`ColorPicker`) | **Implemented** |
 | 10.38 | Box shadows / modal drop shadows | Planned (region borders shipped) |
 | 10.39 | Backdrop dimming behind modals | Planned |
 | 10.40 | Image rendering (sixel/kitty/half-block) | Planned |
