@@ -9,7 +9,7 @@ color picker, diffs, the key-binding editor, and images (half-block / sixel / ki
 
 Global keys open live UI on top of the tour:
 
-- **F1** or **?** — help overlay
+- **F1** — help overlay
 - **Ctrl+G** — settings & actions menu (cycle theme, cycle icon mode, notification, confirmation dialog)
 - **Ctrl+T** — cycle theme (dark / light / high-contrast)
 - **Ctrl+K** — confirmation dialog

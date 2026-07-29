@@ -113,6 +113,17 @@ namespace TUIKit.Example
                     app.PumpInputOnce();
                 }
 
+                int keysFlag = Array.IndexOf(args, "--keys");
+                if (keysFlag >= 0 && keysFlag + 1 < args.Length)
+                {
+                    string keys = args[keysFlag + 1];
+                    backend.FeedInput(keys);
+                    for (int i = 0; i < keys.Length + 4; i++)
+                        app.PumpInputOnce();
+
+                    page = -1; // keep the state produced by the keys
+                }
+
                 string frame = tour.RenderFrame(100, 30, page, help);
                 app.Stop();
 

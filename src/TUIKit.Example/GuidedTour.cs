@@ -15,7 +15,7 @@ namespace TUIKit.Example
     /// A self-describing guided tour of TUIKit. A header names the feature being shown, the left
     /// "Live demo" pane renders the widget itself, and the right "Code" pane shows how to build it.
     /// PageUp/PageDown (or '[' / ']') browse the features; the arrow keys and Enter interact with the
-    /// live widget. Global keys open live UI: F1 or ? for help, Ctrl+G for the settings menu, Ctrl+T
+    /// live widget. Global keys open live UI: F1 for help, Ctrl+G for the settings menu, Ctrl+T
     /// to cycle the theme, Ctrl+K for a confirmation dialog, Ctrl+N for a notification, Ctrl+Q to quit.
     /// This is the default experience when you run <c>TUIKit.Example</c>.
     /// </summary>
@@ -47,7 +47,6 @@ namespace TUIKit.Example
             _App.Layout = _Layout;
             _App.Commands.Register(KeyChord.Parse("ctrl+q"), "quit");
             _App.Commands.Register(KeyChord.Parse("f1"), "help");
-            _App.Commands.Register(KeyChord.Parse("?"), "help");
             _App.Commands.Register(KeyChord.Parse("ctrl+g"), "settings");
             _App.Commands.Register(KeyChord.Parse("ctrl+t"), "theme");
             _App.Commands.Register(KeyChord.Parse("ctrl+k"), "confirm");
@@ -165,8 +164,12 @@ namespace TUIKit.Example
         /// <returns>The frame as text.</returns>
         internal string RenderFrame(int width, int height, int pageIndex = 0, bool showHelp = false)
         {
-            _Index = ((pageIndex % _Pages.Count) + _Pages.Count) % _Pages.Count;
-            _ShowHelp = showHelp;
+            // A negative page index preserves the current state (e.g. after feeding keys).
+            if (pageIndex >= 0)
+            {
+                _Index = ((pageIndex % _Pages.Count) + _Pages.Count) % _Pages.Count;
+                _ShowHelp = showHelp;
+            }
 
             CellBuffer buffer = new CellBuffer(width, height);
             BufferSurface surface = new BufferSurface(buffer);
@@ -198,22 +201,39 @@ namespace TUIKit.Example
                 return;
             }
 
-            if (key.Code == KeyCode.PageDown || IsChar(key, ']'))
+            // PageUp/PageDown always browse — they are not printable, so they never conflict with a
+            // widget that accepts typed input.
+            if (key.Code == KeyCode.PageDown)
             {
-                _Index = (_Index + 1) % _Pages.Count;
-                Log("Page down was pressed, navigating to " + _Pages[_Index].Title);
+                Navigate(1, "Page down");
                 return;
             }
 
-            if (key.Code == KeyCode.PageUp || IsChar(key, '['))
+            if (key.Code == KeyCode.PageUp)
             {
-                _Index = (_Index - 1 + _Pages.Count) % _Pages.Count;
-                Log("Page up was pressed, navigating to " + _Pages[_Index].Title);
+                Navigate(-1, "Page up");
                 return;
             }
 
+            // Let a focusable demo consume the key first, so typing (e.g. in the fuzzy finder) works
+            // instead of triggering navigation. Only keys the widget ignores fall through below.
             if (_Pages[_Index].Demo is IFocusable focusable && focusable.HandleKey(key))
+            {
                 Log(Describe(key) + " sent to the " + _Pages[_Index].Title + " demo");
+                return;
+            }
+
+            // '[' / ']' also browse, for pages whose widget did not use them.
+            if (IsChar(key, ']'))
+                Navigate(1, "]");
+            else if (IsChar(key, '['))
+                Navigate(-1, "[");
+        }
+
+        private void Navigate(int delta, string cause)
+        {
+            _Index = (_Index + delta + _Pages.Count) % _Pages.Count;
+            Log(cause + " was pressed, navigating to " + _Pages[_Index].Title);
         }
 
         private static bool IsChar(KeyEvent key, char c)
@@ -266,25 +286,27 @@ namespace TUIKit.Example
 
             Color blackColor = Color.FromRgb(0, 0, 0);
             CellStyle black = CellStyle.Default.WithBackground(blackColor);
+            Cell blackCell = Cell.Blank(black);
+
+            // Fill the full interior of each box (inside the border, including the padding ring) with
+            // black so nothing shows the theme background.
+            FillInterior(buffer, "demo", size, blackCell);
+            FillInterior(buffer, "code", size, blackCell);
+            FillInterior(buffer, "actions", size, blackCell);
 
             Rect demoRect = _Layout.FindById("demo")!.ContentRect(size);
             if (!demoRect.IsEmpty)
-            {
-                BufferSurface demoView = buffer.CreateView(demoRect);
-                demoView.Fill(new Rect(0, 0, demoRect.Width, demoRect.Height), Cell.Blank(black));
-                page.Demo.Render(new SolidBackgroundSurface(demoView, blackColor));
-            }
+                page.Demo.Render(new SolidBackgroundSurface(buffer.CreateView(demoRect), blackColor));
 
             Rect codeRect = _Layout.FindById("code")!.ContentRect(size);
             if (!codeRect.IsEmpty)
             {
                 BufferSurface codeView = buffer.CreateView(codeRect);
-                codeView.Fill(new Rect(0, 0, codeRect.Width, codeRect.Height), Cell.Blank(black));
                 for (int i = 0; i < page.Code.Count && i < codeRect.Height; i++)
                     codeView.DrawStyledText(0, i, SyntaxHighlighter.HighlightLine(page.Code[i], "csharp"), black);
             }
 
-            DrawActions(buffer, size);
+            DrawActions(buffer, size, black);
 
             CellStyle muted = _App.Theme.Muted;
             root.Fill(new Rect(0, size.Height - 1, size.Width, 1), Cell.Blank(muted));
@@ -294,7 +316,20 @@ namespace TUIKit.Example
                 DrawHelp(root, size, buffer);
         }
 
-        private void DrawActions(BufferSurface buffer, Size size)
+        private void FillInterior(BufferSurface buffer, string regionId, Size size, Cell cell)
+        {
+            Region? region = _Layout.FindById(regionId);
+            if (region == null)
+                return;
+
+            Rect full = region.Resolve(size);
+            if (full.Width <= 2 || full.Height <= 2)
+                return;
+
+            buffer.Fill(new Rect(full.X + 1, full.Y + 1, full.Width - 2, full.Height - 2), cell);
+        }
+
+        private void DrawActions(BufferSurface buffer, Size size, CellStyle black)
         {
             Rect rect = _Layout.FindById("actions")!.ContentRect(size);
             if (rect.IsEmpty)
@@ -307,7 +342,7 @@ namespace TUIKit.Example
             BufferSurface view = buffer.CreateView(rect);
             if (events.Length == 0)
             {
-                view.DrawText(0, 0, "Press PgUp / PgDn to navigate — key events are logged here.", _App.Theme.Muted);
+                view.DrawText(0, 0, "Press PgUp / PgDn to navigate — key events are logged here.", black.WithForeground(Color.FromPalette(8)));
                 return;
             }
 
@@ -320,8 +355,8 @@ namespace TUIKit.Example
 
                 bool newest = start + row == events.Length - 1;
                 CellStyle style = newest
-                    ? CellStyle.Default.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true)
-                    : CellStyle.Default;
+                    ? black.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true)
+                    : black.WithForeground(Color.FromPalette(7));
                 view.DrawText(0, row, text, style);
             }
         }
@@ -340,7 +375,7 @@ namespace TUIKit.Example
                 "  Ctrl+K           confirmation dialog demo",
                 "  Ctrl+N           show a notification toast",
                 "  F12              toggle mouse capture (native text select)",
-                "  F1 / ?           toggle this help",
+                "  F1               toggle this help",
                 "  Ctrl+Q           quit",
                 "",
                 "  With mouse capture OFF, drag to select and copy",
