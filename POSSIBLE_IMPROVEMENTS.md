@@ -455,3 +455,63 @@ For transparency, this is the full inventory of what was examined for this repor
 - *ncurses bindings:* Mindmagma.Curses / dotnet-curses / CursesSharp.
 
 **Method note.** The .NET frameworks were reviewed against their repositories and documentation for feature set, layout model, concurrency model, input/mouse support, styling, licensing, and target frameworks. Capabilities were then cross-checked against TUIKit's implemented surface (the same Have / Partial / Missing tags used throughout this report).
+
+---
+
+## 10. Prioritized improvement scorecard
+
+Every improvement identified in this report, scored and rank-ordered. Each dimension is **1–5, higher is more favorable**:
+
+- **Ease** — ease of implementation on the current engine (5 = trivial widget/sugar, 1 = major subsystem).
+- **Flex** — flexibility it gives consumers (5 = unlocks many use cases and consumption patterns).
+- **Simpl** — simplicity it brings the app developer (5 = removes real friction, 1 = neutral).
+- **Perf** — runtime performance impact when used (5 = negligible or positive, 1 = heavy).
+- **Stakes** — how table-stakes it is (5 = baseline everyone expects, 1 = niche polish).
+- **Total** — the sum (max 25). The table is sorted by Total, highest first.
+
+The rankings are deliberately opinionated; the scores are a starting point for discussion, not a verdict. Ties are broken toward higher table-stakes.
+
+| # | Improvement | Description | Ease | Flex | Simpl | Perf | Stakes | Total | Does it best |
+|---|---|---|:--:|:--:|:--:|:--:|:--:|:--:|---|
+| 1 | Bind any widget to a region (`Pane : IWidget`, one `Bind`) | Let the host place and render any widget in a region, not just panes; unify the content model | 4 | 5 | 5 | 4 | 4 | **22** | Terminal.Gui |
+| 2 | Scrollable viewport + scrollbars | Generic scroll container with a visible scrollbar, reused by panes and lists | 4 | 4 | 4 | 4 | 5 | **21** | Textual / Terminal.Gui |
+| 3 | Fuzzy finder / filterable list | Type-to-filter with fuzzy matching and match highlighting; reusable picker | 3 | 5 | 4 | 4 | 5 | **21** | fzf |
+| 4 | Inline markup parser | `[bold red]…[/]` → `StyledText`; a `WriteMarkup` overload | 4 | 4 | 5 | 4 | 4 | **21** | Spectre.Console / Rich |
+| 5 | Async prompts on the app | `ConfirmAsync`/`PromptAsync`/`SelectAsync`/`ShowAsync` — one-line dialogs | 4 | 4 | 5 | 4 | 4 | **21** | Spectre.Console |
+| 6 | Split / grid layout DSL | `Row`/`Column`/`Grid` sugar over the constraint solver | 4 | 4 | 5 | 4 | 4 | **21** | Lip Gloss / FTXUI |
+| 7 | Status / hint bar widget | Contextual footer of keybinding hints, promoted from the example | 5 | 3 | 4 | 5 | 4 | **21** | helix / lazygit |
+| 8 | Docs, cookbook & `dotnet new` templates | Quick-start, recipe cookbook, and project starters | 4 | 3 | 5 | 5 | 4 | **21** | Textual / Spectre |
+| 9 | One-step `Bind(chord, action)` + app verbs | Collapse the two-step keybinding; add `Quit`/`Log`/`Notify` on the app | 5 | 3 | 5 | 5 | 3 | **21** | Bubble Tea |
+| 10 | One-call bootstrap + defaults + single `using` | `TuiApp.RunAsync`/`Create` with a default backend, layout, and quit key | 5 | 3 | 5 | 4 | 3 | **20** | Bubble Tea / Spectre |
+| 11 | Tree / hierarchical list | Expand/collapse nodes with indent guides and selection | 3 | 4 | 4 | 4 | 5 | **20** | Terminal.Gui / yazi |
+| 12 | Diff renderer | Unified/side-by-side, add/remove/context coloring, hunk headers | 3 | 4 | 4 | 4 | 5 | **20** | delta / lazygit |
+| 13 | Collapsible section widget | Expandable header for tool calls, log groups, and details | 4 | 4 | 4 | 4 | 4 | **20** | Claude Code / Textual |
+| 14 | Tabs widget | Tabbed views with keyboard/mouse switching | 4 | 3 | 4 | 5 | 4 | **20** | zellij / Terminal.Gui |
+| 15 | Forms / dialog framework | Inputs + validation + shared tab order | 3 | 4 | 5 | 4 | 4 | **20** | Terminal.Gui |
+| 16 | Expanded theme role vocabulary | success/warning/error/info/selection/disabled semantic roles | 5 | 3 | 4 | 5 | 3 | **20** | Textual / Spectre |
+| 17 | Real data table (sortable/resizable/virtualized) | Replace the static table with selection, column sizing, and virtualization | 2 | 5 | 4 | 3 | 5 | **19** | Terminal.Gui / k9s |
+| 18 | Syntax highlighting | A tokenizer + theme producing styled code | 2 | 5 | 4 | 3 | 5 | **19** | helix / bat |
+| 19 | Autocomplete / typeahead popup | Caret-anchored, live-filtered completion (`/`, `@`) | 3 | 4 | 4 | 4 | 4 | **19** | prompt_toolkit |
+| 20 | Global focus manager | Tab/Shift-Tab focus ring with visible focus rings | 3 | 4 | 4 | 4 | 4 | **19** | Terminal.Gui / Textual |
+| 21 | In-pane search (`/`) | Match navigation and highlighting within a pane | 4 | 3 | 4 | 4 | 3 | **18** | less / k9s |
+| 22 | Nested layouts inside a region | Sub-layouts (mini flex/grid) without manual coordinate math | 3 | 4 | 4 | 4 | 3 | **18** | Terminal.Gui (Pos/Dim) |
+| 23 | `TuiTest` / app-driver harness | Feed keys, tick a frame, assert a `Snapshot` | 4 | 3 | 4 | 5 | 2 | **18** | Textual (snapshot testing) |
+| 24 | Multi-task progress / `Live` wrapper | Concurrent progress display over the render loop | 4 | 3 | 4 | 4 | 3 | **18** | Spectre.Console |
+| 25 | Menus / menu bar / context menus | Drop-down and context menus | 3 | 3 | 4 | 4 | 3 | **17** | Terminal.Gui / Turbo Vision |
+| 26 | Nerd Font / icon glyphs + ASCII fallback | Icon glyphs for status columns and trees | 4 | 3 | 3 | 5 | 2 | **17** | yazi / lsd |
+| 27 | Charts (braille canvas + line/bar) | A drawing canvas, then line and bar charts | 3 | 4 | 3 | 3 | 3 | **16** | btop / Ratatui |
+| 28 | Interactive split resize | Draggable/keyboard-resizable region borders | 3 | 3 | 3 | 4 | 3 | **16** | tmux / zellij |
+| 29 | Markdown completeness | Tables, ordered/nested lists, task lists, nested quotes | 3 | 3 | 3 | 4 | 3 | **16** | glow / Rich |
+| 30 | Data binding / reactive layer | `INotifyPropertyChanged`/`ObservableCollection` + a declarative option | 2 | 5 | 4 | 3 | 2 | **16** | Consolonia / Textual |
+| 31 | Suspend/resume + signal restoration | Drop to shell/editor and restore; SIGTSTP/SIGCONT/SIGTERM | 3 | 3 | 3 | 4 | 3 | **16** | vim / tmux |
+| 32 | Modal-editing helper | normal/insert/visual modes and command mode over the routing table | 3 | 3 | 3 | 5 | 2 | **16** | helix / vim |
+| 33 | Animation / transitions / timers | Frame-tick + easing for smooth spinners and transitions | 3 | 4 | 3 | 3 | 2 | **15** | Textual / klooie |
+| 34 | OSC 8 emission + clipboard read + link hints | Finish the link/clipboard story; Vimium-style link labels | 3 | 3 | 3 | 4 | 2 | **15** | WezTerm / kitty |
+| 35 | File browser / open dialog widget | A file picker with search and filtering | 2 | 3 | 4 | 3 | 3 | **15** | ranger / Terminal.Gui |
+| 36 | FIGlet / banner text | Large ASCII-art headings | 4 | 2 | 3 | 4 | 1 | **14** | Spectre / Figgle |
+| 37 | Color picker widget | Interactive color selection | 3 | 2 | 3 | 4 | 2 | **14** | Terminal.Gui |
+| 38 | Box shadows / modal drop shadows | Shadow under boxes and modals (region borders already shipped) | 4 | 2 | 3 | 4 | 1 | **14** | Textual / Spectre |
+| 39 | Backdrop dimming behind modals | Dim covered cells via a compositor read-back pass | 3 | 2 | 3 | 3 | 2 | **13** | Textual |
+| 40 | Image rendering (sixel/kitty/iTerm2/half-block) | Inline pictures with a graphics-protocol path and a cell fallback | 1 | 4 | 3 | 2 | 2 | **12** | yazi / chafa |
+
+**Reading the scorecard.** The top of the list is dominated by *ergonomics and reuse* — binding widgets to regions, scroll containers, markup, prompts, layout sugar, and docs — because they are cheap on the current engine, remove real developer friction, and are broadly expected. The heavy, high-value subsystems (real table, syntax highlighting, diff) score slightly lower only because they are harder to build, not less important — their table-stakes score is maxed. The bottom of the list is genuine polish and platform work (images, dimming, shadows) that is either expensive or niche. A reasonable execution order is: clear the 20+ ergonomics band first, interleave the table/tree/diff/syntax subsystems (they unblock the agent-and-dashboard audiences), and treat everything below ~16 as opportunistic.
