@@ -565,11 +565,11 @@ This library is under active development. The table below tracks which capabilit
 | 10.33 | Animation / transitions / timers (`Easing`/`Tween`/`FrameTimer`) | **Implemented** |
 | 10.34 | OSC 8 emission + clipboard read + link hints | Planned |
 | 10.35 | File browser / open dialog widget (`FileBrowser`) | **Implemented** |
-| 10.36 | FIGlet / banner text | Planned |
+| 10.36 | FIGlet / banner text (`Banner`/`BannerText`) | **Implemented** |
 | 10.37 | Color picker widget (`ColorPicker`) | **Implemented** |
-| 10.38 | Box shadows / modal drop shadows | Planned (region borders shipped) |
-| 10.39 | Backdrop dimming behind modals | Planned |
-| 10.40 | Image rendering (sixel/kitty/half-block) | Planned |
+| 10.38 | Box shadows / modal drop shadows (`ISurface.DrawShadow`) | **Implemented** |
+| 10.39 | Backdrop dimming behind modals (`Backdrop.Dim`) | **Implemented** |
+| 10.40 | Image rendering — half-block (`HalfBlockImage`) | **Implemented** (half-block; sixel/kitty not attempted) |
 | — | Guided-tour example rewrite | Planned |
 | — | Keybinding editor modal | Planned |
 

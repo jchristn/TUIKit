@@ -136,6 +136,29 @@ namespace TUIKit
         }
 
         /// <summary>
+        /// Draws a drop shadow just outside the bottom and right edges of a rectangle, offset by one
+        /// cell, giving boxes and modals a sense of depth. Call this before drawing the box itself so
+        /// the shadow sits underneath. The shadow is a shaded glyph and is clipped to the surface.
+        /// </summary>
+        /// <param name="surface">The target surface. Must not be null.</param>
+        /// <param name="rect">The rectangle casting the shadow, in local coordinates.</param>
+        /// <param name="style">The shadow style, or null for a dim gray shade.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
+        public static void DrawShadow(this ISurface surface, Rect rect, CellStyle? style = null)
+        {
+            if (surface == null)
+                throw new ArgumentNullException(nameof(surface));
+            if (rect.Width <= 0 || rect.Height <= 0)
+                return;
+
+            CellStyle shade = style ?? CellStyle.Default.WithForeground(Color.FromPalette(8));
+            Cell cell = Cell.Glyph("░", shade, 1);
+
+            surface.Fill(new Rect(rect.X + rect.Width, rect.Y + 1, 1, rect.Height), cell);
+            surface.Fill(new Rect(rect.X + 1, rect.Y + rect.Height, rect.Width, 1), cell);
+        }
+
+        /// <summary>
         /// Draws a single-cell box (border) around the supplied rectangle using the requested border
         /// style, with an optional title centered on the top edge.
         /// </summary>
