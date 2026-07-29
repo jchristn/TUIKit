@@ -124,7 +124,7 @@ namespace Test.Shared.Suites
                         _ =>
                         {
                             NotificationCenter center = new NotificationCenter();
-                            center.Add("saved", NotificationSeverity.Info, 0, 5000);
+                            center.Add("   saved   ", NotificationSeverity.Info, 0, 5000);
 
                             CellBuffer buffer = new CellBuffer(20, 3);
                             center.Render(new BufferSurface(buffer), 0);
@@ -135,7 +135,7 @@ namespace Test.Shared.Suites
                             for (int c = x; c < x + 7; c++)
                                 label.Append(buffer.Get(c, 0).Grapheme);
 
-                            Check.Equal(" saved ", label.ToString(), "exactly one leading and one trailing space");
+                            Check.Equal(" saved ", label.ToString(), "own whitespace trimmed to exactly one leading and one trailing space");
                             return Task.CompletedTask;
                         }),
 

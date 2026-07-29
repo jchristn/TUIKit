@@ -125,8 +125,9 @@ namespace TUIKit.Modals
                 int x = surface.Size.Width - width - 1;
                 surface.Fill(new Rect(x, row, width, 1), Cell.Blank(CellStyle.Default));
 
-                // Frame the message with exactly one leading and one trailing space.
-                string label = " " + Truncate(item.Text, Math.Max(0, width - 2)) + " ";
+                // Frame the message with exactly one leading and one trailing space, trimming any of
+                // its own so the padding is always exactly one cell.
+                string label = " " + Truncate(item.Text.Trim(), Math.Max(0, width - 2)) + " ";
                 surface.DrawText(x, row, label, style);
                 row++;
             }
