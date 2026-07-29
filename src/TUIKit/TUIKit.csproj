@@ -8,6 +8,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <Deterministic>true</Deterministic>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -15,20 +18,21 @@
     <Version>0.1.0</Version>
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
     <FileVersion>0.1.0.0</FileVersion>
-    <Title>TUIKit</Title>
+    <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
     <Product>TUIKit</Product>
-    <Copyright>(c) 2026 Joel Christner</Copyright>
-    <Description>A concurrent, high-performance terminal UI framework for .NET. Build multi-pane console applications with developer-defined region layouts, thread-safe pane writes, streaming markdown, mutable lines, a smart scroll lock, correct Unicode width, enhanced keyboard input, mouse and links, modals and notifications, a widget toolkit, theming, and headless rendering for tests. Alpha: API and capabilities are subject to change.</Description>
+    <Copyright>(c)2026 Joel Christner</Copyright>
+    <Description>A concurrency-first terminal UI framework for .NET. Compose multi-pane console apps with a developer-defined region layout, thread-safe pane writes, streaming Markdown and inline markup, correct Unicode width and grapheme handling, double-buffered diff rendering, enhanced keyboard input, SGR mouse and OSC 8 links, modal dialogs and toast notifications, and a broad widget toolkit — tables, trees, tabs, forms, menus, a fuzzy finder, charts (braille/line/bar), gauges and progress, a color picker, a file browser, a diff viewer, syntax highlighting, banners, and half-block/sixel/kitty image output. Includes reactive data binding, tick-driven animation, theming, and a headless backend for deterministic tests. Multi-targets netstandard2.0, net8.0, and net10.0. Alpha: API and capabilities are subject to change.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>logo.png</PackageIcon>
     <PackageProjectUrl>https://github.com/jchristn/TUIKit</PackageProjectUrl>
     <RepositoryUrl>https://github.com/jchristn/TUIKit</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>tui;terminal;console;ui;ansi;vt;tui-framework;agent;curses;ncurses;widgets;layout</PackageTags>
-    <PackageReleaseNotes>v0.1.0 (Alpha) — first public preview. Core rendering, layout, panes, input, mouse/links, modals, widgets, theming, hosting, and headless testing. API and capabilities are subject to change.</PackageReleaseNotes>
+    <RepositoryBranch>main</RepositoryBranch>
+    <PackageTags>tui;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown</PackageTags>
+    <PackageReleaseNotes>v0.1.0 (Alpha) — first public preview. Concurrency-first core: region layout, thread-safe panes, double-buffered diff rendering, Unicode width, enhanced input, mouse/OSC 8 links, modals and notifications, theming, and a headless backend for tests. Widget toolkit: tables, trees, tabs, forms, menus, fuzzy finder, charts, gauges/progress, color picker, file browser, diff viewer, syntax highlighting, banners, and half-block/sixel/kitty images. Plus reactive binding, animation, and a mouse-capture toggle for native text selection. API and capabilities are subject to change.</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

@@ -56,7 +56,15 @@ namespace Test.Shared
                     ValueValidationSuite.Suite(),
                     LayoutConstraintSuite.Suite(),
                     InputWidgetSuite.Suite(),
-                    ImageProtocolSuite.Suite()
+                    ImageProtocolSuite.Suite(),
+                    HostValidationSuite.Suite(),
+                    CoreValidationSuite.Suite(),
+                    LayoutThemeValidationSuite.Suite(),
+                    InputRoutingValidationSuite.Suite(),
+                    BackendModalValidationSuite.Suite(),
+                    ContentValidationSuite.Suite(),
+                    DiagnosticsValidationSuite.Suite(),
+                    WidgetGuardValidationSuite.Suite()
                 };
             }
         }

@@ -2,6 +2,7 @@ namespace Test.Shared
 {
     using System;
     using System.Collections.Generic;
+    using System.Threading.Tasks;
 
     /// <summary>
     /// Minimal assertion helpers for Touchstone descriptors. Each method throws on failure, which
@@ -67,6 +68,44 @@ namespace Test.Shared
             try
             {
                 action();
+            }
+            catch (TException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    (context ?? "action") + ": expected " + typeof(TException).Name
+                    + " but got " + ex.GetType().Name + ".");
+            }
+
+            throw new InvalidOperationException(
+                (context ?? "action") + ": expected " + typeof(TException).Name + " but nothing was thrown.");
+        }
+
+        /// <summary>
+        /// Asserts that awaiting an asynchronous action throws an exception of the expected type. Use
+        /// this for <c>async</c> methods that capture argument validation into the returned task
+        /// rather than throwing synchronously.
+        /// </summary>
+        /// <typeparam name="TException">The expected exception type.</typeparam>
+        /// <param name="action">The asynchronous action expected to throw. Must not be null.</param>
+        /// <param name="context">A short description of what was being checked. Must not be null.</param>
+        /// <returns>A task that completes when the assertion has been evaluated.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when the action does not throw, or throws an unexpected type.
+        /// </exception>
+        public static async Task ThrowsAsync<TException>(Func<Task> action, string context)
+            where TException : Exception
+        {
+            if (action == null)
+                throw new ArgumentNullException(nameof(action));
+
+            try
+            {
+                await action().ConfigureAwait(false);
             }
             catch (TException)
             {

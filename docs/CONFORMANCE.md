@@ -1,5 +1,7 @@
 # Conformance and CI Notes
 
+> **Historical snapshot.** The counts in this Phase-20 audit (e.g. "111 cases") predate later development; the suite now stands at **254 Touchstone cases**. The conformance conclusions below still hold.
+
 Tracks how this repository satisfies the requirements in `c:\code\agents\requirements`, including items that are intentionally not applicable. This file also carries the **Phase 20 conformance audit** result.
 
 ## Phase 20 audit result (final)

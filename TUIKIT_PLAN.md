@@ -2,7 +2,7 @@
 
 A high-performance, concurrent C# TUI framework for embedding developer-defined multi-pane layouts into .NET console applications. Primary consumer: an AI agent control harness with streaming text, live diagnostics, interactive prompts, and overlay dialogs.
 
-This plan turns the open questions in `TUIKIT.md` into a buildable, trackable work breakdown. It is designed to be annotated in place: every task carries a **Status** cell and a **Notes** cell. Update them as you go.
+This plan turns the open questions in `archive/TUIKIT.md` into a buildable, trackable work breakdown. It is designed to be annotated in place: every task carries a **Status** cell and a **Notes** cell. Update them as you go.
 
 ---
 

@@ -374,6 +374,64 @@ var check  = new Checkbox("verbose", isChecked: true);
 var radio  = new RadioGroup(new[] { "Dark", "Light", "High-contrast" });
 ```
 
+### Data, navigation, and visuals
+
+```csharp
+// Sortable, virtualized table over any typed source.
+var grid = new DataTable<Person>()
+    .Column("Name", p => p.Name)
+    .Column("Score", p => p.Score.ToString(), sortable: true);
+grid.Bind(people);
+grid.SortByColumn(1);
+
+// Menu bar with drop-downs, and a file browser.
+var menu = new MenuBar();
+menu.AddMenu("File").Add("Open", OpenFile).Add("Quit", app.Quit);
+var files = new FileBrowser(Directory.GetCurrentDirectory());
+files.FileActivated += path => Open(path);
+
+// A color picker and a user-editable keymap.
+var color = new ColorPicker(Color.FromRgb(64, 160, 220));   // color.Value
+var keys  = new KeyBindingEditor(new KeyBindingSet().Add("save", "ctrl+s"));
+
+// A diff with syntax-highlighted context, and a multi-task progress board.
+var diff = new DiffView(oldSource, newSource, language: "csharp");
+var jobs = new MultiProgress();
+var t = jobs.Add("download"); t.Report(0.5);
+
+// Charts (braille) and images.
+var line = new LineChart(series) { Color = Color.FromPalette(6) };
+var bars = new BarChart().Add("cpu", 82).Add("mem", 47);
+var img  = new HalfBlockImage(pixels);                       // works on any terminal
+string sixel = SixelEncoder.Encode(pixels);                 // capable terminals
+var banner = new BannerText("READY");                       // big block letters
+```
+
+Two non-widget helpers that pair well with the toolkit:
+
+```csharp
+using TUIKit.Reactive;   // one-way data binding
+var count = new Observable<int>(0);
+count.Bind(v => status.WriteMarkup($"[bold]{v}[/] items"));  // runs now and on every change
+count.Value = 3;                                             // status updates
+
+using TUIKit.Animation;  // deterministic, tick-driven animation
+var tween = new Tween(from: 0, to: 100, durationMs: 400, easing: Easing.EaseOutCubic);
+double at = tween.ValueAt(elapsedMs);                        // drive from your render loop
+```
+
+| Widget | What it is |
+|---|---|
+| `DataTable<T>` | Sortable, virtualized columnar table over a typed source. |
+| `Tree<T>` / `TabView` / `FuzzyList` | Hierarchy, tabbed panes, type-to-filter list. |
+| `MenuBar` / `FileBrowser` | Keyboard menu bar with drop-downs; filesystem navigator. |
+| `ColorPicker` / `KeyBindingEditor` | RGB picker; user-editable keymap with conflict checks. |
+| `DiffView` / `SyntaxHighlighter` | LCS line diff (colored add/remove) with highlighted context. |
+| `LineChart` / `BarChart` / `BrailleCanvas` | High-resolution charts via a 2×4 braille dot grid. |
+| `HalfBlockImage` / `SixelEncoder` / `KittyImageEncoder` | Truecolor images — half-block anywhere, sixel/kitty where supported. |
+| `BannerText` / `MultiProgress` | FIGlet-style banners; concurrent progress bars. |
+| `Markup` / `MarkdownRenderer` | Inline `[bold red]…[/]` markup; Markdown with tables and task lists. |
+
 ---
 
 ## 8. Modals and notifications
@@ -435,7 +493,7 @@ app.RenderOverlay = surface => {
 };
 
 var recording = new InputRecording();  // record/replay a session
-recording.Add(bytes, delayMs: 50);
+recording.Add(bytes, delayMillisecondsBefore: 50);
 recording.Replay(headlessBackend);
 ```
 
@@ -544,7 +602,7 @@ From here, swap the `Gauge` for a `Table` of per-endpoint stats, add a `TabView`
 
 ## 14. Implementation status
 
-This library is under active development. The table below tracks which capabilities from `POSSIBLE_IMPROVEMENTS.md` are implemented, planned, or deliberately excluded. It is kept current as work lands.
+The table below tracks which capabilities from the original improvement roadmap (archived at [`archive/POSSIBLE_IMPROVEMENTS.md`](archive/POSSIBLE_IMPROVEMENTS.md)) are implemented, or deliberately excluded. See [`CHANGELOG.md`](CHANGELOG.md) for the release history.
 
 | # | Capability | Status |
 |---|---|---|

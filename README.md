@@ -10,6 +10,14 @@ A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you d
 
 > **v0.1.0 — Alpha.** This is the first public preview. The API and capabilities are subject to change. It is usable and tested, but treat it as pre-1.0: pin your version and expect breaking changes between minor releases until it stabilizes.
 
+**Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
+
+> **See it live** in ~30 seconds — a self-describing guided tour of every feature, with the code beside each one:
+>
+> ```bash
+> dotnet run --project src/TUIKit.Example
+> ```
+
 ## What it is
 
 TUIKit is a library, not an application. You reference it, describe a layout as a set of rectangles, bind panes to those rectangles, register some keybindings, and hand control to a host that owns the render and input loops. It is built for the case where **several threads write at once**: a background worker can call `pane.WriteLine(...)` while the render thread repaints, and TUIKit handles the ordering, the diffing, and the minimization of escape sequences for you.
@@ -21,10 +29,13 @@ It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`. The modern targets a
 - **Developer-defined regions.** Declare any number of rectangles, each with its own resize behavior — fixed, edge-anchored, stretch, or proportional — plus per-rectangle padding. TUIKit reflows them when the window changes and shows a "terminal too small" screen when it can't fit.
 - **Thread-safe, mutable content.** Any thread may write to any pane; writes are FIFO per pane. Lines can be updated in place, so a tool call goes `running…` → `done (1.2s)` and a progress bar advances without redrawing the world.
 - **Streaming with a smart scroll lock.** Scroll up to detach from the live tail; return to the bottom to re-attach. A `↓ N new` indicator tells you what you're missing.
-- **Rich text.** A fluent styled-text builder, a Markdown renderer for agent output, word/character wrapping, and correct Unicode column width for CJK, combining marks, and emoji grapheme clusters.
+- **Rich text.** A fluent styled-text builder, inline markup (`[bold red]…[/]`), a Markdown renderer (headings, lists, task lists, tables, blockquotes, code), word/character wrapping, and correct Unicode column width for CJK, combining marks, and emoji grapheme clusters.
 - **Enhanced input.** A byte decoder for UTF-8, control keys, arrows, function keys, the Kitty/CSI-u protocol, SGR mouse, and bracketed paste — routed through a central command table with scopes, multi-key chords (`Ctrl+K Ctrl+T`), and a configurable Ctrl+C policy.
-- **Mouse, links, and selection.** Click-to-focus, hover scroll, virtual links with per-frame hit-testing and a security allowlist for auto-linkification, text selection, and OSC 52 clipboard copy that works over SSH.
-- **Modals, notifications, and widgets.** A focus-trapping modal stack with async results, non-focus-stealing toasts, and a widget toolkit: label, gauge, sparkline, progress bar, spinner, list, table, multi-line editor, text field, checkbox, and radio group.
+- **Mouse, links, and selection.** Click-to-focus, hover scroll, virtual links with per-frame hit-testing and a security allowlist for auto-linkification, OSC 8 hyperlink emission, keyboard link hints, text selection, and OSC 52 clipboard copy that works over SSH — plus a one-key toggle to hand the mouse back to the terminal for native drag-select.
+- **Modals, notifications, and prompts.** A focus-trapping modal stack with awaitable results (`ConfirmAsync` / `PromptAsync` / `SelectAsync`), non-focus-stealing toasts, and a global focus manager for `Tab` order.
+- **A broad widget toolkit.** Inputs (text field, multi-line editor with undo and a kill ring, checkbox, radio group, forms); data (sortable, virtualized `DataTable<T>`, tree, tabs, fuzzy finder, list); navigation (menu bar, file browser, scroll view, collapsible section, status bar); feedback (gauge, sparkline, progress bar, spinner, concurrent multi-task progress); plus a user-editable key-binding editor.
+- **Charts, diffs, and images.** Braille line and bar charts, a diff viewer with syntax highlighting, FIGlet-style banners, a color picker, and image rendering — half-block on any terminal, sixel or kitty where supported.
+- **Reactive and animated.** Thread-safe `Observable<T>` one-way data binding, and deterministic, tick-driven animation (`Easing`, `Tween`, `FrameTimer`) that replays identically in tests.
 - **Theming and diagnostics.** Dark, light, and high-contrast themes with an ASCII-border fallback; a debug overlay; frame statistics; and input record/replay.
 - **Headless rendering.** Render to an in-memory cell buffer and assert it as text. It's how TUIKit tests itself, and it's a shipped feature so you can snapshot-test your own UI.
 
@@ -35,6 +46,12 @@ Most console UI libraries assume a single-threaded, immediate-mode loop and a ri
 TUIKit is designed around that reality. Panes are retained objects that own their state, so a background thread writing to one is natural rather than a special case. Rendering is a double-buffered diff that emits only the cells that changed and coalesces styling, so a 100 Hz token stream doesn't turn into 100 full repaints. And because the whole thing renders into an in-memory buffer, you can test your interface deterministically instead of eyeballing a terminal.
 
 If you are building a chat client, an agent control panel, a log viewer, a deployment dashboard, or any long-running console tool where content moves on its own, TUIKit gives you the concurrency model and the rendering discipline to do it without reinventing them.
+
+### How it compares
+
+- **vs. [Spectre.Console](https://spectreconsole.net/):** Spectre excels at rich one-shot output — tables, prompts, and progress in a linear program. TUIKit is a **retained, concurrent, full-screen** framework: panes are long-lived objects that many threads write to while a diffing renderer repaints, which is what a live dashboard or agent harness needs.
+- **vs. [Terminal.Gui](https://github.com/gui-cs/Terminal.Gui):** Terminal.Gui is a classic desktop-style widget toolkit (windows, menus, dialogs). TUIKit shares much of that toolkit but is oriented toward **streaming content and headless snapshot testing** — you render into an in-memory buffer and assert it as text, so your UI is unit-testable rather than eyeballed.
+- **Dependency-free** on modern targets, multi-targeting `netstandard2.0`/`net8.0`/`net10.0`, and self-contained Unicode/width handling (no `System.Text`-heavy detours, no native deps).
 
 ## How it works
 
@@ -61,7 +78,7 @@ Or add it to your project file:
 
 ## Quick start
 
-A two-pane app — a scrolling log above a prompt line — with a background thread streaming into it and `Ctrl+Q` to quit:
+A two-pane app — a scrolling log above a prompt line — with a background thread streaming into it and `Ctrl+Q` to quit. One call (`TuiApp.RunAsync`) owns the terminal, the render loop, and the input loop:
 
 ```csharp
 using System.Threading;
@@ -69,38 +86,30 @@ using System.Threading.Tasks;
 using TUIKit;
 using TUIKit.Content;
 using TUIKit.Hosting;
-using TUIKit.Input;
-using TUIKit.Layout;
-using TUIKit.Terminal;
 
-using ConsoleBackend backend = new ConsoleBackend();
-using TuiApplication app = new TuiApplication(backend);
-
-// Two rectangles: a log that fills the space above a 3-row prompt.
-app.Layout = Layout.Create()
-    .Add("log",    r => r.FillWidth().FillHeight(0, 3))
-    .Add("prompt", r => r.FillWidth().BottomAnchored(0, 3))
-    .Build();
-
-Pane log = new Pane("log");
-app.BindPane("log", log);
-
-// Global keybinding -> command.
-app.Commands.Register(KeyChord.Parse("ctrl+q"), "quit");
-app.RegisterCommand("quit", () => app.RequestStop());
-
-// Any thread may write to a pane; ordering is FIFO per pane.
-_ = Task.Run(async () =>
+await TuiApp.RunAsync(app =>
 {
-    for (int i = 1; i <= 100; i++)
-    {
-        log.WriteLine(Text.From($"event {i}").Green());
-        await Task.Delay(50);
-    }
-});
+    // Two rectangles: a log that fills the space above a 3-row prompt.
+    Pane log = app.AddPane("log", r => r.FillWidth().FillHeight(0, 3));
+    app.AddPane("prompt", r => r.FillWidth().BottomAnchored(0, 3));
 
-await app.RunAsync(CancellationToken.None);
+    // Bind a chord straight to an action.
+    app.Bind("Ctrl+Q", app.Quit);
+
+    // Any thread may write to a pane; ordering is FIFO per pane.
+    _ = Task.Run(async () =>
+    {
+        for (int i = 1; i <= 100; i++)
+        {
+            log.WriteLine(Text.From($"event {i}").Green());
+            await Task.Delay(50);
+        }
+    });
+},
+CancellationToken.None);
 ```
+
+Prefer to wire things up by hand? Construct a `ConsoleBackend` and a `TuiApplication`, set `app.Layout`, `BindPane`, register commands, and `await app.RunAsync(...)` yourself — the [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) shows both paths.
 
 ## Example application
 
@@ -162,7 +171,7 @@ Tests are written with [Touchstone](https://github.com/jchristn/touchstone): one
 
 ## Project status
 
-Alpha. The core is implemented and tested end to end, and the example harness runs. A few features described in the design are still in progress — suspend/resume and POSIX signal restoration, OSC 8 hyperlink emission by the renderer, keyboard link-hint labels, live drag selection, and a benchmark suite. Coverage of the platform-specific backend and the interactive loop relies on manual smoke testing rather than automated headless tests. See [`TUIKIT_PLAN.md`](TUIKIT_PLAN.md) for the full phase breakdown.
+**Alpha.** The core — plus the full widget, layout, reactive, animation, testing, and terminal-integration surface — is implemented and covered by an extensive suite of [Touchstone](https://github.com/jchristn/touchstone) cases that run identically through the console, xUnit, and NUnit runners on `net8.0` and `net10.0`. 39 of the 40 catalogued capabilities ship; autocomplete/typeahead is intentionally excluded. The features once listed here as "in progress" — suspend/resume and POSIX signal restoration, OSC 8 emission, keyboard link hints, and native drag-selection — are now shipped. Still outstanding: a benchmark suite. The platform-specific `ConsoleBackend` and the interactive run loop are validated by manual smoke testing rather than headless tests. See [`CHANGELOG.md`](CHANGELOG.md) and [`TUIKIT_PLAN.md`](TUIKIT_PLAN.md) for detail.
 
 ## Contributing, issues, and discussions
 
