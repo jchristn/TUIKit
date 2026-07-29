@@ -4,19 +4,21 @@ namespace TUIKit.Content
     using System.Collections.Generic;
     using System.Threading;
     using TUIKit;
+    using TUIKit.Widgets;
 
     /// <summary>
     /// A persistent, thread-safe region of scrolling text content. Any thread may call
     /// <see cref="Write(string)"/> or <see cref="WriteLine(string)"/>; writes are ordered first-in
     /// first-out within the pane. Content can be updated in place through the handle returned by
     /// <c>WriteLine</c>, and a smart scroll lock detaches the viewport when the user scrolls up and
-    /// re-attaches at the bottom.
+    /// re-attaches at the bottom. A pane is also an <see cref="IWidget"/>, so it can be bound to a
+    /// layout region like any other widget.
     /// </summary>
     /// <remarks>
     /// All members are thread-safe. Rendering reads pane state under the same lock used by writers,
     /// so a frame never captures a half-written batch.
     /// </remarks>
-    public sealed class Pane
+    public sealed class Pane : IWidget
     {
         private readonly string _Id;
         private readonly object _Sync = new object();
@@ -282,6 +284,44 @@ namespace TUIKit.Content
                 _NewSinceDetached = 0;
                 Bump();
             }
+        }
+
+        /// <summary>
+        /// Gets or sets the background style used for blank cells when the pane is rendered through
+        /// the <see cref="IWidget"/> interface (for example when bound to a region). Defaults to the
+        /// default style.
+        /// </summary>
+        public CellStyle Background { get; set; } = CellStyle.Default;
+
+        /// <summary>
+        /// Appends styled text parsed from inline markup and commits it as a line.
+        /// </summary>
+        /// <param name="markup">The markup source (see <see cref="Markup"/>). Must not be null.</param>
+        /// <returns>A handle to the committed line.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="markup"/> is null.</exception>
+        public PaneLineHandle WriteMarkup(string markup)
+        {
+            if (markup == null)
+                throw new ArgumentNullException(nameof(markup));
+
+            return WriteLine(Markup.Parse(markup));
+        }
+
+        /// <inheritdoc/>
+        public Size Measure(Size available)
+        {
+            return available;
+        }
+
+        /// <summary>
+        /// Renders the pane using its <see cref="Background"/> style. Part of the <see cref="IWidget"/>
+        /// contract.
+        /// </summary>
+        /// <param name="surface">The surface to render into. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
+        public void Render(ISurface surface)
+        {
+            Render(surface, Background);
         }
 
         /// <summary>

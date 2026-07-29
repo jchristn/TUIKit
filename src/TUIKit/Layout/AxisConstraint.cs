@@ -114,6 +114,33 @@ namespace TUIKit.Layout
         }
 
         /// <summary>
+        /// Creates a partition constraint: an equal share of the space remaining after fixed leading
+        /// and trailing reservations. Used by the row/column layout helpers to split fill slots.
+        /// </summary>
+        /// <param name="before">Cells reserved before all partitions. Must be zero or greater.</param>
+        /// <param name="after">Cells reserved after all partitions. Must be zero or greater.</param>
+        /// <param name="index">The zero-based index of this partition. Must be within [0, count).</param>
+        /// <param name="count">The total number of partitions. Must be greater than zero.</param>
+        /// <param name="min">The minimum length in cells. Must be greater than zero. Defaults to 1.</param>
+        /// <returns>The constraint.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when an argument is out of range.</exception>
+        public static AxisConstraint Partition(int before, int after, int index, int count, int min = 1)
+        {
+            if (before < 0)
+                throw new ArgumentOutOfRangeException(nameof(before), before, "Before must be zero or greater.");
+            if (after < 0)
+                throw new ArgumentOutOfRangeException(nameof(after), after, "After must be zero or greater.");
+            if (count <= 0)
+                throw new ArgumentOutOfRangeException(nameof(count), count, "Count must be greater than zero.");
+            if (index < 0 || index >= count)
+                throw new ArgumentOutOfRangeException(nameof(index), index, "Index must be within [0, count).");
+            if (min <= 0)
+                throw new ArgumentOutOfRangeException(nameof(min), min, "Minimum length must be greater than zero.");
+
+            return new AxisConstraint(AxisMode.Partition, before, after, index, count, min, int.MaxValue);
+        }
+
+        /// <summary>
         /// Resolves the offset and length for this axis given the total surface extent.
         /// </summary>
         /// <param name="total">The total surface extent along this axis in cells.</param>
@@ -138,6 +165,18 @@ namespace TUIKit.Layout
                 case AxisMode.Proportional:
                     offset = (int)Math.Round(_F0 * total, MidpointRounding.AwayFromZero);
                     length = Clamp((int)Math.Round(_F1 * total, MidpointRounding.AwayFromZero));
+                    break;
+                case AxisMode.Partition:
+                    int before = _P0;
+                    int after = _P1;
+                    int index = (int)_F0;
+                    int count = (int)_F1;
+                    int remainder = total - before - after;
+                    if (remainder < 0)
+                        remainder = 0;
+                    int per = count > 0 ? remainder / count : remainder;
+                    offset = before + (index * per);
+                    length = Clamp(index == count - 1 ? remainder - (per * (count - 1)) : per);
                     break;
                 default:
                     offset = 0;
@@ -166,6 +205,8 @@ namespace TUIKit.Layout
                     return _P0 + _P1 + _Min;
                 case AxisMode.Proportional:
                     return _F1 > 0.0 ? (int)Math.Ceiling(_Min / _F1) : _Min;
+                case AxisMode.Partition:
+                    return _P0 + _P1 + ((int)_F1 * _Min);
                 default:
                     return _Min;
             }

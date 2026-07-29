@@ -27,6 +27,12 @@ namespace TUIKit.Layout
         /// The offset and length are fractions of the surface size, so the region scales
         /// proportionally.
         /// </summary>
-        Proportional = 3
+        Proportional = 3,
+
+        /// <summary>
+        /// The region takes an equal share of the space remaining after fixed leading/trailing
+        /// reservations, used by the row/column layout helpers to split fill slots.
+        /// </summary>
+        Partition = 4
     }
 }

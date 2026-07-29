@@ -40,21 +40,71 @@ namespace TUIKit.Theming
         public CellStyle Muted { get; }
 
         /// <summary>
+        /// Gets the style for successful or positive states (green foreground on the theme background).
+        /// </summary>
+        public CellStyle Success { get; }
+
+        /// <summary>
+        /// Gets the style for warnings (yellow foreground on the theme background).
+        /// </summary>
+        public CellStyle Warning { get; }
+
+        /// <summary>
+        /// Gets the style for errors (red foreground on the theme background).
+        /// </summary>
+        public CellStyle Error { get; }
+
+        /// <summary>
+        /// Gets the style for informational states (cyan foreground on the theme background).
+        /// </summary>
+        public CellStyle Info { get; }
+
+        /// <summary>
+        /// Gets the style for the selected/highlighted item (reversed against the accent color).
+        /// </summary>
+        public CellStyle Selection { get; }
+
+        /// <summary>
+        /// Gets the style for disabled or unavailable content (dimmed).
+        /// </summary>
+        public CellStyle Disabled { get; }
+
+        /// <summary>
         /// Gets a value indicating whether borders should use ASCII glyphs instead of box-drawing.
         /// </summary>
         public bool UseAsciiBorders { get; }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Theme"/> class.
+        /// Initializes a new instance of the <see cref="Theme"/> class. The semantic role styles
+        /// (success, warning, error, info, selection, disabled) default to sensible colors derived
+        /// from the text background when not supplied.
         /// </summary>
         /// <param name="name">The theme name. Must not be null or empty.</param>
         /// <param name="text">The default text style.</param>
         /// <param name="accent">The accent style.</param>
         /// <param name="border">The border style.</param>
         /// <param name="muted">The muted style.</param>
-        /// <param name="useAsciiBorders">Whether to use ASCII borders.</param>
+        /// <param name="useAsciiBorders">Whether to use ASCII borders. Defaults to false.</param>
+        /// <param name="success">The success style, or null to derive it.</param>
+        /// <param name="warning">The warning style, or null to derive it.</param>
+        /// <param name="error">The error style, or null to derive it.</param>
+        /// <param name="info">The info style, or null to derive it.</param>
+        /// <param name="selection">The selection style, or null to derive it.</param>
+        /// <param name="disabled">The disabled style, or null to derive it.</param>
         /// <exception cref="ArgumentException">Thrown when <paramref name="name"/> is null or empty.</exception>
-        public Theme(string name, CellStyle text, CellStyle accent, CellStyle border, CellStyle muted, bool useAsciiBorders = false)
+        public Theme(
+            string name,
+            CellStyle text,
+            CellStyle accent,
+            CellStyle border,
+            CellStyle muted,
+            bool useAsciiBorders = false,
+            CellStyle? success = null,
+            CellStyle? warning = null,
+            CellStyle? error = null,
+            CellStyle? info = null,
+            CellStyle? selection = null,
+            CellStyle? disabled = null)
         {
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("Theme name must not be null or empty.", nameof(name));
@@ -65,6 +115,19 @@ namespace TUIKit.Theming
             Border = border;
             Muted = muted;
             UseAsciiBorders = useAsciiBorders;
+
+            Color background = text.Background;
+            Success = success ?? Role(Color.FromPalette(2), background);
+            Warning = warning ?? Role(Color.FromPalette(3), background);
+            Error = error ?? Role(Color.FromPalette(1), background);
+            Info = info ?? Role(Color.FromPalette(6), background);
+            Selection = selection ?? new CellStyle(text.Background, accent.Foreground);
+            Disabled = disabled ?? muted.WithAttribute(CellAttributes.Dim, true);
+        }
+
+        private static CellStyle Role(Color foreground, Color background)
+        {
+            return new CellStyle(foreground, background);
         }
 
         /// <summary>

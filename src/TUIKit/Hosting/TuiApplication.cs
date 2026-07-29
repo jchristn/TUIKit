@@ -13,6 +13,7 @@ namespace TUIKit.Hosting
     using TUIKit.Rendering;
     using TUIKit.Terminal;
     using TUIKit.Theming;
+    using TUIKit.Widgets;
 
     /// <summary>
     /// Hosts a TUIKit session over a terminal backend: it owns the render loop, the input loop, the
@@ -30,7 +31,7 @@ namespace TUIKit.Hosting
         private static int _ActiveCount;
 
         private readonly ITerminalBackend _Backend;
-        private readonly Dictionary<string, Pane> _Panes = new Dictionary<string, Pane>(StringComparer.Ordinal);
+        private readonly Dictionary<string, IWidget> _Content = new Dictionary<string, IWidget>(StringComparer.Ordinal);
         private readonly Dictionary<string, Action> _Commands = new Dictionary<string, Action>(StringComparer.Ordinal);
         private readonly Dictionary<string, int> _LineModeEmitted = new Dictionary<string, int>(StringComparer.Ordinal);
         private readonly CommandRoutingTable _Routing = new CommandRoutingTable();
@@ -215,12 +216,84 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="pane"/> is null.</exception>
         public void BindPane(string regionId, Pane pane)
         {
+            Bind(regionId, pane);
+        }
+
+        /// <summary>
+        /// Binds any widget to a layout region so the host measures, arranges, and renders it there.
+        /// Panes are rendered with the theme background; other widgets render over a themed fill.
+        /// </summary>
+        /// <param name="regionId">The region identifier. Must not be null or empty.</param>
+        /// <param name="widget">The widget. Must not be null.</param>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="regionId"/> is null or empty.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="widget"/> is null.</exception>
+        public void Bind(string regionId, IWidget widget)
+        {
             if (string.IsNullOrEmpty(regionId))
                 throw new ArgumentException("Region id must not be null or empty.", nameof(regionId));
-            if (pane == null)
-                throw new ArgumentNullException(nameof(pane));
+            if (widget == null)
+                throw new ArgumentNullException(nameof(widget));
 
-            _Panes[regionId] = pane;
+            _Content[regionId] = widget;
+        }
+
+        /// <summary>
+        /// Appends a region to the layout.
+        /// </summary>
+        /// <param name="id">The region identifier. Must not be null or empty.</param>
+        /// <param name="configure">A callback that configures the region. Must not be null.</param>
+        /// <returns>The created region.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="configure"/> is null.</exception>
+        public Region AddRegion(string id, Action<RegionBuilder> configure)
+        {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            RegionBuilder builder = new RegionBuilder(id);
+            configure(builder);
+            Region region = builder.Build();
+
+            List<Region> regions = _Layout != null ? new List<Region>(_Layout.Regions) : new List<Region>();
+            regions.Add(region);
+            _Layout = new Layout(regions);
+            _Renderer?.Invalidate();
+            return region;
+        }
+
+        /// <summary>
+        /// Creates a pane, adds a region for it, binds it, and returns the pane. When no region
+        /// configuration is supplied the region fills the whole surface.
+        /// </summary>
+        /// <param name="id">The pane and region identifier. Must not be null or empty.</param>
+        /// <param name="configure">An optional region configuration; defaults to filling the surface.</param>
+        /// <returns>The created pane.</returns>
+        public Pane AddPane(string id, Action<RegionBuilder>? configure = null)
+        {
+            AddRegion(id, configure ?? (r => r.FillWidth().FillHeight()));
+            Pane pane = new Pane(id);
+            Bind(id, pane);
+            return pane;
+        }
+
+        /// <summary>
+        /// Adds a region for a widget, binds the widget, and returns it. When no region configuration
+        /// is supplied the region fills the whole surface.
+        /// </summary>
+        /// <typeparam name="TWidget">The widget type.</typeparam>
+        /// <param name="id">The region identifier. Must not be null or empty.</param>
+        /// <param name="widget">The widget. Must not be null.</param>
+        /// <param name="configure">An optional region configuration; defaults to filling the surface.</param>
+        /// <returns>The widget.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="widget"/> is null.</exception>
+        public TWidget AddWidget<TWidget>(string id, TWidget widget, Action<RegionBuilder>? configure = null)
+            where TWidget : IWidget
+        {
+            if (widget == null)
+                throw new ArgumentNullException(nameof(widget));
+
+            AddRegion(id, configure ?? (r => r.FillWidth().FillHeight()));
+            Bind(id, widget);
+            return widget;
         }
 
         /// <summary>
@@ -238,6 +311,52 @@ namespace TUIKit.Hosting
                 throw new ArgumentNullException(nameof(handler));
 
             _Commands[commandId] = handler;
+        }
+
+        /// <summary>
+        /// Binds a key chord directly to an action, replacing any existing binding for that chord.
+        /// A convenience over <see cref="RegisterCommand"/> plus a routing-table registration for the
+        /// common case where a config-file command id is not needed.
+        /// </summary>
+        /// <param name="chord">The chord string, such as <c>"ctrl+q"</c>. Must not be null or empty.</param>
+        /// <param name="action">The action to run. Must not be null.</param>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="chord"/> is null or empty.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
+        public void Bind(string chord, Action action)
+        {
+            if (string.IsNullOrEmpty(chord))
+                throw new ArgumentException("Chord must not be null or empty.", nameof(chord));
+            if (action == null)
+                throw new ArgumentNullException(nameof(action));
+
+            KeyChord parsed = KeyChord.Parse(chord);
+            string id = "bind:" + parsed;
+            _Routing.Unregister(parsed);
+            _Commands[id] = action;
+            _Routing.Register(parsed, id);
+        }
+
+        /// <summary>
+        /// Requests the run loop to exit. Suitable as a method group for <see cref="Bind(string, Action)"/>.
+        /// </summary>
+        public void Quit()
+        {
+            RequestStop();
+        }
+
+        /// <summary>
+        /// Raises a transient notification (toast).
+        /// </summary>
+        /// <param name="text">The message. Must not be null.</param>
+        /// <param name="severity">The severity, which drives the color. Defaults to informational.</param>
+        /// <param name="timeoutMilliseconds">The timeout, or null for the notification center default.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
+        public void Notify(string text, NotificationSeverity severity = NotificationSeverity.Info, int? timeoutMilliseconds = null)
+        {
+            if (text == null)
+                throw new ArgumentNullException(nameof(text));
+
+            _Notifications.Add(text, severity, NowMilliseconds, timeoutMilliseconds);
         }
 
         /// <summary>
@@ -406,7 +525,7 @@ namespace TUIKit.Hosting
                         root.DrawBox(frame, _Theme.Border, borderStyle, region.BorderTitle);
                     }
 
-                    if (!_Panes.TryGetValue(region.Id, out Pane? pane))
+                    if (!_Content.TryGetValue(region.Id, out IWidget? widget))
                         continue;
 
                     Rect rect = region.ContentRect(size).Intersect(new Rect(0, 0, size.Width, size.Height));
@@ -414,7 +533,15 @@ namespace TUIKit.Hosting
                         continue;
 
                     ISurface view = bufferSurface != null ? bufferSurface.CreateView(rect) : root;
-                    pane.Render(view, _Theme.Text);
+                    if (widget is Pane pane)
+                    {
+                        pane.Render(view, _Theme.Text);
+                    }
+                    else
+                    {
+                        view.Fill(new Rect(0, 0, rect.Width, rect.Height), Cell.Blank(_Theme.Text));
+                        widget.Render(view);
+                    }
                 }
             }
 
@@ -429,9 +556,12 @@ namespace TUIKit.Hosting
 
         private void RenderLineMode()
         {
-            foreach (KeyValuePair<string, Pane> entry in _Panes)
+            foreach (KeyValuePair<string, IWidget> entry in _Content)
             {
-                IReadOnlyList<string> lines = entry.Value.SnapshotPlainLines();
+                if (!(entry.Value is Pane pane))
+                    continue;
+
+                IReadOnlyList<string> lines = pane.SnapshotPlainLines();
                 if (!_LineModeEmitted.TryGetValue(entry.Key, out int emitted))
                     emitted = 0;
 

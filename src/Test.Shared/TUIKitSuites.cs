@@ -40,7 +40,11 @@ namespace Test.Shared
                     WidgetSuite.Suite(),
                     HostingSuite.Suite(),
                     DiagnosticsSuite.Suite(),
-                    CoverageSuite.Suite()
+                    CoverageSuite.Suite(),
+                    MarkupThemeSuite.Suite(),
+                    HostErgonomicsSuite.Suite(),
+                    LayoutDslSuite.Suite(),
+                    NewWidgetsSuite.Suite()
                 };
             }
         }

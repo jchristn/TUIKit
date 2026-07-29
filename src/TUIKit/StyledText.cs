@@ -147,6 +147,17 @@ namespace TUIKit
         }
 
         /// <summary>
+        /// Returns a copy of this text with every span replaced by the supplied style, for example a
+        /// semantic theme role such as <c>theme.Success</c>.
+        /// </summary>
+        /// <param name="style">The style to apply to the whole text.</param>
+        /// <returns>The restyled text.</returns>
+        public StyledText Style(CellStyle style)
+        {
+            return Transform(_ => style);
+        }
+
+        /// <summary>
         /// Returns a copy of this text with the bold attribute applied to every span.
         /// </summary>
         /// <returns>The restyled text.</returns>

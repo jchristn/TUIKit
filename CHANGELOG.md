@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repository scaffolding, four Touchstone test projects, CI workflow, and documentation (README, LICENSE, CLAUDE, conformance and coverage reports).
 
 ### Added
+- **Ergonomics layer** (from `POSSIBLE_IMPROVEMENTS.md`): `Pane` now implements `IWidget`, and `TuiApplication.Bind(regionId, IWidget)` binds any widget to a region (10.1). App verbs `Bind(chord, action)`, `Quit`, `Notify`, and the `AddPane`/`AddWidget`/`AddRegion` helpers (10.9); the `TuiApp.RunAsync` one-call bootstrap (10.10). Inline markup: `Markup.Parse` and `Pane.WriteMarkup` for `[bold red]…[/]` styling (10.4). Expanded theme roles — success/warning/error/info/selection/disabled — and `StyledText.Style` (10.16). A `Layout.Row`/`Layout.Column` split DSL with `LayoutSlot` (10.6).
+- **New widgets**: `StatusBar` (10.7), `ScrollView` with vertical and horizontal scrollbars (10.2), `Collapsible` (10.13), `TabView` (10.14), `Tree<T>` (10.11), and `FuzzyList` (10.3).
+- **User documentation**: `BUILDING_TERMINAL_APPS.md`, an exhaustive guide to building apps with the library, including a worked live-dashboard example and cross-platform/SSH/tmux guidance.
 - Regions can declare a border via `WithBorder(BorderStyle, title)`: `None`, `Ascii`, `Line`, `Rounded`, `Double`, or `Thick`. The host draws the border, honors the theme's ASCII fallback, insets content for it, and folds it into the region's minimum size. `DrawBox` gained a `BorderStyle` overload. The example's tool, telemetry, and composer panels now use declarative rounded borders.
 - `POSSIBLE_IMPROVEMENTS.md`: a capability analysis versus the agent CLIs, the awesome-tuis catalog, and the C#/.NET frameworks (Spectre.Console, Terminal.Gui, Consolonia, Terminaux), with a tiered improvement roadmap.
 
