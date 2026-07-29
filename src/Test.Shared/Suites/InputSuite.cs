@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Runtime.InteropServices;
     using System.Text;
     using System.Threading.Tasks;
     using Touchstone.Core;
@@ -123,6 +124,135 @@
                             Check.Equal(MouseButton.Left, events[0].Mouse!.Button, "Left button");
                             Check.Equal(9, events[0].Mouse!.X, "Zero-based column");
                             Check.Equal(4, events[0].Mouse!.Y, "Zero-based row");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "DecodeSpecialKeys", "Decoder handles Tab, Shift+Tab, and Ctrl letters",
+                        _ =>
+                        {
+                            InputParser parser = new InputParser();
+
+                            parser.Feed(new byte[] { 0x09 }, 1); // Tab
+                            List<InputEvent> events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.Tab, events[0].Key.Code, "Tab");
+                            Check.Equal(KeyModifiers.None, events[0].Key.Modifiers, "Tab has no modifiers");
+
+                            Feed(parser, Esc + "[Z"); // Shift+Tab (CSI Z)
+                            events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.Tab, events[0].Key.Code, "Shift+Tab code");
+                            Check.True((events[0].Key.Modifiers & KeyModifiers.Shift) != 0, "Shift+Tab modifier");
+
+                            parser.Feed(new byte[] { 0x07 }, 1); // Ctrl+G
+                            events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.Character, events[0].Key.Code, "Ctrl+G is a character");
+                            Check.Equal((int)'g', events[0].Key.Rune, "Ctrl+G rune");
+                            Check.True((events[0].Key.Modifiers & KeyModifiers.Ctrl) != 0, "Ctrl+G modifier");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "DecodeFunctionKeys", "Decoder handles F-keys via SS3 and CSI tilde",
+                        _ =>
+                        {
+                            InputParser parser = new InputParser();
+
+                            Feed(parser, Esc + "OP"); // F1 via SS3
+                            List<InputEvent> events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.F1, events[0].Key.Code, "F1 via SS3");
+
+                            Feed(parser, Esc + "[11~"); // F1 via CSI tilde
+                            events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.F1, events[0].Key.Code, "F1 via CSI tilde");
+
+                            Feed(parser, Esc + "[15~"); // F5
+                            events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.F5, events[0].Key.Code, "F5 via CSI tilde");
+
+                            Feed(parser, Esc + "[24~"); // F12
+                            events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.F12, events[0].Key.Code, "F12 via CSI tilde");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "DecodeNavKeys", "Decoder handles paging and navigation keys",
+                        _ =>
+                        {
+                            InputParser parser = new InputParser();
+
+                            Feed(parser, Esc + "[5~"); // PageUp
+                            Check.Equal(KeyCode.PageUp, new List<InputEvent>(parser.Drain())[0].Key.Code, "PageUp");
+                            Feed(parser, Esc + "[6~"); // PageDown
+                            Check.Equal(KeyCode.PageDown, new List<InputEvent>(parser.Drain())[0].Key.Code, "PageDown");
+                            Feed(parser, Esc + "[3~"); // Delete
+                            Check.Equal(KeyCode.Delete, new List<InputEvent>(parser.Drain())[0].Key.Code, "Delete");
+                            Feed(parser, Esc + "[2~"); // Insert
+                            Check.Equal(KeyCode.Insert, new List<InputEvent>(parser.Drain())[0].Key.Code, "Insert");
+                            Feed(parser, Esc + "[H"); // Home (CSI final)
+                            Check.Equal(KeyCode.Home, new List<InputEvent>(parser.Drain())[0].Key.Code, "Home");
+                            Feed(parser, Esc + "[F"); // End (CSI final)
+                            Check.Equal(KeyCode.End, new List<InputEvent>(parser.Drain())[0].Key.Code, "End");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "DecodeSs3Arrows", "Decoder handles arrows in application-cursor (SS3) mode",
+                        _ =>
+                        {
+                            InputParser parser = new InputParser();
+                            Feed(parser, Esc + "OA");
+                            Check.Equal(KeyCode.Up, new List<InputEvent>(parser.Drain())[0].Key.Code, "SS3 Up");
+                            Feed(parser, Esc + "OB");
+                            Check.Equal(KeyCode.Down, new List<InputEvent>(parser.Drain())[0].Key.Code, "SS3 Down");
+                            Feed(parser, Esc + "OC");
+                            Check.Equal(KeyCode.Right, new List<InputEvent>(parser.Drain())[0].Key.Code, "SS3 Right");
+                            Feed(parser, Esc + "OD");
+                            Check.Equal(KeyCode.Left, new List<InputEvent>(parser.Drain())[0].Key.Code, "SS3 Left");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "DecodeSplitEscapeSequence", "An escape sequence split across reads decodes once complete",
+                        _ =>
+                        {
+                            InputParser parser = new InputParser();
+                            parser.Feed(new byte[] { 0x1B }, 1); // ESC only
+                            Check.Equal(0, new List<InputEvent>(parser.Drain()).Count, "ESC alone is pending");
+                            parser.Feed(new byte[] { (byte)'[' }, 1); // CSI, still incomplete
+                            Check.Equal(0, new List<InputEvent>(parser.Drain()).Count, "CSI without final is pending");
+                            parser.Feed(new byte[] { (byte)'A' }, 1); // final byte completes Up
+                            List<InputEvent> events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(1, events.Count, "Completes once the final byte arrives");
+                            Check.Equal(KeyCode.Up, events[0].Key.Code, "Decoded Up");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "LabelAscii", "Chords render as ASCII labels",
+                        _ =>
+                        {
+                            Check.Equal("Ctrl+G", KeyChord.Parse("ctrl+g").ToLabel(KeyLabelStyle.Ascii), "Ctrl+G");
+                            Check.Equal("Ctrl+Shift+A", KeyChord.Parse("ctrl+shift+a").ToLabel(KeyLabelStyle.Ascii), "Ctrl+Shift+A");
+                            Check.Equal("Alt+Enter", KeyChord.Parse("alt+enter").ToLabel(KeyLabelStyle.Ascii), "Alt+Enter");
+                            Check.Equal("F1", KeyChord.Parse("f1").ToLabel(KeyLabelStyle.Ascii), "F1");
+                            Check.Equal("PgUp", KeyChord.Parse("pageup").ToLabel(KeyLabelStyle.Ascii), "PgUp");
+                            Check.Equal("Up", KeyChord.Parse("up").ToLabel(KeyLabelStyle.Ascii), "Up");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "LabelSymbols", "Chords render as macOS symbol labels",
+                        _ =>
+                        {
+                            Check.Equal("⌃G", KeyChord.Parse("ctrl+g").ToLabel(KeyLabelStyle.Symbols), "Ctrl+G symbols");
+                            Check.Equal("⌥⏎", KeyChord.Parse("alt+enter").ToLabel(KeyLabelStyle.Symbols), "Alt+Enter symbols");
+                            Check.Equal("⇧⇥", KeyChord.Parse("shift+tab").ToLabel(KeyLabelStyle.Symbols), "Shift+Tab symbols");
+                            Check.Equal("⇞", KeyChord.Parse("pageup").ToLabel(KeyLabelStyle.Symbols), "PageUp symbol");
+                            Check.Equal("↑", KeyChord.Parse("up").ToLabel(KeyLabelStyle.Symbols), "Up symbol");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "LabelRecommendedMatchesOs", "Recommended label style follows the platform",
+                        _ =>
+                        {
+                            KeyLabelStyle expected = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+                                ? KeyLabelStyle.Symbols
+                                : KeyLabelStyle.Ascii;
+                            Check.Equal(expected, KeyLabel.Recommended, "Recommended style");
                             return Task.CompletedTask;
                         }),
 

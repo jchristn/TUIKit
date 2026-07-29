@@ -372,10 +372,23 @@ namespace TUIKit.Example
         {
             CellStyle muted = _App.Theme.Muted;
             string detached = _Transcript.IsAtBottom ? "live" : "detached " + _Transcript.NewSinceDetached + " new";
-            string footer = "F1 help  ^P palette  ^G settings  ^K^T theme  ^D debug  ^L confirm  ^Q quit   [" + detached + "]";
+            string footer = Hint("f1") + " help  "
+                + Hint("ctrl+p") + " palette  "
+                + Hint("ctrl+g") + " settings  "
+                + Hint("ctrl+k") + Hint("ctrl+t") + " theme  "
+                + Hint("ctrl+d") + " debug  "
+                + Hint("ctrl+l") + " confirm  "
+                + Hint("ctrl+q") + " quit   [" + detached + "]";
             Rect content = RegionFor("footer").ContentRect(size);
             root.Fill(new Rect(0, size.Height - 1, size.Width, 1), Cell.Blank(muted));
             root.DrawText(content.X, size.Height - 1, footer, muted);
+        }
+
+        // Renders a key chord using the label conventions of the current environment: ⌃G on macOS,
+        // Ctrl+G on Windows and Linux.
+        private static string Hint(string chord)
+        {
+            return KeyChord.Parse(chord).ToLabel(KeyLabel.Recommended);
         }
 
         private void DrawNotifications(BufferSurface buffer, long now)
@@ -395,17 +408,17 @@ namespace TUIKit.Example
             {
                 "Keybindings",
                 "",
-                "  Enter        send composer message",
-                "  Alt+Enter    newline in composer",
-                "  PageUp/Down  scroll transcript (smart lock)",
-                "  Ctrl+P       command palette",
-                "  Ctrl+G       settings (widgets + tab order)",
-                "  Ctrl+K Ctrl+T cycle theme (multi-key chord)",
-                "  Ctrl+D       toggle debug overlay",
-                "  Ctrl+L       tool-call confirmation modal",
-                "  Ctrl+C       double-tap to exit (policy)",
-                "  Ctrl+Q       quit",
-                "  F1 / ?       toggle this help"
+                "  " + Hint("enter").PadRight(13) + "send composer message",
+                "  " + Hint("alt+enter").PadRight(13) + "newline in composer",
+                "  " + (Hint("pageup") + "/" + Hint("pagedown")).PadRight(13) + "scroll transcript (smart lock)",
+                "  " + Hint("ctrl+p").PadRight(13) + "command palette",
+                "  " + Hint("ctrl+g").PadRight(13) + "settings (widgets + tab order)",
+                "  " + (Hint("ctrl+k") + " " + Hint("ctrl+t")).PadRight(13) + "cycle theme (multi-key chord)",
+                "  " + Hint("ctrl+d").PadRight(13) + "toggle debug overlay",
+                "  " + Hint("ctrl+l").PadRight(13) + "tool-call confirmation modal",
+                "  " + Hint("ctrl+c").PadRight(13) + "double-tap to exit (policy)",
+                "  " + Hint("ctrl+q").PadRight(13) + "quit",
+                "  " + (Hint("f1") + " / ?").PadRight(13) + "toggle this help"
             };
 
             // Size the box to the longest line, add one cell of padding on every side, and render the

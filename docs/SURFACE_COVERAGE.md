@@ -39,7 +39,7 @@ Measured with coverlet (`dotnet test src/Test.Xunit --collect:"XPlat Code Covera
 
 These paths cannot be exercised by a deterministic in-memory test and are verified by manual smoke testing on real terminals instead (see the CI matrix in `CONFORMANCE.md`).
 
-- **`ConsoleBackend` and `NativeConsole`.** Raw-mode setup (`SetConsoleMode` / `stty`), the background stdin reader thread, and real console sizing require an attached TTY. The behavior is isolated behind `ITerminalBackend`; every consumer of it is tested through `HeadlessBackend`.
+- **`ConsoleBackend`, `NativeConsole`, and `PosixTerminal`.** Raw-mode setup (`SetConsoleMode` on Windows / libc `termios` on Unix), the background stdin reader thread, and real console sizing require an attached TTY. The behavior is isolated behind `ITerminalBackend`; every consumer of it is tested through `HeadlessBackend`.
 - **`TuiApplication.RunAsync` loop body and interactive Start/Stop escape emission.** The loop's timing and the alternate-screen enter/leave sequences run only against an interactive backend. The composition, input dispatch, command routing, Ctrl+C policy, and non-TTY line mode that the loop drives are all covered by calling `PumpInputOnce`/`RenderOnce` directly against a headless backend (Hosting suite).
 - **A few defensive branches** (out-of-range guards, rarely hit fallbacks) are present for robustness and are not all individually asserted.
 

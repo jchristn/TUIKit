@@ -362,7 +362,9 @@ namespace TUIKit.Example
 
             CellStyle muted = _App.Theme.Muted;
             root.Fill(new Rect(0, size.Height - 1, size.Width, 1), Cell.Blank(muted));
-            root.DrawText(0, size.Height - 1, " Tab: focus [" + FocusName + "]   PgUp/PgDn: browse   arrows/Enter: interact   ^G settings   F1 help   ^Q quit", muted);
+            root.DrawText(0, size.Height - 1, " " + Hint("tab") + ": focus [" + FocusName + "]   "
+                + Hint("pageup") + "/" + Hint("pagedown") + ": browse   arrows/" + Hint("enter") + ": interact   "
+                + Hint("ctrl+g") + " settings   " + Hint("f1") + " help   " + Hint("ctrl+q") + " quit", muted);
 
             if (_ShowHelp)
                 DrawHelp(root, size, buffer);
@@ -449,23 +451,30 @@ namespace TUIKit.Example
             }
         }
 
+        // Renders a key chord using the label conventions of the current environment: ⌃G on macOS,
+        // Ctrl+G on Windows and Linux.
+        private static string Hint(string chord)
+        {
+            return KeyChord.Parse(chord).ToLabel(KeyLabel.Recommended);
+        }
+
         private void DrawHelp(ISurface root, Size size, BufferSurface buffer)
         {
             string[] lines =
             {
                 "TUIKit guided tour — keys",
                 "",
-                "  Tab              switch focus: Live demo / Interactive",
-                "  PgUp / PgDn      previous / next feature (Live demo focus)",
-                "  [  /  ]          previous / next feature (Live demo focus)",
-                "  Up/Down/Enter    interact with the focused box",
-                "  Ctrl+G           settings & actions menu",
-                "  Ctrl+T           cycle theme (dark/light/high-contrast)",
-                "  Ctrl+K           confirmation dialog demo",
-                "  Ctrl+N           show a notification toast",
-                "  F12              toggle mouse capture (native text select)",
-                "  F1               toggle this help",
-                "  Ctrl+Q           quit",
+                "  " + Hint("tab").PadRight(16) + "switch focus: Live demo / Interactive",
+                "  " + (Hint("pageup") + " / " + Hint("pagedown")).PadRight(16) + "previous / next feature (Live demo focus)",
+                "  " + "[  /  ]".PadRight(16) + "previous / next feature (Live demo focus)",
+                "  " + ("Up/Down/" + Hint("enter")).PadRight(16) + "interact with the focused box",
+                "  " + Hint("ctrl+g").PadRight(16) + "settings & actions menu",
+                "  " + Hint("ctrl+t").PadRight(16) + "cycle theme (dark/light/high-contrast)",
+                "  " + Hint("ctrl+k").PadRight(16) + "confirmation dialog demo",
+                "  " + Hint("ctrl+n").PadRight(16) + "show a notification toast",
+                "  " + Hint("f12").PadRight(16) + "toggle mouse capture (native text select)",
+                "  " + Hint("f1").PadRight(16) + "toggle this help",
+                "  " + Hint("ctrl+q").PadRight(16) + "quit",
                 "",
                 "  With mouse capture OFF, drag to select and copy",
                 "  with your terminal, then paste elsewhere.",

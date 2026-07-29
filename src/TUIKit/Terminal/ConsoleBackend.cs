@@ -2,7 +2,6 @@ namespace TUIKit.Terminal
 {
     using System;
     using System.Collections.Concurrent;
-    using System.Diagnostics;
     using System.IO;
     using System.Runtime.InteropServices;
     using System.Text;
@@ -11,7 +10,8 @@ namespace TUIKit.Terminal
     /// <summary>
     /// An <see cref="ITerminalBackend"/> backed by the real process console. On Windows it enables
     /// virtual terminal processing and raw input through the console API; on Unix-like systems it
-    /// puts the terminal into raw mode with <c>stty</c>. A background thread reads raw input bytes so
+    /// puts the terminal into raw mode in-process through the libc <c>termios</c> API (see
+    /// <see cref="PosixTerminal"/>). A background thread reads raw input bytes so
     /// <see cref="ReadInput"/> never blocks the render loop.
     /// </summary>
     /// <remarks>
@@ -34,6 +34,8 @@ namespace TUIKit.Terminal
         private uint _OriginalOutputMode;
         private uint _OriginalInputMode;
         private bool _RestoredWindowsMode = true;
+        private byte[]? _SavedTermios;
+        private EventHandler? _ProcessExitHandler;
         private bool _Disposed;
 
         /// <inheritdoc/>
@@ -115,9 +117,18 @@ namespace TUIKit.Terminal
                 return;
 
             if (_IsWindows)
+            {
                 EnableWindowsRawMode();
+            }
             else
-                RunStty("raw -echo");
+            {
+                _SavedTermios = PosixTerminal.EnterRawMode();
+
+                // Best-effort net so an abnormal exit (an unhandled exception that bypasses Stop)
+                // does not leave the terminal in raw mode with the cursor hidden.
+                _ProcessExitHandler = OnProcessExit;
+                AppDomain.CurrentDomain.ProcessExit += _ProcessExitHandler;
+            }
 
             _ReaderThread = new Thread(ReaderLoop)
             {
@@ -198,9 +209,20 @@ namespace TUIKit.Terminal
             if (_Interactive)
             {
                 if (_IsWindows)
+                {
                     RestoreWindowsMode();
+                }
                 else
-                    RunStty("sane");
+                {
+                    PosixTerminal.RestoreMode(_SavedTermios);
+                    _SavedTermios = null;
+
+                    if (_ProcessExitHandler != null)
+                    {
+                        AppDomain.CurrentDomain.ProcessExit -= _ProcessExitHandler;
+                        _ProcessExitHandler = null;
+                    }
+                }
             }
         }
 
@@ -238,27 +260,29 @@ namespace TUIKit.Terminal
             _RestoredWindowsMode = true;
         }
 
-        private static void RunStty(string arguments)
+        private void OnProcessExit(object? sender, EventArgs e)
         {
+            if (_SavedTermios == null)
+                return;
+
+            // Restore cooked mode and undo the visual state a running session leaves behind, so a
+            // process that exits without calling Stop still hands back a usable terminal.
+            PosixTerminal.RestoreMode(_SavedTermios);
+            _SavedTermios = null;
+
             try
             {
-                ProcessStartInfo info = new ProcessStartInfo
+                if (_OutputStream != null)
                 {
-                    FileName = "/bin/sh",
-                    Arguments = "-c \"stty " + arguments + " </dev/tty\"",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = false,
-                    RedirectStandardError = false
-                };
-
-                using (Process? process = Process.Start(info))
-                {
-                    process?.WaitForExit(2000);
+                    byte[] reset = Encoding.UTF8.GetBytes(
+                        Ansi.ShowCursor + Ansi.ExitAltScreen + Ansi.ResetAttributes);
+                    _OutputStream.Write(reset, 0, reset.Length);
+                    _OutputStream.Flush();
                 }
             }
-            catch (Exception)
+            catch (IOException)
             {
-                // Best effort: if stty is unavailable the terminal simply stays in cooked mode.
+                // Best effort during teardown; the terminal mode has already been restored.
             }
         }
 

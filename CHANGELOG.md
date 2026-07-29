@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-29
+
+Native cross-platform keyboard input.
+
+### Fixed
+- **Unix raw mode now works natively.** `ConsoleBackend` previously shelled out to `stty` in a child process to enter raw mode on Linux and macOS; the .NET runtime's terminal-state save/restore around child processes silently reverted the change, leaving the terminal in cooked mode with echo on. The result was that on macOS (iTerm2, Terminal.app) and Linux, typing echoed and scrolled the screen, Tab and Page Up/Down were consumed by the terminal, and function keys, `Ctrl` combinations, and the help/settings shortcuts never reached the app. Raw mode is now set **in-process** via the libc `termios` API (`tcgetattr`/`cfmakeraw`/`tcsetattr`), so keyboard handling matches the Windows console path across Windows Terminal/Command Prompt/PowerShell, iTerm2/Terminal.app, Linux terminals, and SSH/tmux sessions. When standard input is not a terminal, raw mode is skipped gracefully.
+
+### Added
+- **`KeyChord.ToLabel(KeyLabelStyle)`** plus the `KeyLabelStyle` enum (`Ascii`, `Symbols`) and `KeyLabel.Recommended`, for rendering key hints with the conventions of the host OS — `Ctrl+G` / `PgUp` on Windows and Linux, `⌃G` / `⇞` on macOS. The example app's footer and help now use it.
+- **Process-exit safety net**: on Unix, `ConsoleBackend` restores cooked mode, shows the cursor, and leaves the alternate screen if the process exits without calling `Stop`, so a crash no longer leaves a broken terminal.
+- Input-decoder coverage for the full non-text key set (Tab, Shift+Tab, F1–F12 via SS3 and CSI, arrows via CSI and SS3, Page Up/Down, Home/End, Insert/Delete, `Ctrl` letters, split escape sequences) and for the new key-label formatting, plus a documented manual interactive test matrix in the Building Terminal Apps guide.
+
 ## [0.2.0] - 2026-07-29
 
 Styled one-shot output, plus a hardening and documentation pass.

@@ -251,6 +251,8 @@ app.RegisterCommand("file.save", Save);
 
 A focus-context binding overrides a global one for the same chord, which is how a focused editor claims a shortcut.
 
+To show a binding in help text or a footer, format the chord with `chord.ToLabel(KeyLabel.Recommended)` so it reads the way users expect on their platform (`Ctrl+G` on Windows/Linux, `⌃G` on macOS). See [§12](#12-cross-platform-ssh-and-tmux).
+
 ### Ctrl+C policy
 
 `Ctrl+C` behavior is your choice:
@@ -564,13 +566,36 @@ string text = Snapshot.RenderWidget(new Gauge { Value = 1 }, 4, 1);   // "██
 TUIKit is designed to run the same everywhere:
 
 - **Frameworks.** It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`, so it runs on modern .NET, .NET Framework, Mono, and Unity. The Unicode width and grapheme tables are bundled, so behavior does not depend on the host runtime's Unicode version.
-- **Windows / Linux / macOS.** `ConsoleBackend` enables virtual terminal processing through `SetConsoleMode` on Windows and puts the terminal in raw mode with `stty` on Unix (Linux and macOS). Output is UTF-8. Nothing platform-specific leaks into your app code.
+- **Windows / Linux / macOS.** `ConsoleBackend` enables virtual terminal processing through `SetConsoleMode` on Windows and puts the terminal into raw mode **in-process** on Unix (Linux and macOS) via the libc `termios` API (`tcgetattr`/`cfmakeraw`/`tcsetattr`). This disables canonical line buffering, echo, and signal generation so that individual keystrokes — Tab, arrows, function keys (F1–F12), Page Up/Down, Home/End, and Ctrl-combinations — reach your app instead of being handled by the terminal. Output is UTF-8. Nothing platform-specific leaks into your app code. On an abnormal exit the backend restores the terminal (cooked mode, cursor shown, normal screen) via a process-exit safety net.
+- **Environment-appropriate key labels.** Render a `KeyChord` for display with `chord.ToLabel(style)`. Use `KeyLabel.Recommended` to pick the convention for the host OS — spelled-out `Ctrl+G` / `PgUp` on Windows and Linux, and macOS glyphs `⌃G` / `⇞` on macOS:
+  ```csharp
+  string hint = KeyChord.Parse("ctrl+g").ToLabel(KeyLabel.Recommended);
+  ```
 - **Capability detection.** The backend detects truecolor, enhanced keyboard, SGR mouse, OSC 8, and OSC 52 from the environment. Truecolor degrades to 256/16 colors automatically where needed; borders fall back to ASCII under a high-contrast theme.
-- **SSH.** Everything is standard VT — SGR mouse, bracketed paste, and OSC 52 clipboard all work over a remote session (OSC 52 is specifically why copy works remotely).
+- **SSH.** Everything is standard VT — SGR mouse, bracketed paste, and OSC 52 clipboard all work over a remote session (OSC 52 is specifically why copy works remotely). Raw mode uses the remote pty, so keyboard handling is identical to a local session.
 - **tmux.** TUIKit uses SGR mouse mode (1006) and standard sequences that tmux forwards. For enhanced keys inside tmux, enable `set -g extended-keys on` in your tmux config.
-- **Not a TTY.** When stdout is redirected or piped (CI, a file), the host degrades to plain line output and emits no escape sequences, so your program stays useful in a pipeline.
+- **Not a TTY.** When stdout is redirected or piped (CI, a file), the host degrades to plain line output and emits no escape sequences, so your program stays useful in a pipeline. Raw mode is skipped entirely when standard input is not a terminal.
 
 A practical portability rule: build and assert your UI against `HeadlessBackend` in CI (fully portable), and smoke-test the live `ConsoleBackend` on the terminals you care about.
+
+### Manual interactive test matrix
+
+Raw-mode keyboard handling depends on a real terminal, so it cannot be asserted in headless CI. Run the demo (`dotnet run --project src/TUIKit.Example`) in each environment and confirm the following, which together exercise every class of non-text key:
+
+| Check | What to verify |
+| --- | --- |
+| **Typing** | Characters appear in the composer, not echoed at the bottom; the screen does not scroll. |
+| **Tab** | Moves focus; does **not** insert a tab or scroll the view. |
+| **Arrows** | Navigate the focused widget (work in both normal and application-cursor modes). |
+| **Page Up / Page Down** | Scroll the transcript; do **not** scroll the terminal scrollback. |
+| **Function keys** | `F1` toggles help (also `?`); other bound F-keys fire. |
+| **Ctrl combinations** | `Ctrl+G` settings, `Ctrl+P` palette, `Ctrl+Q` quit, `Ctrl+K Ctrl+T` theme. |
+| **Escape** | Registers promptly (a lone Escape is not swallowed). |
+| **Resize** | Redraws to the new size. |
+| **Exit / crash** | On quit the terminal is restored: echo is back on and the cursor is visible. |
+| **Labels** | Footer/help hints read `Ctrl+G` on Windows/Linux and `⌃G` on macOS. |
+
+Environments to cover: **Windows** (Windows Terminal, Command Prompt, PowerShell), **macOS** (iTerm2, Terminal.app), **Linux** (bash in a terminal emulator), and both **SSH** and **tmux** sessions. Note that macOS may intercept `F1`–`F12` for system functions unless "Use F1, F2, etc. as standard function keys" is enabled (or Fn is held) — the demo binds `?` as an always-available alias for help for this reason.
 
 ---
 

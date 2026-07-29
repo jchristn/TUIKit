@@ -145,6 +145,88 @@ namespace TUIKit.Input
             return builder.ToString();
         }
 
+        /// <summary>
+        /// Formats this chord as a human-readable label suitable for help text, footers, and menus,
+        /// using the conventions of the requested <see cref="KeyLabelStyle"/>. For example
+        /// <c>ctrl+g</c> renders as <c>Ctrl+G</c> in <see cref="KeyLabelStyle.Ascii"/> and <c>⌃G</c>
+        /// in <see cref="KeyLabelStyle.Symbols"/>. Letter chords are shown upper-cased regardless of
+        /// the normalized internal casing.
+        /// </summary>
+        /// <param name="style">The label style to render.</param>
+        /// <returns>The formatted label. Never null; empty only for an empty character chord.</returns>
+        public string ToLabel(KeyLabelStyle style)
+        {
+            StringBuilder builder = new StringBuilder();
+            AppendModifierLabels(builder, style);
+            builder.Append(KeyLabelName(style));
+            return builder.ToString();
+        }
+
+        private void AppendModifierLabels(StringBuilder builder, KeyLabelStyle style)
+        {
+            bool symbols = style == KeyLabelStyle.Symbols;
+            if ((Modifiers & KeyModifiers.Ctrl) != 0)
+                builder.Append(symbols ? "⌃" : "Ctrl+");
+            if ((Modifiers & KeyModifiers.Alt) != 0)
+                builder.Append(symbols ? "⌥" : "Alt+");
+            if ((Modifiers & KeyModifiers.Shift) != 0)
+                builder.Append(symbols ? "⇧" : "Shift+");
+            if ((Modifiers & KeyModifiers.Super) != 0)
+                builder.Append(symbols ? "⌘" : "Super+");
+        }
+
+        private string KeyLabelName(KeyLabelStyle style)
+        {
+            bool symbols = style == KeyLabelStyle.Symbols;
+            switch (Code)
+            {
+                case KeyCode.Character:
+                    return CharLabel(symbols);
+                case KeyCode.Enter:
+                    return symbols ? "⏎" : "Enter";
+                case KeyCode.Escape:
+                    return "Esc";
+                case KeyCode.Tab:
+                    return symbols ? "⇥" : "Tab";
+                case KeyCode.Backspace:
+                    return symbols ? "⌫" : "Backspace";
+                case KeyCode.Delete:
+                    return symbols ? "⌦" : "Del";
+                case KeyCode.Insert:
+                    return "Ins";
+                case KeyCode.Up:
+                    return symbols ? "↑" : "Up";
+                case KeyCode.Down:
+                    return symbols ? "↓" : "Down";
+                case KeyCode.Left:
+                    return symbols ? "←" : "Left";
+                case KeyCode.Right:
+                    return symbols ? "→" : "Right";
+                case KeyCode.Home:
+                    return "Home";
+                case KeyCode.End:
+                    return "End";
+                case KeyCode.PageUp:
+                    return symbols ? "⇞" : "PgUp";
+                case KeyCode.PageDown:
+                    return symbols ? "⇟" : "PgDn";
+                default:
+                    return Code.ToString();
+            }
+        }
+
+        private string CharLabel(bool symbols)
+        {
+            if (Rune == 0)
+                return string.Empty;
+            if (Rune == ' ')
+                return symbols ? "␣" : "Space";
+            if (Rune >= 'a' && Rune <= 'z')
+                return ((char)(Rune - ('a' - 'A'))).ToString();
+
+            return char.ConvertFromUtf32(Rune);
+        }
+
         private string CharToken()
         {
             if (Rune == 0)
