@@ -151,6 +151,8 @@ dotnet run --project src/TUIKit.Example | cat               # non-TTY -> plain l
 
 ## Terminal support
 
+Interactive keyboard, rendering, and terminal restoration have been tested and validated on **Windows** (Windows Terminal), **macOS** (iTerm2), and **Linux**, including over an **SSH** session — the same raw-mode input path (native `SetConsoleMode` on Windows, libc `termios` on Unix) behaves identically across all three.
+
 Tier-1, intended targets are Windows Terminal, iTerm2, Ghostty, WezTerm, Alacritty, and kitty — including over SSH and inside tmux. Terminals that can't report enhanced keys or truecolor (macOS Terminal.app, legacy conhost, PuTTY) run in a degraded mode with capability reporting rather than failing. When stdout is not a TTY, TUIKit emits plain line output instead of escape sequences.
 
 ## Building and testing
@@ -171,7 +173,7 @@ Tests are written with [Touchstone](https://github.com/jchristn/touchstone): one
 
 ## Project status
 
-**Alpha.** The core — plus the full widget, layout, reactive, animation, testing, and terminal-integration surface — is implemented and covered by an extensive suite of [Touchstone](https://github.com/jchristn/touchstone) cases that run identically through the console, xUnit, and NUnit runners on `net8.0` and `net10.0`. 39 of the 40 catalogued capabilities ship; autocomplete/typeahead is intentionally excluded. The features once listed here as "in progress" — suspend/resume and POSIX signal restoration, OSC 8 emission, keyboard link hints, and native drag-selection — are now shipped. Still outstanding: a benchmark suite. The platform-specific `ConsoleBackend` and the interactive run loop are validated by manual smoke testing rather than headless tests. See [`CHANGELOG.md`](CHANGELOG.md) and [`archive/TUIKIT_PLAN.md`](archive/TUIKIT_PLAN.md) for detail.
+**Alpha.** The core — plus the full widget, layout, reactive, animation, testing, and terminal-integration surface — is implemented and covered by an extensive suite of [Touchstone](https://github.com/jchristn/touchstone) cases that run identically through the console, xUnit, and NUnit runners on `net8.0` and `net10.0`. 39 of the 40 catalogued capabilities ship; autocomplete/typeahead is intentionally excluded. The features once listed here as "in progress" — suspend/resume and POSIX signal restoration, OSC 8 emission, keyboard link hints, and native drag-selection — are now shipped. Still outstanding: a benchmark suite. The platform-specific `ConsoleBackend` and the interactive run loop are validated by manual smoke testing rather than headless tests, and have been confirmed working on Windows, macOS, and Linux, including over SSH. See [`CHANGELOG.md`](CHANGELOG.md) and [`archive/TUIKIT_PLAN.md`](archive/TUIKIT_PLAN.md) for detail.
 
 ## Contributing, issues, and discussions
 

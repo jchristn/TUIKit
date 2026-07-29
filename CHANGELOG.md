@@ -19,6 +19,9 @@ Unix keyboard input follow-up to v0.3.0.
 - The example binds `?` as a help alias (macOS frequently reserves F1–F12 for system functions) and renders footer/help key hints via `KeyChord.ToLabel(KeyLabel.Recommended)`.
 - Input-decoder tests for F1–F4 via CSI, a Cursor Position Report not being mistaken for F3, and Kitty release-event suppression.
 
+### Validated
+- Interactive keyboard input, rendering, and terminal restoration confirmed working on **Windows** (Windows Terminal), **macOS** (iTerm2), and **Linux**, including over an **SSH** session.
+
 ## [0.3.0] - 2026-07-29
 
 Native cross-platform keyboard input.
