@@ -10,7 +10,7 @@ namespace TUIKit.Widgets
     /// matched characters highlighted. The most-reused TUI interaction — command palettes, file jumps,
     /// pickers. Type to filter, Up/Down to move, and read <see cref="SelectedItem"/> on accept.
     /// </summary>
-    public sealed class FuzzyList : IWidget
+    public sealed class FuzzyList : IWidget, IFocusable
     {
         private readonly List<string> _Items = new List<string>();
         private readonly List<int> _Filtered = new List<int>();

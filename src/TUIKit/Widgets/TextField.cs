@@ -7,7 +7,7 @@ namespace TUIKit.Widgets
     /// <summary>
     /// A single-line text input widget with a caret, suitable for modal forms.
     /// </summary>
-    public sealed class TextField : IWidget
+    public sealed class TextField : IWidget, IFocusable
     {
         private string _Value = string.Empty;
         private int _Caret;

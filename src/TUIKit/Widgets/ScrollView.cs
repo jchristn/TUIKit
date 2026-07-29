@@ -10,7 +10,7 @@ namespace TUIKit.Widgets
     /// rendered at its full content size into an off-screen buffer, and a window of it is blitted into
     /// the viewport.
     /// </summary>
-    public sealed class ScrollView : IWidget
+    public sealed class ScrollView : IWidget, IFocusable
     {
         private readonly IWidget _Child;
         private int _ContentWidth;

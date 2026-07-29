@@ -8,7 +8,7 @@ namespace TUIKit.Widgets
     /// A header line that expands or collapses a child widget. Useful for tool-call output, log
     /// groups, and detail blocks that should be scannable when collapsed. Enter or Space toggles it.
     /// </summary>
-    public sealed class Collapsible : IWidget
+    public sealed class Collapsible : IWidget, IFocusable
     {
         private readonly string _Header;
         private readonly IWidget _Child;

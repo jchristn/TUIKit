@@ -9,7 +9,7 @@ namespace TUIKit.Widgets
     /// A tabbed container that shows one of several child widgets with a tab strip along the top.
     /// Tab or Right activates the next tab; Left activates the previous.
     /// </summary>
-    public sealed class TabView : IWidget
+    public sealed class TabView : IWidget, IFocusable
     {
         private readonly List<string> _Names = new List<string>();
         private readonly List<IWidget> _Widgets = new List<IWidget>();

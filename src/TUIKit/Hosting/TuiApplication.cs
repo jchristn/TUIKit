@@ -345,6 +345,75 @@ namespace TUIKit.Hosting
         }
 
         /// <summary>
+        /// Shows a modal and returns its result. The input loop drives it to completion.
+        /// </summary>
+        /// <param name="modal">The modal. Must not be null.</param>
+        /// <returns>A task that completes with the modal's result.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="modal"/> is null.</exception>
+        public Task<object?> ShowAsync(Modal modal)
+        {
+            if (modal == null)
+                throw new ArgumentNullException(nameof(modal));
+
+            _Modals.Push(modal);
+            return modal.Completion;
+        }
+
+        /// <summary>
+        /// Shows a confirmation dialog and returns whether the confirm button was chosen.
+        /// </summary>
+        /// <param name="message">The message. Must not be null.</param>
+        /// <param name="confirmLabel">The confirm button label. Defaults to "Yes".</param>
+        /// <param name="cancelLabel">The cancel button label. Defaults to "No".</param>
+        /// <returns><c>true</c> when the confirm button was chosen; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> is null.</exception>
+        public async Task<bool> ConfirmAsync(string message, string confirmLabel = "Yes", string cancelLabel = "No")
+        {
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+
+            MessageModal modal = new MessageModal("Confirm", message, new[] { confirmLabel, cancelLabel });
+            object? result = await ShowAsync(modal).ConfigureAwait(false);
+            return result is int index && index == 0;
+        }
+
+        /// <summary>
+        /// Shows a text-input dialog and returns the entered value, or null when cancelled.
+        /// </summary>
+        /// <param name="title">The prompt title. Must not be null.</param>
+        /// <param name="initial">The initial value. Defaults to empty.</param>
+        /// <returns>The entered text, or null when cancelled.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> is null.</exception>
+        public async Task<string?> PromptAsync(string title, string initial = "")
+        {
+            if (title == null)
+                throw new ArgumentNullException(nameof(title));
+
+            PromptModal modal = new PromptModal(title, initial);
+            object? result = await ShowAsync(modal).ConfigureAwait(false);
+            return result as string;
+        }
+
+        /// <summary>
+        /// Shows a selection dialog and returns the chosen zero-based index, or -1 when cancelled.
+        /// </summary>
+        /// <param name="title">The title. Must not be null.</param>
+        /// <param name="options">The options. Must not be null or empty.</param>
+        /// <returns>The chosen index, or -1 when cancelled.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> or <paramref name="options"/> is null.</exception>
+        public async Task<int> SelectAsync(string title, params string[] options)
+        {
+            if (title == null)
+                throw new ArgumentNullException(nameof(title));
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+
+            SelectModal modal = new SelectModal(title, options);
+            object? result = await ShowAsync(modal).ConfigureAwait(false);
+            return result is int index ? index : -1;
+        }
+
+        /// <summary>
         /// Raises a transient notification (toast).
         /// </summary>
         /// <param name="text">The message. Must not be null.</param>

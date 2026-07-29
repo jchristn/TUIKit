@@ -7,7 +7,7 @@ namespace TUIKit.Widgets
     /// <summary>
     /// A labeled checkbox. Space or Enter toggles it.
     /// </summary>
-    public sealed class Checkbox : IWidget
+    public sealed class Checkbox : IWidget, IFocusable
     {
         private readonly string _Label;
 

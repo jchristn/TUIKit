@@ -11,7 +11,7 @@ namespace TUIKit.Widgets
     /// a kill ring, and undo/redo. Drive it by forwarding key events to <see cref="HandleKey"/>. This
     /// is the interactive composer in the example harness.
     /// </summary>
-    public sealed class TextEditor : IWidget
+    public sealed class TextEditor : IWidget, IFocusable
     {
         private readonly List<string> _Lines = new List<string> { string.Empty };
         private readonly Stack<EditorSnapshot> _Undo = new Stack<EditorSnapshot>();
@@ -252,6 +252,73 @@ namespace TUIKit.Widgets
                 return;
 
             InsertText(_KillRing);
+        }
+
+        /// <summary>
+        /// Moves the caret to the next occurrence of the query after the caret, wrapping around.
+        /// </summary>
+        /// <param name="query">The text to find. Ignored when null or empty.</param>
+        /// <returns><c>true</c> when a match was found; otherwise <c>false</c>.</returns>
+        public bool Find(string query)
+        {
+            if (string.IsNullOrEmpty(query))
+                return false;
+
+            int rows = _Lines.Count;
+            for (int i = 0; i <= rows; i++)
+            {
+                int row = (_Row + i) % rows;
+                int from = i == 0 ? _Column + 1 : 0;
+                if (from > _Lines[row].Length)
+                    continue;
+
+                int index = _Lines[row].IndexOf(query, Math.Min(from, _Lines[row].Length), StringComparison.Ordinal);
+                if (index >= 0)
+                {
+                    _Row = row;
+                    _Column = index;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Replaces every occurrence of a string with another, recording a single undo step.
+        /// </summary>
+        /// <param name="find">The text to find. Ignored when null or empty.</param>
+        /// <param name="replace">The replacement text. Must not be null.</param>
+        /// <returns>The number of replacements made.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="replace"/> is null.</exception>
+        public int ReplaceAll(string find, string replace)
+        {
+            if (replace == null)
+                throw new ArgumentNullException(nameof(replace));
+            if (string.IsNullOrEmpty(find))
+                return 0;
+
+            int total = 0;
+            for (int r = 0; r < _Lines.Count; r++)
+            {
+                int pos = 0;
+                while ((pos = _Lines[r].IndexOf(find, pos, StringComparison.Ordinal)) >= 0)
+                {
+                    total++;
+                    pos += find.Length;
+                }
+            }
+
+            if (total == 0)
+                return 0;
+
+            PushUndo();
+            for (int r = 0; r < _Lines.Count; r++)
+                _Lines[r] = _Lines[r].Replace(find, replace);
+
+            _Row = Math.Min(_Row, _Lines.Count - 1);
+            _Column = Math.Min(_Column, _Lines[_Row].Length);
+            return total;
         }
 
         /// <summary>

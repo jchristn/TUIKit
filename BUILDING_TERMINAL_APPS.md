@@ -521,3 +521,56 @@ await TuiApp.RunAsync(app =>
 That is a real, running dashboard in well under a hundred lines: layout, borders, a bound pane and widget, a status bar, keybindings, notifications, markup, and a background producer streaming into the UI while the host paints.
 
 From here, swap the `Gauge` for a `Table` of per-endpoint stats, add a `TabView` to switch views, drop a `FuzzyList` behind `Ctrl+P` as a command palette, or wrap a tall report in a `ScrollView`. Every piece composes the same way: describe a region, bind a widget, wire a key.
+
+---
+
+## 14. Implementation status
+
+This library is under active development. The table below tracks which capabilities from `POSSIBLE_IMPROVEMENTS.md` are implemented, planned, or deliberately excluded. It is kept current as work lands.
+
+| # | Capability | Status |
+|---|---|---|
+| 10.1 | Bind any widget to a region (`Pane : IWidget`) | **Implemented** |
+| 10.2 | Scroll view + scrollbars (vertical & horizontal) | **Implemented** |
+| 10.3 | Fuzzy finder / filterable list | **Implemented** |
+| 10.4 | Inline markup parser | **Implemented** |
+| 10.5 | Async prompts (`ConfirmAsync`/`PromptAsync`/`SelectAsync`) | **Implemented** |
+| 10.6 | Split / grid layout DSL | **Implemented** |
+| 10.7 | Status / hint bar widget | **Implemented** |
+| 10.8 | Docs, cookbook & templates | **Partial** (this guide; `dotnet new` templates planned) |
+| 10.9 | One-step `Bind(chord, action)` + app verbs | **Implemented** |
+| 10.10 | One-call bootstrap (`TuiApp.RunAsync`) | **Implemented** |
+| 10.11 | Tree / hierarchical list | **Implemented** |
+| 10.12 | Diff renderer | Planned |
+| 10.13 | Collapsible section widget | **Implemented** |
+| 10.14 | Tabs widget | **Implemented** |
+| 10.15 | Forms / dialog framework | **Implemented** |
+| 10.16 | Expanded theme role vocabulary | **Implemented** |
+| 10.17 | Real data table (sortable/virtualized) | Planned |
+| 10.18 | Syntax highlighting | Planned |
+| 10.19 | Autocomplete / typeahead popup | **Excluded** (by request) |
+| 10.20 | Global focus manager | **Implemented** |
+| 10.21 | Find (`Ctrl+F`) / find-replace (`Ctrl+H`) | **Implemented** (`Pane.FindNext`, `TextEditor.Find`/`ReplaceAll`) |
+| 10.22 | Nested layouts inside a region | Planned |
+| 10.23 | `TuiTest` / app-driver harness | Planned |
+| 10.24 | Multi-task progress / `Live` wrapper | Planned |
+| 10.25 | Menus / menu bar / context menus | Planned |
+| 10.26 | Nerd Font / icon glyphs + ASCII fallback | Planned |
+| 10.27 | Charts (braille canvas + line/bar) | Planned |
+| 10.28 | Interactive split resize | Planned |
+| 10.29 | Markdown completeness | Planned |
+| 10.30 | Data binding / reactive layer | Planned |
+| 10.31 | Suspend/resume + signal restoration | Planned |
+| 10.32 | Modal-editing helper | Planned |
+| 10.33 | Animation / transitions / timers | Planned |
+| 10.34 | OSC 8 emission + clipboard read + link hints | Planned |
+| 10.35 | File browser / open dialog widget | Planned |
+| 10.36 | FIGlet / banner text | Planned |
+| 10.37 | Color picker widget | Planned |
+| 10.38 | Box shadows / modal drop shadows | Planned (region borders shipped) |
+| 10.39 | Backdrop dimming behind modals | Planned |
+| 10.40 | Image rendering (sixel/kitty/half-block) | Planned |
+| — | Guided-tour example rewrite | Planned |
+| — | Keybinding editor modal | Planned |
+
+Everything already shipped (core engine, layout, panes, input, mouse/links, modals, notifications, theming, diagnostics, headless testing) is documented in the sections above.

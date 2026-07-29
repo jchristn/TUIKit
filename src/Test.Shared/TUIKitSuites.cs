@@ -44,7 +44,8 @@ namespace Test.Shared
                     MarkupThemeSuite.Suite(),
                     HostErgonomicsSuite.Suite(),
                     LayoutDslSuite.Suite(),
-                    NewWidgetsSuite.Suite()
+                    NewWidgetsSuite.Suite(),
+                    Tranche2Suite.Suite()
                 };
             }
         }

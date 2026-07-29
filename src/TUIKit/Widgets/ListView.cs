@@ -9,7 +9,7 @@ namespace TUIKit.Widgets
     /// A vertical list of selectable items with keyboard navigation and scrolling. The selected item
     /// is highlighted; the view scrolls to keep it visible.
     /// </summary>
-    public sealed class ListView : IWidget
+    public sealed class ListView : IWidget, IFocusable
     {
         private readonly List<string> _Items = new List<string>();
         private int _Selected;

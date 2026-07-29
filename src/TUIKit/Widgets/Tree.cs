@@ -11,7 +11,7 @@ namespace TUIKit.Widgets
     /// and Enter toggles. Nodes are supplied through selector delegates so any object graph works.
     /// </summary>
     /// <typeparam name="T">The node type.</typeparam>
-    public sealed class Tree<T> : IWidget
+    public sealed class Tree<T> : IWidget, IFocusable
         where T : notnull
     {
         private readonly T _Root;

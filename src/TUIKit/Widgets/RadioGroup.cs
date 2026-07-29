@@ -7,7 +7,7 @@ namespace TUIKit.Widgets
     /// <summary>
     /// A vertical group of mutually exclusive options. Up/Down change the selection.
     /// </summary>
-    public sealed class RadioGroup : IWidget
+    public sealed class RadioGroup : IWidget, IFocusable
     {
         private readonly string[] _Options;
         private int _Selected;

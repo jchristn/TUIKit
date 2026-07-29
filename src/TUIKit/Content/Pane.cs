@@ -2,6 +2,7 @@ namespace TUIKit.Content
 {
     using System;
     using System.Collections.Generic;
+    using System.Text;
     using System.Threading;
     using TUIKit;
     using TUIKit.Widgets;
@@ -31,9 +32,12 @@ namespace TUIKit.Content
         private int _ViewTop;
         private int _LastTotalRows;
         private int _LastHeight;
+        private int _LastWidth;
         private int _NewSinceDetached;
         private long _Version;
         private int _BatchDepth;
+        private string? _Search;
+        private CellStyle _SearchStyle = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(3));
 
         /// <summary>
         /// Gets the pane identifier. Never null or empty.
@@ -344,30 +348,23 @@ namespace TUIKit.Content
                 if (width <= 0 || height <= 0)
                     return;
 
-                List<StyledText> rows = new List<StyledText>();
-                for (int i = 0; i < _Lines.Count; i++)
-                {
-                    IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(_Lines[i].Content, width);
-                    for (int w = 0; w < wrapped.Count; w++)
-                        rows.Add(wrapped[w]);
-                }
-
-                if (_Current.ToPlainString().Length > 0)
-                {
-                    IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(_Current, width);
-                    for (int w = 0; w < wrapped.Count; w++)
-                        rows.Add(wrapped[w]);
-                }
-
+                List<StyledText> rows = BuildRows(width);
                 _LastTotalRows = rows.Count;
                 _LastHeight = height;
+                _LastWidth = width;
 
                 int maxTop = Math.Max(0, rows.Count - height);
                 int top = _Attached ? maxTop : Math.Min(Math.Max(_ViewTop, 0), maxTop);
                 _ViewTop = top;
 
                 for (int r = 0; r < height && top + r < rows.Count; r++)
-                    surface.DrawStyledText(0, r, rows[top + r], background);
+                {
+                    StyledText row = rows[top + r];
+                    if (!string.IsNullOrEmpty(_Search))
+                        row = HighlightMatches(row, _Search!, _SearchStyle);
+
+                    surface.DrawStyledText(0, r, row, background);
+                }
             }
         }
 
@@ -436,6 +433,154 @@ namespace TUIKit.Content
 
             Bump();
             return new PaneLineHandle(this, id);
+        }
+
+        /// <summary>
+        /// Sets the search term to highlight in the pane, or null/empty to clear it. Matches are
+        /// highlighted on the next render; use <see cref="FindNext"/> and <see cref="FindPrevious"/> to
+        /// scroll between them.
+        /// </summary>
+        /// <param name="query">The search term, or null/empty to clear.</param>
+        public void SetSearch(string? query)
+        {
+            lock (_Sync)
+            {
+                _Search = string.IsNullOrEmpty(query) ? null : query;
+                Bump();
+            }
+        }
+
+        /// <summary>
+        /// Scrolls to the next line matching the current search term, wrapping around.
+        /// </summary>
+        /// <returns><c>true</c> when a match was found; otherwise <c>false</c>.</returns>
+        public bool FindNext()
+        {
+            return FindDirectional(true);
+        }
+
+        /// <summary>
+        /// Scrolls to the previous line matching the current search term, wrapping around.
+        /// </summary>
+        /// <returns><c>true</c> when a match was found; otherwise <c>false</c>.</returns>
+        public bool FindPrevious()
+        {
+            return FindDirectional(false);
+        }
+
+        private bool FindDirectional(bool down)
+        {
+            lock (_Sync)
+            {
+                if (string.IsNullOrEmpty(_Search))
+                    return false;
+
+                int width = _LastWidth > 0 ? _LastWidth : 80;
+                List<StyledText> rows = BuildRows(width);
+                if (rows.Count == 0)
+                    return false;
+
+                int start = _ViewTop;
+                for (int step = 1; step <= rows.Count; step++)
+                {
+                    int index = down
+                        ? (start + step) % rows.Count
+                        : (((start - step) % rows.Count) + rows.Count) % rows.Count;
+
+                    if (rows[index].ToPlainString().IndexOf(_Search!, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        _Attached = false;
+                        int maxTop = Math.Max(0, rows.Count - Math.Max(1, _LastHeight));
+                        _ViewTop = Math.Min(index, maxTop);
+                        _NewSinceDetached = 0;
+                        Bump();
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        private List<StyledText> BuildRows(int width)
+        {
+            List<StyledText> rows = new List<StyledText>();
+            for (int i = 0; i < _Lines.Count; i++)
+            {
+                IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(_Lines[i].Content, width);
+                for (int w = 0; w < wrapped.Count; w++)
+                    rows.Add(wrapped[w]);
+            }
+
+            if (_Current.ToPlainString().Length > 0)
+            {
+                IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(_Current, width);
+                for (int w = 0; w < wrapped.Count; w++)
+                    rows.Add(wrapped[w]);
+            }
+
+            return rows;
+        }
+
+        private static StyledText HighlightMatches(StyledText row, string query, CellStyle highlight)
+        {
+            List<char> chars = new List<char>();
+            List<CellStyle> styles = new List<CellStyle>();
+            IReadOnlyList<StyledSpan> spans = row.Spans;
+            for (int s = 0; s < spans.Count; s++)
+            {
+                string text = spans[s].Text;
+                for (int c = 0; c < text.Length; c++)
+                {
+                    chars.Add(text[c]);
+                    styles.Add(spans[s].Style);
+                }
+            }
+
+            string plain = new string(chars.ToArray());
+            int from = 0;
+            bool any = false;
+            while (from <= plain.Length - query.Length)
+            {
+                int index = plain.IndexOf(query, from, StringComparison.OrdinalIgnoreCase);
+                if (index < 0)
+                    break;
+
+                any = true;
+                for (int i = index; i < index + query.Length && i < styles.Count; i++)
+                    styles[i] = highlight;
+
+                from = index + query.Length;
+            }
+
+            if (!any)
+                return row;
+
+            List<StyledSpan> result = new List<StyledSpan>();
+            StringBuilder run = new StringBuilder();
+            CellStyle current = CellStyle.Default;
+            bool has = false;
+            for (int i = 0; i < chars.Count; i++)
+            {
+                if (!has)
+                {
+                    current = styles[i];
+                    has = true;
+                }
+                else if (styles[i] != current)
+                {
+                    result.Add(new StyledSpan(run.ToString(), current));
+                    run.Clear();
+                    current = styles[i];
+                }
+
+                run.Append(chars[i]);
+            }
+
+            if (has)
+                result.Add(new StyledSpan(run.ToString(), current));
+
+            return new StyledText(result);
         }
 
         private void Bump()
