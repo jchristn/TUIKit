@@ -17,6 +17,38 @@ namespace TUIKit
     public static class Markup
     {
         /// <summary>
+        /// Escapes markup control characters so the text renders literally when passed to
+        /// <see cref="Parse(string)"/>: each <c>[</c> becomes <c>[[</c> and each <c>]</c> becomes
+        /// <c>]]</c>. The round trip <c>Parse(Escape(s)).ToPlainString()</c> equals <c>s</c> for any
+        /// input. Thread-safe.
+        /// </summary>
+        /// <param name="text">The literal text to escape. Must not be null.</param>
+        /// <returns>The escaped markup. Empty input returns empty.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
+        public static string Escape(string text)
+        {
+            if (text == null)
+                throw new ArgumentNullException(nameof(text));
+
+            if (text.Length == 0)
+                return string.Empty;
+
+            StringBuilder builder = new StringBuilder(text.Length + 8);
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (c == '[')
+                    builder.Append("[[");
+                else if (c == ']')
+                    builder.Append("]]");
+                else
+                    builder.Append(c);
+            }
+
+            return builder.ToString();
+        }
+
+        /// <summary>
         /// Parses markup into styled text using the default base style.
         /// </summary>
         /// <param name="text">The markup source. Must not be null.</param>

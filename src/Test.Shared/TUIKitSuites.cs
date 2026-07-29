@@ -64,7 +64,8 @@ namespace Test.Shared
                     BackendModalValidationSuite.Suite(),
                     ContentValidationSuite.Suite(),
                     DiagnosticsValidationSuite.Suite(),
-                    WidgetGuardValidationSuite.Suite()
+                    WidgetGuardValidationSuite.Suite(),
+                    StyledOutputSuite.Suite()
                 };
             }
         }

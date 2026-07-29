@@ -1,6 +1,7 @@
 namespace TUIKit.Terminal
 {
     using System;
+    using System.IO;
 
     /// <summary>
     /// Infers <see cref="TerminalCapabilities"/> from environment variables. Detection is heuristic
@@ -46,6 +47,12 @@ namespace TUIKit.Terminal
             bool isKitty = !string.IsNullOrEmpty(getEnvironmentVariable("KITTY_WINDOW_ID"));
 
             TerminalColorDepth depth = DetectColorDepth(term, colorTerm, isWindowsTerminal);
+
+            // Honor the NO_COLOR convention (https://no-color.org): when NO_COLOR is present and
+            // non-empty, disable color regardless of other signals such as COLORTERM=truecolor.
+            if (!string.IsNullOrEmpty(getEnvironmentVariable("NO_COLOR")))
+                depth = TerminalColorDepth.None;
+
             bool enhancedKeyboard = isWindowsTerminal || isKitty || IsModernProgram(termProgram);
 
             bool modern = depth == TerminalColorDepth.TrueColor || enhancedKeyboard;
@@ -55,6 +62,31 @@ namespace TUIKit.Terminal
             bool bracketedPaste = true;
 
             return new TerminalCapabilities(depth, enhancedKeyboard, sgrMouse, hyperlinks, clipboard, bracketedPaste);
+        }
+
+        /// <summary>
+        /// Resolves the color depth appropriate for one-shot styled output to the supplied writer.
+        /// Returns <see cref="TerminalColorDepth.None"/> when the writer is redirected or is not the
+        /// console output/error stream, when <c>NO_COLOR</c> is set, or when <c>TERM=dumb</c>;
+        /// otherwise the environment-detected depth.
+        /// </summary>
+        /// <param name="output">The target writer. Must not be null.</param>
+        /// <returns>The resolved color depth.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="output"/> is null.</exception>
+        public static TerminalColorDepth ResolveOutputColorDepth(TextWriter output)
+        {
+            if (output == null)
+                throw new ArgumentNullException(nameof(output));
+
+            bool interactive;
+            if (ReferenceEquals(output, Console.Out))
+                interactive = !Console.IsOutputRedirected;
+            else if (ReferenceEquals(output, Console.Error))
+                interactive = !Console.IsErrorRedirected;
+            else
+                interactive = false;
+
+            return Detect(interactive).ColorDepth;
         }
 
         private static TerminalColorDepth DetectColorDepth(string? term, string? colorTerm, bool isWindowsTerminal)

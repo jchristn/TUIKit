@@ -30,8 +30,10 @@ namespace Test.Shared.Suites
                             Padding pad = new Padding(2, 1, 3, 4);
                             Check.Equal(5, pad.Horizontal, "left + right");
                             Check.Equal(5, pad.Vertical, "top + bottom");
-                            Check.Equal(2, Padding.Uniform(2).Horizontal / 2, "uniform side");
+                            Check.Equal(4, Padding.Uniform(2).Horizontal, "uniform horizontal");
+                            Check.Equal(4, Padding.Uniform(2).Vertical, "uniform vertical");
                             Check.Equal(6, Padding.Symmetric(3, 1).Horizontal, "symmetric horizontal");
+                            Check.Equal(2, Padding.Symmetric(3, 1).Vertical, "symmetric vertical");
 
                             Rect deflated = new Padding(3, 0, 0, 0).Deflate(new Rect(0, 0, 2, 2));
                             Check.Equal(0, deflated.Width, "deflate never goes negative");
@@ -49,8 +51,11 @@ namespace Test.Shared.Suites
                             Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Proportional(-0.1, 0.5), "negative start");
                             Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Proportional(1.5, 0.5), "start over 1");
                             Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Proportional(0.5, 0.5, min: 0), "non-positive min");
+
                             AxisConstraint ok = AxisConstraint.Proportional(0.25, 0.5);
-                            Check.True(ok != null, "valid proportional built");
+                            ok.Resolve(100, out int offset, out int length);
+                            Check.Equal(25, offset, "proportional start resolves to 25%");
+                            Check.Equal(50, length, "proportional length resolves to 50%");
                             return Task.CompletedTask;
                         }),
 

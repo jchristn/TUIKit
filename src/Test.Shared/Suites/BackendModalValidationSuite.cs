@@ -5,6 +5,7 @@ namespace Test.Shared.Suites
     using System.Threading.Tasks;
     using Touchstone.Core;
     using TUIKit;
+    using TUIKit.Input;
     using TUIKit.Modals;
     using TUIKit.Terminal;
 
@@ -31,7 +32,7 @@ namespace Test.Shared.Suites
                             using (ConsoleBackend backend = new ConsoleBackend())
                             {
                                 Check.True(backend.Size.Width >= 1 && backend.Size.Height >= 1, "reports a usable size (falls back when not a TTY)");
-                                Check.True(backend.Capabilities != null, "capabilities detected");
+                                Check.True(Enum.IsDefined(typeof(TerminalColorDepth), backend.Capabilities.ColorDepth), "capabilities report a defined color depth");
                                 Check.Throws<ArgumentNullException>(() => backend.Write(null!), "write null");
                                 Check.Throws<ArgumentNullException>(() => backend.ReadInput(null!, 0, 1), "read into null");
                                 Check.Throws<ArgumentOutOfRangeException>(() => backend.ReadInput(new byte[4], -1, 1), "read negative offset");
@@ -51,7 +52,7 @@ namespace Test.Shared.Suites
 
                             Check.Throws<ArgumentNullException>(() => CapabilityDetector.Detect(null!, true), "null env accessor");
                             TerminalCapabilities caps = CapabilityDetector.Detect(name => null, true);
-                            Check.True(caps != null, "detection returns capabilities");
+                            Check.True(Enum.IsDefined(typeof(TerminalColorDepth), caps.ColorDepth), "detection yields a defined color depth");
                             return Task.CompletedTask;
                         }),
 
@@ -87,6 +88,38 @@ namespace Test.Shared.Suites
                             Check.Throws<ArgumentNullException>(() => new Notification(null!, NotificationSeverity.Info, 0, 1000), "null notification ctor text");
                             Check.Throws<ArgumentOutOfRangeException>(() => new Notification("x", NotificationSeverity.Info, 0, -1), "negative notification timeout");
                             return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("BackendModalValidation", "PromptModalResult", "PromptModal submits on Enter and cancels on Escape",
+                        async _ =>
+                        {
+                            PromptModal prompt = new PromptModal("Name");
+                            prompt.HandleKey(KeyEvent.Char('h'));
+                            prompt.HandleKey(KeyEvent.Char('i'));
+                            Check.Equal("hi", prompt.Value, "typed value accumulated");
+                            prompt.HandleKey(KeyEvent.Special(KeyCode.Enter));
+                            object? submitted = await prompt.Completion.ConfigureAwait(false);
+                            Check.Equal("hi", (string?)submitted, "Enter completes with the typed value");
+
+                            PromptModal cancel = new PromptModal("Name", "seed");
+                            cancel.HandleKey(KeyEvent.Special(KeyCode.Escape));
+                            object? cancelled = await cancel.Completion.ConfigureAwait(false);
+                            Check.True(cancelled == null, "Escape completes with null");
+                        }),
+
+                    new TestCaseDescriptor("BackendModalValidation", "SelectModalResult", "SelectModal returns the chosen index or -1 on cancel",
+                        async _ =>
+                        {
+                            SelectModal select = new SelectModal("Pick", new List<string> { "a", "b", "c" });
+                            select.HandleKey(KeyEvent.Special(KeyCode.Down));
+                            select.HandleKey(KeyEvent.Special(KeyCode.Enter));
+                            object? index = await select.Completion.ConfigureAwait(false);
+                            Check.Equal(1, (int)index!, "Enter completes with the selected index");
+
+                            SelectModal cancel = new SelectModal("Pick", new List<string> { "a" });
+                            cancel.HandleKey(KeyEvent.Special(KeyCode.Escape));
+                            object? escaped = await cancel.Completion.ConfigureAwait(false);
+                            Check.Equal(-1, (int)escaped!, "Escape completes with -1");
                         })
                 });
         }

@@ -7,12 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-29
+
+Styled one-shot output, plus a hardening and documentation pass.
+
+### Added
+- **Styled one-shot output (no full-screen app).** A new surface for printing styled text and tables to a `TextWriter` inline — the building blocks for a CLI to render color without a `TuiApplication`:
+  - `Markup.Escape(text)` — escapes `[`/`]` so arbitrary text renders literally.
+  - `TUIKit.Terminal.AnsiText.Render(StyledText | markup, TerminalColorDepth)` — styled text → a flowing SGR string (no cursor moves); plain when depth is `None`.
+  - `TUIKit.Rendering.InlineRenderer.ToAnsiLines(CellBuffer, TerminalColorDepth)` — a cell buffer → colored inline lines (coalesced SGR runs), matching `Snapshot.ToText` when plain.
+  - `CapabilityDetector` now honors `NO_COLOR`, and `ResolveOutputColorDepth(TextWriter)` picks the depth for a writer (plain when redirected / `NO_COLOR` / `TERM=dumb`).
+  - `TUIKit.StyledConsole` — the writer itself: `Write`/`WriteLine`/`Markup`/`MarkupLine` and `Write(IWidget)`, over an explicit `TextWriter` or `ForStandardOutput()`/`ForStandardError()`.
+  - `Table` gained borders (`TableBorder` None/Square/Rounded), styled/markup cells (`AddRow(params StyledText[])`, `AddMarkupRow`), content-fit sizing (`ColumnSizing`), and per-column `CellAlignment` — the original even-column, borderless behavior is unchanged.
+- **Comprehensive validation coverage**: eight suites asserting that every documented argument guard and range bound across the host (`TuiApplication`/`TuiApp`), core primitives (geometry, buffers, styled text, surface drawing), layout, theming, input/routing, links, backends (including `ConsoleBackend`), modals, content, diagnostics, and widgets either throws the declared exception or clamps. Added `Check.ThrowsAsync`, behavioral tests for `PromptModal`/`SelectModal` Enter/Escape results, and the styled-output suite above — **264 Touchstone cases** total, green across the console, xUnit, and NUnit runners on net8.0 and net10.0.
+
+### Changed
+- Documentation overhaul: README feature catalog refreshed to the full widget set, added quick links, a "How it compares" section, an ergonomic Quick Start, and an accurate "Project status"; the Building Terminal Apps guide gained a "Data, navigation, and visuals" widget gallery and a corrected diagnostics snippet; stale coverage/conformance reports annotated with the current state; internal design docs (`POSSIBLE_IMPROVEMENTS.md`, `TUIKIT.md`, `TUIKIT_PLAN.md`) moved to `archive/`.
+
 ## [0.1.0] - 2026-07-29
 
 First public preview.
 
 ### Added
-- **Comprehensive test coverage**: validation suites asserting that every documented argument guard and range bound across the host, core primitives, layout, theming, input/routing, links, backends, modals, content, diagnostics, and widgets either throws the declared exception or clamps — 254 Touchstone cases in total, run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0.
 - **Core primitives**: `Point`/`Size`/`Rect` geometry, `Color` (truecolor/palette/default), `CellStyle`/`CellAttributes`, `Cell`, `CellBuffer` with per-row dirty tracking, `ISurface`/`BufferSurface` with clipped views, and text-drawing extensions.
 - **Unicode**: self-contained `TextWidth` (wcwidth interval tables) and `Graphemes` segmentation (combining marks, emoji ZWJ, regional-indicator flags), identical across target frameworks.
 - **Styled text**: fluent `Text.From("x").Bold().Red()` builder with per-span styles.

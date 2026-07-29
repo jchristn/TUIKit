@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application — the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v0.1.0 — Alpha.** This is the first public preview. The API and capabilities are subject to change. It is usable and tested, but treat it as pre-1.0: pin your version and expect breaking changes between minor releases until it stabilizes.
+> **v0.2.0 — Alpha.** An early public preview. The API and capabilities are subject to change. It is usable and extensively tested, but treat it as pre-1.0: pin your version and expect breaking changes between minor releases until it stabilizes.
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -73,7 +73,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="0.1.0" />
+<PackageReference Include="TUIKit" Version="0.2.0" />
 ```
 
 ## Quick start

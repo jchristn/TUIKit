@@ -6,7 +6,7 @@
 
 This is the top-to-bottom guide to building terminal user interfaces with TUIKit. It covers every capability in the library, with runnable examples, and finishes with a worked real-world app. If you have used Spectre.Console or Terminal.Gui, the mental model here is different in one important way: **TUIKit is concurrency-first** — any thread can write to any pane while a background render loop paints — so it fits streaming, agent, and dashboard apps naturally.
 
-> TUIKit is v0.1.0 (alpha). The API is stabilizing; pin your version.
+> TUIKit is v0.2.0 (alpha). The API is stabilizing; pin your version.
 
 ## Contents
 
@@ -431,6 +431,39 @@ double at = tween.ValueAt(elapsedMs);                        // drive from your 
 | `HalfBlockImage` / `SixelEncoder` / `KittyImageEncoder` | Truecolor images — half-block anywhere, sixel/kitty where supported. |
 | `BannerText` / `MultiProgress` | FIGlet-style banners; concurrent progress bars. |
 | `Markup` / `MarkdownRenderer` | Inline `[bold red]…[/]` markup; Markdown with tables and task lists. |
+
+### Styled one-shot output (without a full-screen app)
+
+Not every program is a full-screen `TuiApplication`. For an ordinary CLI command that just wants to
+print *styled* lines and tables — a colored `println` — use `StyledConsole`. It writes to a
+`TextWriter` at the current cursor position (no alt-screen, no cursor moves) and degrades to plain
+text automatically when output is redirected, `NO_COLOR` is set, or `TERM=dumb`:
+
+```csharp
+using TUIKit;
+using TUIKit.Widgets;
+
+// Depth is resolved from the environment; plain when piped/redirected.
+StyledConsole console = StyledConsole.ForStandardOutput();
+
+console.MarkupLine("[bold green]Build succeeded[/] in [cyan]1.2s[/]");
+console.WriteLine(Text.From("42 files").Dim());
+
+// Escape arbitrary text before interpolating it into markup.
+string name = "src/[legacy].cs";
+console.MarkupLine($"Compiling {Markup.Escape(name)}…");
+
+// Render a whole widget (e.g. a bordered table) as flowing colored lines.
+Table table = new Table(new[] { "Check", "Result" }, TableBorder.Rounded) { Sizing = ColumnSizing.FitContent };
+table.AddMarkupRow("format", "[green]ok[/]");
+table.AddMarkupRow("tests", "[red]2 failed[/]");
+console.Write(table);
+```
+
+Under the hood: text goes through `TUIKit.Terminal.AnsiText.Render` and widgets through
+`TUIKit.Rendering.InlineRenderer.ToAnsiLines`, both of which emit only SGR color runs. Construct
+`new StyledConsole(writer, TerminalColorDepth.None)` in tests to capture plain output from a
+`StringWriter`, exactly as you would assert any other snapshot.
 
 ---
 
