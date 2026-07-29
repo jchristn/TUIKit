@@ -560,10 +560,10 @@ This library is under active development. The table below tracks which capabilit
 | 10.28 | Interactive split resize (`SplitView` arrow-key resize) | **Implemented** |
 | 10.29 | Markdown completeness (task/ordered lists, tables, nesting) | **Implemented** |
 | 10.30 | Data binding / reactive layer (`Observable<T>`) | **Implemented** |
-| 10.31 | Suspend/resume + signal restoration | Planned |
-| 10.32 | Modal-editing helper | Planned |
+| 10.31 | Suspend/resume + signal restoration (`AppLifecycle`) | **Implemented** |
+| 10.32 | Modal-editing helper (`ModalDispatcher`/`EditMode`) | **Implemented** |
 | 10.33 | Animation / transitions / timers (`Easing`/`Tween`/`FrameTimer`) | **Implemented** |
-| 10.34 | OSC 8 emission + clipboard read + link hints | Planned |
+| 10.34 | OSC 8 emission + clipboard read + link hints (`Ansi.OpenHyperlink`, `SystemClipboard`, `LinkHints`) | **Implemented** |
 | 10.35 | File browser / open dialog widget (`FileBrowser`) | **Implemented** |
 | 10.36 | FIGlet / banner text (`Banner`/`BannerText`) | **Implemented** |
 | 10.37 | Color picker widget (`ColorPicker`) | **Implemented** |
