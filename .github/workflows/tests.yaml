@@ -26,7 +26,7 @@ jobs:
         run: dotnet build src/TUIKit.sln --no-restore --configuration Release
 
       - name: Run console tests
-        run: dotnet run --project src/Test.Automated --configuration Release -- --results results.json
+        run: dotnet run --project src/Test.Automated --framework net8.0 --configuration Release -- --results results.json
 
       - name: Run xUnit tests
         run: dotnet test src/Test.Xunit --configuration Release

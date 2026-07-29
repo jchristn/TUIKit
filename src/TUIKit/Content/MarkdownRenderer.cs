@@ -64,10 +64,36 @@ namespace TUIKit.Content
                     continue;
                 }
 
+                int indent = line.Length - trimmed.Length;
+                string pad = indent > 0 ? new string(' ', Math.Min(indent, 8)) : string.Empty;
+
+                if (trimmed.StartsWith("- [ ] ", StringComparison.Ordinal) || IsTaskItem(trimmed))
+                {
+                    bool done = trimmed.Length > 3 && (trimmed[3] == 'x' || trimmed[3] == 'X');
+                    CellStyle mark = CellStyle.Default.WithForeground(Color.FromPalette((byte)(done ? 2 : 6)));
+                    output.Add(Text.From(pad + (done ? "☑ " : "☐ "), mark)
+                        .Append(RenderInline(trimmed.Substring(6), CellStyle.Default)));
+                    continue;
+                }
+
                 if (trimmed.StartsWith("- ", StringComparison.Ordinal) || trimmed.StartsWith("* ", StringComparison.Ordinal))
                 {
-                    output.Add(Text.From("• ", CellStyle.Default.WithForeground(Color.FromPalette(6)))
+                    output.Add(Text.From(pad + "• ", CellStyle.Default.WithForeground(Color.FromPalette(6)))
                         .Append(RenderInline(trimmed.Substring(2), CellStyle.Default)));
+                    continue;
+                }
+
+                int orderedLength = OrderedMarkerLength(trimmed);
+                if (orderedLength > 0)
+                {
+                    output.Add(Text.From(pad + trimmed.Substring(0, orderedLength), CellStyle.Default.WithForeground(Color.FromPalette(6)))
+                        .Append(RenderInline(trimmed.Substring(orderedLength), CellStyle.Default)));
+                    continue;
+                }
+
+                if (trimmed.IndexOf('|') >= 0)
+                {
+                    output.Add(RenderTableRow(trimmed));
                     continue;
                 }
 
@@ -78,6 +104,56 @@ namespace TUIKit.Content
                 output.Add(StyledText.Empty);
 
             return output;
+        }
+
+        private static bool IsTaskItem(string trimmed)
+        {
+            return trimmed.StartsWith("- [x] ", StringComparison.Ordinal)
+                || trimmed.StartsWith("- [X] ", StringComparison.Ordinal);
+        }
+
+        private static int OrderedMarkerLength(string trimmed)
+        {
+            int i = 0;
+            while (i < trimmed.Length && trimmed[i] >= '0' && trimmed[i] <= '9')
+                i++;
+
+            if (i > 0 && i + 1 < trimmed.Length && trimmed[i] == '.' && trimmed[i + 1] == ' ')
+                return i + 2;
+
+            return 0;
+        }
+
+        private static StyledText RenderTableRow(string trimmed)
+        {
+            CellStyle muted = CellStyle.Default.WithForeground(Color.FromPalette(8));
+
+            bool separator = trimmed.Length > 0;
+            for (int i = 0; i < trimmed.Length; i++)
+            {
+                char c = trimmed[i];
+                if (c != '-' && c != '|' && c != ':' && c != ' ')
+                {
+                    separator = false;
+                    break;
+                }
+            }
+
+            if (separator)
+                return Text.From(new string('─', Math.Min(24, Math.Max(1, trimmed.Length))), muted);
+
+            string body = trimmed.Trim('|');
+            string[] cells = body.Split('|');
+            StyledText row = StyledText.Empty;
+            for (int i = 0; i < cells.Length; i++)
+            {
+                if (i > 0)
+                    row = row.Append(Text.From(" │ ", muted));
+
+                row = row.Append(RenderInline(cells[i].Trim(), CellStyle.Default));
+            }
+
+            return row;
         }
 
         /// <summary>

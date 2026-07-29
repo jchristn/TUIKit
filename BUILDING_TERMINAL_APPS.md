@@ -541,13 +541,13 @@ This library is under active development. The table below tracks which capabilit
 | 10.9 | One-step `Bind(chord, action)` + app verbs | **Implemented** |
 | 10.10 | One-call bootstrap (`TuiApp.RunAsync`) | **Implemented** |
 | 10.11 | Tree / hierarchical list | **Implemented** |
-| 10.12 | Diff renderer | Planned |
+| 10.12 | Diff renderer (`DiffView`, LCS line diff) | **Implemented** |
 | 10.13 | Collapsible section widget | **Implemented** |
 | 10.14 | Tabs widget | **Implemented** |
 | 10.15 | Forms / dialog framework | **Implemented** |
 | 10.16 | Expanded theme role vocabulary | **Implemented** |
-| 10.17 | Real data table (sortable/virtualized) | Planned |
-| 10.18 | Syntax highlighting | Planned |
+| 10.17 | Real data table (sortable/virtualized) (`DataTable<T>`) | **Implemented** |
+| 10.18 | Syntax highlighting (`SyntaxHighlighter`) | **Implemented** |
 | 10.19 | Autocomplete / typeahead popup | **Excluded** (by request) |
 | 10.20 | Global focus manager | **Implemented** |
 | 10.21 | Find (`Ctrl+F`) / find-replace (`Ctrl+H`) | **Implemented** (`Pane.FindNext`, `TextEditor.Find`/`ReplaceAll`) |
@@ -558,7 +558,7 @@ This library is under active development. The table below tracks which capabilit
 | 10.26 | Nerd Font / icon glyphs + ASCII fallback | Planned |
 | 10.27 | Charts (braille canvas + line/bar) | Planned |
 | 10.28 | Interactive split resize | Planned |
-| 10.29 | Markdown completeness | Planned |
+| 10.29 | Markdown completeness (task/ordered lists, tables, nesting) | **Implemented** |
 | 10.30 | Data binding / reactive layer | Planned |
 | 10.31 | Suspend/resume + signal restoration | Planned |
 | 10.32 | Modal-editing helper | Planned |
