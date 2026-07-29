@@ -292,6 +292,24 @@ string osc52 = ClipboardWriter.BuildSequence("copied");  // clipboard over SSH
 backend.Write(osc52);
 ```
 
+### Native text selection (mouse-capture toggle)
+
+While the app captures the mouse (the default), the terminal's own click-drag selection is
+suppressed — mouse events flow to your widgets instead of the terminal. To let the user select and
+copy text with their terminal (for example to paste into another program), hand the mouse back:
+
+```csharp
+app.MouseCaptureEnabled = false;        // terminal now does native drag-select + copy
+bool nowOn = app.ToggleMouseCapture();  // flip it back on when done
+```
+
+Bind the toggle to a key so users can switch on demand. The sample app uses **F12**: press it to
+drop into "selection mode," drag to select, copy with your terminal (Ctrl+C, right-click, or
+Shift-drag, depending on the terminal), then press F12 again to resume interacting with widgets.
+Setting `MouseCaptureEnabled` after `Start()` emits the enable/disable escape immediately; on a
+non-interactive backend it is a no-op. Most terminals also let you hold **Shift** (or **Option** on
+macOS) while dragging to force native selection without toggling at all.
+
 ---
 
 ## 7. Widgets

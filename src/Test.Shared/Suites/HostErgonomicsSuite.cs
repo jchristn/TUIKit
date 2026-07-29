@@ -132,6 +132,42 @@ namespace Test.Shared.Suites
                             }
 
                             return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("HostErgo", "MouseCaptureToggle", "Mouse capture can be toggled to hand the terminal native selection",
+                        _ =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(20, 4);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                Check.True(app.MouseCaptureEnabled, "capture on by default");
+                                app.Start();
+                                Check.True(backend.TakeOutput().Contains(Ansi.EnableMouse), "start enables mouse when captured");
+
+                                bool state = app.ToggleMouseCapture();
+                                Check.False(state, "toggle returns the new (off) state");
+                                Check.False(app.MouseCaptureEnabled, "capture now off");
+                                Check.True(backend.TakeOutput().Contains(Ansi.DisableMouse), "disabling emits the disable escape");
+
+                                Check.True(app.ToggleMouseCapture(), "toggle returns the new (on) state");
+                                Check.True(backend.TakeOutput().Contains(Ansi.EnableMouse), "re-enabling emits the enable escape");
+
+                                app.MouseCaptureEnabled = true; // no-op
+                                Check.False(backend.TakeOutput().Contains(Ansi.EnableMouse), "setting the same value writes nothing");
+
+                                app.Stop();
+                            }
+
+                            HeadlessBackend startOff = new HeadlessBackend(20, 4);
+                            using (TuiApplication app = new TuiApplication(startOff))
+                            {
+                                app.MouseCaptureEnabled = false; // before start: field only, no write
+                                app.Start();
+                                Check.False(startOff.TakeOutput().Contains(Ansi.EnableMouse), "starting with capture off does not enable the mouse");
+                                app.Stop();
+                            }
+
+                            return Task.CompletedTask;
                         })
                 });
         }

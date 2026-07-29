@@ -14,6 +14,9 @@ Global keys open live UI on top of the tour:
 - **Ctrl+T** — cycle theme (dark / light / high-contrast)
 - **Ctrl+K** — confirmation dialog
 - **Ctrl+N** — notification toast
+- **F12** — toggle mouse capture. While off, the terminal's native click-drag selection works, so you
+  can select text and copy it (Ctrl+C / right-click / Shift-drag, depending on the terminal) to paste
+  into another program. Press F12 again to resume interacting with widgets.
 
 A second demo — the original **agent-control harness** (streaming transcript, tool panel,
 telemetry, composer, palette, modals, notifications, links, theming, diagnostics against a

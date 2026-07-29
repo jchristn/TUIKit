@@ -55,6 +55,7 @@ namespace TUIKit.Hosting
         private long _LastCtrlC = long.MinValue;
         private bool _Started;
         private bool _Disposed;
+        private bool _MouseCaptureEnabled = true;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TuiApplication"/> class.
@@ -130,6 +131,44 @@ namespace TUIKit.Hosting
         {
             get { return _CtrlCPolicy; }
             set { _CtrlCPolicy = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets whether the application captures mouse input. Defaults to <c>true</c>. While
+        /// capture is on, the terminal's own click-drag selection is suppressed (mouse events flow to
+        /// the app instead). Turn it off to hand the mouse back to the terminal so the user can select
+        /// and copy text natively — for example to paste into another program — then turn it back on.
+        /// Setting this after <see cref="Start"/> emits the enable/disable escape immediately; it is a
+        /// no-op on a non-interactive backend. Thread-safe with respect to the render loop only in that
+        /// the escape is written directly to the backend.
+        /// </summary>
+        public bool MouseCaptureEnabled
+        {
+            get { return _MouseCaptureEnabled; }
+            set
+            {
+                if (_MouseCaptureEnabled == value)
+                    return;
+
+                _MouseCaptureEnabled = value;
+                if (_Started && _Backend.IsInteractive)
+                {
+                    _Backend.Write(value ? Ansi.EnableMouse : Ansi.DisableMouse);
+                    _Backend.Flush();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Toggles <see cref="MouseCaptureEnabled"/> and returns the new state. Bind this to a key
+        /// (F12 in the sample app) to let the user switch between interacting with widgets and using
+        /// the terminal's native text selection.
+        /// </summary>
+        /// <returns>The new value of <see cref="MouseCaptureEnabled"/>.</returns>
+        public bool ToggleMouseCapture()
+        {
+            MouseCaptureEnabled = !_MouseCaptureEnabled;
+            return _MouseCaptureEnabled;
         }
 
         /// <summary>
@@ -457,7 +496,8 @@ namespace TUIKit.Hosting
             {
                 _Backend.Write(Ansi.EnterAltScreen);
                 _Backend.Write(Ansi.HideCursor);
-                _Backend.Write(Ansi.EnableMouse);
+                if (_MouseCaptureEnabled)
+                    _Backend.Write(Ansi.EnableMouse);
                 _Backend.Write(Ansi.EnableBracketedPaste);
                 if (_Backend.Capabilities.EnhancedKeyboard)
                     _Backend.Write(Ansi.PushKittyKeyboard);

@@ -49,6 +49,7 @@ namespace TUIKit.Example
             _App.Commands.Register(KeyChord.Parse("ctrl+t"), "theme");
             _App.Commands.Register(KeyChord.Parse("ctrl+k"), "confirm");
             _App.Commands.Register(KeyChord.Parse("ctrl+n"), "notify");
+            _App.Commands.Register(KeyChord.Parse("f12"), "mouse");
 
             _App.RegisterCommand("quit", () => _App.RequestStop());
             _App.RegisterCommand("help", () => _ShowHelp = !_ShowHelp);
@@ -56,10 +57,22 @@ namespace TUIKit.Example
             _App.RegisterCommand("theme", CycleTheme);
             _App.RegisterCommand("confirm", ConfirmDemo);
             _App.RegisterCommand("notify", () => _App.Notify("This is a TUIKit notification toast.", NotificationSeverity.Info, 2500));
+            _App.RegisterCommand("mouse", ToggleMouse);
 
             _App.CtrlCPolicy = CtrlCPolicy.DoubleTapToExit;
             _App.KeyReceived += OnKey;
             _App.RenderOverlay = Draw;
+        }
+
+        private void ToggleMouse()
+        {
+            bool on = _App.ToggleMouseCapture();
+            _App.Notify(
+                on
+                    ? "Mouse capture ON — widgets are interactive again."
+                    : "Mouse capture OFF — drag to select text and copy with your terminal (e.g. Ctrl+C or right-click). Press F12 to resume.",
+                on ? NotificationSeverity.Success : NotificationSeverity.Warning,
+                4500);
         }
 
         private void CycleTheme()
@@ -236,7 +249,7 @@ namespace TUIKit.Example
 
             CellStyle muted = _App.Theme.Muted;
             root.Fill(new Rect(0, size.Height - 1, size.Width, 1), Cell.Blank(muted));
-            root.DrawText(0, size.Height - 1, " PgUp/PgDn browse   arrows/Enter interact   ^G settings   F1 help   ^T theme   ^K dialog   ^N notify   ^Q quit", muted);
+            root.DrawText(0, size.Height - 1, " PgUp/PgDn browse   arrows/Enter interact   ^G settings   F1 help   ^T theme   F12 select-mode   ^Q quit", muted);
 
             if (_ShowHelp)
                 DrawHelp(root, size, buffer);
@@ -255,8 +268,12 @@ namespace TUIKit.Example
                 "  Ctrl+T           cycle theme (dark/light/high-contrast)",
                 "  Ctrl+K           confirmation dialog demo",
                 "  Ctrl+N           show a notification toast",
+                "  F12              toggle mouse capture (native text select)",
                 "  F1 / ?           toggle this help",
                 "  Ctrl+Q           quit",
+                "",
+                "  With mouse capture OFF, drag to select and copy",
+                "  with your terminal, then paste elsewhere.",
                 "",
                 "  Press any key to close"
             };
