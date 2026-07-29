@@ -552,17 +552,17 @@ This library is under active development. The table below tracks which capabilit
 | 10.20 | Global focus manager | **Implemented** |
 | 10.21 | Find (`Ctrl+F`) / find-replace (`Ctrl+H`) | **Implemented** (`Pane.FindNext`, `TextEditor.Find`/`ReplaceAll`) |
 | 10.22 | Nested layouts inside a region | Planned |
-| 10.23 | `TuiTest` / app-driver harness | Planned |
-| 10.24 | Multi-task progress / `Live` wrapper | Planned |
+| 10.23 | Widget-driver test harness (`WidgetTester`) | **Implemented** |
+| 10.24 | Multi-task progress (`MultiProgress`/`ProgressTask`) | **Implemented** |
 | 10.25 | Menus / menu bar / context menus | Planned |
 | 10.26 | Nerd Font / icon glyphs + ASCII fallback (`Icons`/`Icon`/`IconMode`) | **Implemented** |
 | 10.27 | Charts — braille canvas + line/bar (`BrailleCanvas`/`LineChart`/`BarChart`) | **Implemented** |
 | 10.28 | Interactive split resize | Planned |
 | 10.29 | Markdown completeness (task/ordered lists, tables, nesting) | **Implemented** |
-| 10.30 | Data binding / reactive layer | Planned |
+| 10.30 | Data binding / reactive layer (`Observable<T>`) | **Implemented** |
 | 10.31 | Suspend/resume + signal restoration | Planned |
 | 10.32 | Modal-editing helper | Planned |
-| 10.33 | Animation / transitions / timers | Planned |
+| 10.33 | Animation / transitions / timers (`Easing`/`Tween`/`FrameTimer`) | **Implemented** |
 | 10.34 | OSC 8 emission + clipboard read + link hints | Planned |
 | 10.35 | File browser / open dialog widget | Planned |
 | 10.36 | FIGlet / banner text | Planned |

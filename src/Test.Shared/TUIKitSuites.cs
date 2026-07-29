@@ -47,7 +47,8 @@ namespace Test.Shared
                     NewWidgetsSuite.Suite(),
                     Tranche2Suite.Suite(),
                     Tranche3Suite.Suite(),
-                    Tranche4Suite.Suite()
+                    Tranche4Suite.Suite(),
+                    Tranche5Suite.Suite()
                 };
             }
         }
