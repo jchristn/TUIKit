@@ -515,3 +515,529 @@ The rankings are deliberately opinionated; the scores are a starting point for d
 | 40 | Image rendering (sixel/kitty/iTerm2/half-block) | Inline pictures with a graphics-protocol path and a cell fallback | 1 | 4 | 3 | 2 | 2 | **12** | yazi / chafa |
 
 **Reading the scorecard.** The top of the list is dominated by *ergonomics and reuse* — binding widgets to regions, scroll containers, markup, prompts, layout sugar, and docs — because they are cheap on the current engine, remove real developer friction, and are broadly expected. The heavy, high-value subsystems (real table, syntax highlighting, diff) score slightly lower only because they are harder to build, not less important — their table-stakes score is maxed. The bottom of the list is genuine polish and platform work (images, dimming, shadows) that is either expensive or niche. A reasonable execution order is: clear the 20+ ergonomics band first, interleave the table/tree/diff/syntax subsystems (they unblock the agent-and-dashboard audiences), and treat everything below ~16 as opportunistic.
+
+### Detailed catalog
+
+Each entry below is numbered to match the scorecard. Code snippets illustrate *proposed* API — they show the shape of the improvement, not shipped signatures.
+
+#### 10.1 — Bind any widget to a region (`Pane : IWidget`)
+
+**What it is.** Make `Pane` implement `IWidget` and add `app.Bind(regionId, IWidget)` so any widget — a gauge, table, or editor — can occupy a layout region, not just panes.
+
+**What it does.** The host measures, arranges, and renders the widget into the region's content rectangle every frame, exactly as it already does for bound panes.
+
+**Benefit.** Deletes the hand-written coordinate math the example currently needs for every non-pane widget, and gives one mental model — "content bound to a region" — for everything.
+
+```csharp
+app.Bind("telemetry", new Gauge { Value = 0.62 });
+app.Bind("log", new Pane("log"));   // panes bind the same way
+```
+
+#### 10.2 — Scrollable viewport + scrollbars
+
+**What it is.** A generic `ScrollView` container that hosts content larger than its region, plus a visible scrollbar for panes and lists.
+
+**What it does.** Clips and scrolls the child, tracks position, and draws a scrollbar thumb; the wheel and PageUp/PageDown move it.
+
+**Benefit.** Any content becomes scrollable without bespoke logic, and users can see how much is off-screen.
+
+```csharp
+var view = new ScrollView(child) { ShowScrollbar = true };
+view.ScrollToLine(120);
+app.Bind("body", view);
+```
+
+#### 10.3 — Fuzzy finder / filterable list
+
+**What it is.** A list widget that filters as the user types, using fuzzy matching with highlighted match runs.
+
+**What it does.** Maintains a query, ranks items by fuzzy score, and emphasizes the matched characters.
+
+**Benefit.** The most-reused TUI interaction — palettes, file jumps, pickers — becomes one widget instead of a per-app reimplementation.
+
+```csharp
+var picker = new FuzzyList(files) { Query = "recmd" };  // matches "RecallDB/commands.md"
+string? chosen = picker.SelectedItem;
+```
+
+#### 10.4 — Inline markup parser
+
+**What it is.** A parser that turns Rich/Spectre-style markup into `StyledText`.
+
+**What it does.** Interprets `[bold red]…[/]` tags into styled spans; a `WriteMarkup` overload writes them straight to a pane.
+
+**Benefit.** Concise, readable styled output without chaining builder calls, and styling can live in strings or config.
+
+```csharp
+pane.WriteMarkup("[green bold]done[/] [dim]1.2s[/]");
+StyledText t = Markup.Parse("[yellow]warning:[/] disk low");
+```
+
+#### 10.5 — Async prompts on the app
+
+**What it is.** One-call awaitable dialogs — confirm, text, select, multi-select, and a generic show.
+
+**What it does.** Pushes a prebuilt modal, traps focus, and returns the result via `await`.
+
+**Benefit.** Removes modal boilerplate for the common cases; a dialog reads like a normal async call.
+
+```csharp
+if (await app.ConfirmAsync("Delete build/?", "Delete", "Cancel")) { /* ... */ }
+string name = await app.PromptAsync("Project name?");
+int theme = await app.SelectAsync("Theme", "Dark", "Light");
+```
+
+#### 10.6 — Split / grid layout DSL
+
+**What it is.** `Row`, `Column`, and `Grid` helpers layered over the constraint solver.
+
+**What it does.** Express common layouts declaratively; the helpers generate the underlying `AxisConstraint`s.
+
+**Benefit.** Layout reads like the picture, and `AxisConstraint` becomes the advanced escape hatch rather than the default path.
+
+```csharp
+app.Layout = Layout.Column(
+    Layout.Row(("main", Size.Fill()), ("sidebar", Size.Cells(34))),
+    ("footer", Size.Cells(1)));
+```
+
+#### 10.7 — Status / hint bar widget
+
+**What it is.** A one-line footer widget that renders contextual keybinding hints, optionally sourced from the routing table.
+
+**What it does.** Lays out `key → label` pairs across the width, truncating gracefully.
+
+**Benefit.** Every good TUI has one; shipping it means apps get discoverable shortcuts for free.
+
+```csharp
+var hints = new StatusBar().Add("^P", "palette").Add("^Q", "quit");
+app.Bind("footer", hints);
+```
+
+#### 10.8 — Docs, cookbook & templates
+
+**What it is.** A documentation site with a quick-start, a recipe cookbook (log, dashboard, form, wizard), and `dotnet new tuikit` templates.
+
+**What it does.** Gives newcomers a working starting point and copy-pasteable patterns.
+
+**Benefit.** The first five minutes decide adoption; templates remove the blank-page problem.
+
+```bash
+dotnet new tuikit -o MyApp   # scaffolds a runnable multi-pane app
+```
+
+#### 10.9 — One-step `Bind(chord, action)` + app verbs
+
+**What it is.** A convenience `app.Bind("ctrl+q", action)` plus intent-revealing verbs on the app (`Quit`, `Log`, `Notify`).
+
+**What it does.** Registers the chord and its handler in one call; verbs wrap common operations.
+
+**Benefit.** Removes the two-step chord→id→action ceremony for simple bindings, and `app.` IntelliSense reveals the beginner surface.
+
+```csharp
+app.Bind("ctrl+q", app.Quit);
+app.Bind("ctrl+l", () => app.Notify("cleared", Severity.Info));
+```
+
+#### 10.10 — One-call bootstrap + defaults + single `using`
+
+**What it is.** `TuiApp.RunAsync(configure)` / `TuiApp.Create()` that default a `ConsoleBackend`, a full-screen region, the dark theme, and Ctrl+Q-to-quit.
+
+**What it does.** Wraps the boilerplate so a first program is a few lines under a single `using TUIKit;`.
+
+**Benefit.** Dramatically lowers the barrier to a runnable screen.
+
+```csharp
+using TUIKit;
+await TuiApp.RunAsync(app => app.AddPane("log").WriteLine("hello"));
+```
+
+#### 10.11 — Tree / hierarchical list
+
+**What it is.** A widget rendering expandable/collapsible hierarchical nodes with indentation guides.
+
+**What it does.** Manages expand state, selection, and keyboard navigation over a node tree.
+
+**Benefit.** Powers file trees, JSON/YAML viewers, and resource browsers without custom recursion and rendering.
+
+```csharp
+var tree = new Tree<FileNode>(root, n => n.Children) { Label = n => n.Name };
+tree.Expand(root);
+app.Bind("files", tree);
+```
+
+#### 10.12 — Diff renderer
+
+**What it is.** A renderer for unified and side-by-side diffs with add/remove/context coloring and hunk headers, optionally syntax-highlighted.
+
+**What it does.** Takes two texts (or a patch) and renders the changes.
+
+**Benefit.** The defining surface for agent CLIs and git tools; ship it once instead of per app.
+
+```csharp
+var diff = DiffView.Unified(oldText, newText) { SyntaxLanguage = "csharp" };
+app.Bind("diff", diff);
+```
+
+#### 10.13 — Collapsible section widget
+
+**What it is.** A header line that expands or collapses a block of child content.
+
+**What it does.** Toggles child visibility on a key or click and shows a disclosure indicator.
+
+**Benefit.** Keeps dense output — tool calls, log groups, stack traces — scannable.
+
+```csharp
+var section = new Collapsible("Read src/foo.cs", body) { Expanded = false };
+app.Bind("detail", section);
+```
+
+#### 10.14 — Tabs widget
+
+**What it is.** A tabbed container showing one of several child views with a tab strip.
+
+**What it does.** Tracks the active tab and switches content on click or shortcut.
+
+**Benefit.** Standard multi-view navigation (k9s/zellij style) as a drop-in.
+
+```csharp
+var tabs = new TabView().Add("Logs", logsPane).Add("Stats", statsWidget);
+app.Bind("main", tabs);
+```
+
+#### 10.15 — Forms / dialog framework
+
+**What it is.** A `Form` that composes input widgets with validation and a shared tab order.
+
+**What it does.** Manages focus across fields, runs validators, and collects results.
+
+**Benefit.** Turns "assemble fields by hand" into a declarative form with built-in navigation.
+
+```csharp
+var form = new Form()
+    .Text("name", required: true)
+    .Checkbox("verbose")
+    .Select("theme", "Dark", "Light");
+var result = await app.ShowAsync(form);
+```
+
+#### 10.16 — Expanded theme role vocabulary
+
+**What it is.** More semantic roles on `Theme` — success, warning, error, info, selection, disabled, accent — beyond today's text/accent/border/muted.
+
+**What it does.** Gives widgets named styles to pull from so color stays consistent and swappable.
+
+**Benefit.** Apps look coherent and re-theme cleanly, with no hard-coded palette indices.
+
+```csharp
+pane.WriteLine(Text.From("ok").Style(theme.Success));
+pane.WriteLine(Text.From("failed").Style(theme.Error));
+```
+
+#### 10.17 — Real data table
+
+**What it is.** A table with sortable and resizable columns, row selection, per-cell styling, and virtualized rendering for large sources.
+
+**What it does.** Renders only visible rows, handles sort and selection, and sizes columns to content or weights.
+
+**Benefit.** Dashboards, k8s/docker consoles, and DB browsers need exactly this; the current static table cannot do them.
+
+```csharp
+var table = new DataTable<Process>()
+    .Column("PID", p => p.Id)
+    .Column("CPU%", p => p.Cpu, sortable: true);
+table.Bind(processes);   // virtualized
+app.Bind("procs", table);
+```
+
+#### 10.18 — Syntax highlighting
+
+**What it is.** A tokenizer plus a highlight theme that turns source code into styled spans.
+
+**What it does.** Lexes a language and maps token types to theme colors; used in code blocks and diffs.
+
+**Benefit.** Makes code readable in transcripts, editors, and diffs — the top agent- and dev-tool ask.
+
+```csharp
+StyledText code = Syntax.Highlight(source, "csharp", theme);
+pane.WriteLine(code);
+```
+
+#### 10.19 — Autocomplete / typeahead popup
+
+**What it is.** A popup anchored at the input caret offering live-filtered completions.
+
+**What it does.** Shows candidates for a trigger (`/`, `@`), filters as the user types, and inserts on accept.
+
+**Benefit.** Slash-command and file-mention UX like the agent CLIs, reusable for any input.
+
+```csharp
+editor.Autocomplete = new Autocomplete('/', () => commandNames);
+```
+
+#### 10.20 — Global focus manager
+
+**What it is.** A focus ring across declared focusable widgets, with Tab/Shift-Tab traversal and visible focus rings.
+
+**What it does.** Tracks the focused widget, routes input to it, and moves focus on Tab.
+
+**Benefit.** Multi-widget keyboard navigation without per-app focus plumbing.
+
+```csharp
+app.Focus.Register(nameField, themeRadio, okButton);
+app.Bind("tab", app.Focus.Next);
+```
+
+#### 10.21 — In-pane search (`/`)
+
+**What it is.** A `/`-triggered search over a pane's content with match navigation and highlighting.
+
+**What it does.** Finds matches, highlights them, and jumps between them with n/N.
+
+**Benefit.** Long logs and transcripts become navigable — a universal expectation.
+
+```csharp
+pane.Search("error");   // highlights and scrolls to the first match
+pane.SearchNext();
+```
+
+#### 10.22 — Nested layouts inside a region
+
+**What it is.** The ability to place a sub-layout (a mini flex/grid) inside a region.
+
+**What it does.** Resolves child rectangles relative to the parent region, recursively.
+
+**Benefit.** Complex panels compose without manual coordinate math; layouts nest like the UI does.
+
+```csharp
+app.Bind("sidebar", Layout.Column(("filters", Size.Cells(6)), ("results", Size.Fill())));
+```
+
+#### 10.23 — `TuiTest` / app-driver harness
+
+**What it is.** A test helper that drives a whole app against a headless backend — feed keys, tick a frame, assert a snapshot.
+
+**What it does.** Wraps `HeadlessBackend` + `PumpInputOnce`/`RenderOnce` + `Snapshot.ToText` in a fluent API.
+
+**Benefit.** Testing an app becomes as easy as testing a widget already is.
+
+```csharp
+await TuiTest.For(app).Type("hi").Press("enter").Render()
+    .AssertContains("you  hi");
+```
+
+#### 10.24 — Multi-task progress / `Live` wrapper
+
+**What it is.** A progress display managing several concurrent tasks, and a `Live` convenience that re-renders a widget over the loop.
+
+**What it does.** Tracks per-task progress and paints them together; `Live` updates one region without a full app.
+
+**Benefit.** Common "downloading five things" and "watch this value" displays without wiring the loop.
+
+```csharp
+await app.Live(progress, ctx => {
+    var t = ctx.AddTask("build", total: 100);
+    while (!t.IsFinished) t.Increment(10);
+});
+```
+
+#### 10.25 — Menus / menu bar / context menus
+
+**What it is.** Drop-down menus, a top menu bar, and right-click context menus.
+
+**What it does.** Renders items with shortcuts and submenus, dispatching commands on selection.
+
+**Benefit.** Desktop-style discoverability for feature-rich apps.
+
+```csharp
+var bar = new MenuBar()
+    .Menu("File", m => m.Item("Open", "ctrl+o", Open).Item("Quit", "ctrl+q", app.Quit));
+app.Bind("menu", bar);
+```
+
+#### 10.26 — Nerd Font / icon glyphs + ASCII fallback
+
+**What it is.** A helper set of icon glyphs (file types, status) with an automatic ASCII fallback.
+
+**What it does.** Emits Nerd Font glyphs when available, plain characters otherwise.
+
+**Benefit.** File trees and status columns look modern where supported and stay legible where not.
+
+```csharp
+string icon = Icons.ForFile("foo.cs");   // a Nerd Font glyph, or a fallback
+```
+
+#### 10.27 — Charts (braille canvas + line/bar)
+
+**What it is.** A braille/quadrant drawing `Canvas`, plus line and bar chart widgets built on it.
+
+**What it does.** Plots series at sub-cell resolution using braille dots.
+
+**Benefit.** btop-quality telemetry graphs, not just sparklines.
+
+```csharp
+var chart = new LineChart(series) { Height = 8 };
+app.Bind("cpu", chart);
+```
+
+#### 10.28 — Interactive split resize
+
+**What it is.** Draggable and keyboard-resizable borders between regions.
+
+**What it does.** Adjusts the constraints of adjacent regions as the border moves.
+
+**Benefit.** Users tune their layout live, like tmux/zellij panes.
+
+```csharp
+app.Layout = Layout.Row(("a", Size.Fill()), ("b", Size.Cells(40))).Resizable();
+```
+
+#### 10.29 — Markdown completeness
+
+**What it is.** Extend the Markdown renderer to tables, ordered and nested lists, task lists, and nested block quotes, with syntax-highlighted fenced code.
+
+**What it does.** Parses the fuller Markdown grammar into styled lines.
+
+**Benefit.** Agent output and docs render faithfully instead of dropping structure.
+
+```csharp
+foreach (StyledText line in Markdown.Render(md, theme))  // now handles | tables | and 1. lists
+    pane.WriteLine(line);
+```
+
+#### 10.30 — Data binding / reactive layer
+
+**What it is.** Optional `INotifyPropertyChanged`/`ObservableCollection` binding and a small declarative builder.
+
+**What it does.** Re-renders bound widgets when the source changes, MVVM-style.
+
+**Benefit.** Users who prefer Textual/Consolonia ergonomics aren't forced into imperative rendering.
+
+```csharp
+list.BindItems(viewModel.Items);          // ObservableCollection
+label.Bind(() => viewModel.Status);
+```
+
+#### 10.31 — Suspend/resume + signal restoration
+
+**What it is.** Drop to the normal screen to run an external editor or shell and restore, plus SIGTSTP/SIGCONT/SIGTERM handling.
+
+**What it does.** Tears down and rebuilds terminal modes cleanly around external processes and signals.
+
+**Benefit.** Agent harnesses and editors can shell out without corrupting the terminal.
+
+```csharp
+await app.SuspendAsync(() => Process.Start("vim", file).WaitForExitAsync());
+```
+
+#### 10.32 — Modal-editing helper
+
+**What it is.** A helper layering normal/insert/visual modes and a command mode over the routing table.
+
+**What it does.** Switches active keymaps by mode and parses `:` commands.
+
+**Benefit.** Editor-style apps get Vim-like modes without building the state machine.
+
+```csharp
+var modes = new ModalKeymap(app.Commands);
+modes.Normal.Bind("i", () => modes.Enter(EditorMode.Insert));
+```
+
+#### 10.33 — Animation / transitions / timers
+
+**What it is.** A frame-tick and easing helper for smooth motion, plus elapsed/ETA on spinners and progress.
+
+**What it does.** Schedules value changes over time and interpolates them each frame.
+
+**Benefit.** Interfaces feel alive — smooth spinners, animated progress, gentle transitions.
+
+```csharp
+app.Animate(gauge, g => g.Value, from: 0, to: 1, duration: TimeSpan.FromSeconds(1));
+```
+
+#### 10.34 — OSC 8 emission + clipboard read + link hints
+
+**What it is.** Emit OSC 8 hyperlinks for copy and degradation, read the clipboard, and show Vimium-style keyboard link hints.
+
+**What it does.** Wraps link runs in OSC 8, exposes clipboard read, and overlays letter labels to activate links by keyboard.
+
+**Benefit.** Finishes the links/clipboard story; links survive copy-paste and are reachable without a mouse.
+
+```csharp
+pane.WriteLine(Text.Link("docs", "https://example.com"));  // virtual + OSC 8
+app.ShowLinkHints();   // press a letter to open
+```
+
+#### 10.35 — File browser / open dialog widget
+
+**What it is.** A file picker widget and dialog with search and filtering.
+
+**What it does.** Navigates the filesystem, filters entries, and returns a selection.
+
+**Benefit.** "Open a file" is a common need; ship it instead of rebuilding it.
+
+```csharp
+string? path = await app.OpenFileAsync(startDir: ".", filter: "*.cs");
+```
+
+#### 10.36 — FIGlet / banner text
+
+**What it is.** Large ASCII-art text from FIGlet fonts.
+
+**What it does.** Renders a string as multi-row banner glyphs.
+
+**Benefit.** Splash screens and section headers with personality.
+
+```csharp
+pane.WriteLine(Figlet.Render("TUIKit", font: "standard"));
+```
+
+#### 10.37 — Color picker widget
+
+**What it is.** An interactive color-selection widget (palette and/or RGB).
+
+**What it does.** Lets the user pick a color and returns it.
+
+**Benefit.** Theme editors and drawing tools need it; a ready widget saves the effort.
+
+```csharp
+Color chosen = await app.PickColorAsync(initial: theme.Accent);
+```
+
+#### 10.38 — Box shadows / modal drop shadows
+
+**What it is.** An optional drop shadow under boxes and modals (region borders already ship).
+
+**What it does.** Draws a dimmed, offset shadow behind a framed region.
+
+**Benefit.** Modals lift off the background — a cheap, high-impact aesthetic touch.
+
+```csharp
+region.WithBorder(BorderStyle.Rounded).WithShadow();
+modal.Shadow = true;
+```
+
+#### 10.39 — Backdrop dimming behind modals
+
+**What it is.** Dim the cells behind an open modal via a compositor read-back pass.
+
+**What it does.** Scales the RGB of covered cells toward the background before drawing the modal.
+
+**Benefit.** Focus is drawn to the dialog and the app feels polished.
+
+```csharp
+app.Modals.BackdropDim = 0.5;   // 0 = none, 1 = fully darkened
+```
+
+#### 10.40 — Image rendering (sixel/kitty/iTerm2/half-block)
+
+**What it is.** Inline images via sixel, the kitty graphics protocol, or iTerm2, with a half-block/braille cell fallback.
+
+**What it does.** Detects the terminal's graphics capability and encodes the image accordingly.
+
+**Benefit.** File managers, media tools, and previews can show real pictures.
+
+```csharp
+var img = new ImageView("logo.png") { Fallback = ImageFallback.HalfBlock };
+app.Bind("preview", img);
+```
