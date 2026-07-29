@@ -19,25 +19,48 @@ namespace TUIKit.Example
                 return 0;
             }
 
+            if (Array.IndexOf(args, "--tour-once") >= 0)
+            {
+                RunTourSnapshot(args);
+                return 0;
+            }
+
+            bool harnessMode = Array.IndexOf(args, "--harness") >= 0;
+
             using (ConsoleBackend backend = new ConsoleBackend())
             using (TuiApplication app = new TuiApplication(backend))
             {
-                HarnessApp harness = new HarnessApp(app);
-
                 Console.CancelKeyPress += (sender, eventArgs) =>
                 {
                     eventArgs.Cancel = true;
                     app.RequestStop();
                 };
 
-                harness.StartLive();
-                try
+                if (harnessMode)
                 {
-                    await app.RunAsync(CancellationToken.None).ConfigureAwait(false);
+                    HarnessApp harness = new HarnessApp(app);
+                    harness.StartLive();
+                    try
+                    {
+                        await app.RunAsync(CancellationToken.None).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        harness.StopLive();
+                    }
                 }
-                finally
+                else
                 {
-                    harness.StopLive();
+                    GuidedTour tour = new GuidedTour(app);
+                    tour.Start();
+                    try
+                    {
+                        await app.RunAsync(CancellationToken.None).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        tour.Stop();
+                    }
                 }
             }
 
@@ -59,6 +82,27 @@ namespace TUIKit.Example
                 app.Stop();
 
                 Console.WriteLine("TUIKit example — headless snapshot (--once)");
+                Console.WriteLine(new string('=', 100));
+                Console.WriteLine(frame);
+            }
+        }
+
+        private static void RunTourSnapshot(string[] args)
+        {
+            int page = 0;
+            int flag = Array.IndexOf(args, "--page");
+            if (flag >= 0 && flag + 1 < args.Length)
+                int.TryParse(args[flag + 1], out page);
+
+            HeadlessBackend backend = new HeadlessBackend(100, 30);
+            using (TuiApplication app = new TuiApplication(backend))
+            {
+                GuidedTour tour = new GuidedTour(app);
+                app.Start();
+                string frame = tour.RenderFrame(100, 30, page);
+                app.Stop();
+
+                Console.WriteLine("TUIKit guided tour — headless snapshot (--tour-once --page " + page + ")");
                 Console.WriteLine(new string('=', 100));
                 Console.WriteLine(frame);
             }

@@ -1,21 +1,31 @@
-# TUIKit.Example — Agent Control Harness
+# TUIKit.Example — Guided Tour & Agent Harness
 
-A runnable demo that exercises every major capability of TUIKit in one application: a streaming assistant transcript, a live tool panel and telemetry, a multi-line composer, a command palette, modal dialogs, notifications, links, theming, and diagnostic overlays. It runs against a **simulated** agent — no network, no model — so it is deterministic and self-contained.
+Running the example launches a **guided tour** of TUIKit: a header names the feature being
+shown, the left "Live demo" pane renders the widget itself, and the right "Code" pane shows the
+code that builds it. Browse features with **PageUp/PageDown** (or `[` / `]`), interact with the
+live widget using the **arrow keys** and **Enter**, and quit with **Ctrl+Q**. The tour covers
+markup, banners, charts, progress, tables, trees, tabs, fuzzy finding, menus, nested splits, the
+color picker, diffs, the key-binding editor, and half-block images.
+
+A second demo — the original **agent-control harness** (streaming transcript, tool panel,
+telemetry, composer, palette, modals, notifications, links, theming, diagnostics against a
+*simulated* agent) — is available with `--harness`.
 
 ## Running it
 
 ```bash
-# Live, interactive (needs a real terminal)
+# Guided tour, live and interactive (needs a real terminal)
 dotnet run --project src/TUIKit.Example
 
-# Headless one-frame snapshot printed to stdout (great for CI and screenshots)
-dotnet run --project src/TUIKit.Example -- --once
+# The agent-control harness instead of the tour
+dotnet run --project src/TUIKit.Example -- --harness
 
-# Non-interactive line output (pipe or redirect)
-dotnet run --project src/TUIKit.Example | cat
+# Headless one-frame snapshots printed to stdout (great for CI and screenshots)
+dotnet run --project src/TUIKit.Example -- --tour-once --page 3   # a tour page
+dotnet run --project src/TUIKit.Example -- --once                 # the harness
 ```
 
-Inside the live app, press **F1** or **?** for the built-in keybinding help — the demo documents itself.
+In the harness, press **F1** or **?** for the built-in keybinding help — the demo documents itself.
 
 ## Keybindings
 

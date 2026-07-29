@@ -571,7 +571,7 @@ This library is under active development. The table below tracks which capabilit
 | 10.39 | Backdrop dimming behind modals (`Backdrop.Dim`) | **Implemented** |
 | 10.40 | Image rendering — half-block (`HalfBlockImage`) | **Implemented** (half-block; sixel/kitty not attempted) |
 | — | Keybinding editor / user-configurable keymap (`KeyBindingEditor`/`KeyBindingSet`) | **Implemented** |
-| — | Guided-tour example rewrite | Planned |
+| — | Guided-tour example (self-describing `TUIKit.Example`) | **Implemented** |
 
 ### Summary: included vs. excluded
 
@@ -586,8 +586,6 @@ This library is under active development. The table below tracks which capabilit
 - **10.40 Image rendering** — the half-block (`▀`) renderer ships; sixel and kitty graphics protocols were not attempted (they need per-terminal capability negotiation and binary payloads out of scope for a dependency-free core).
 - **10.31 Suspend/resume signals** — event surface and POSIX signal wiring ship on .NET 8+ Unix; on `netstandard2.0` the signal hook is a documented no-op (the `PosixSignalRegistration` API is unavailable there).
 
-**Still outstanding:**
-
-- **Guided-tour example rewrite** — turning `TUIKit.Example` into a self-describing, feature-by-feature walkthrough with live demos and code snippets is in progress.
+**Still outstanding:** none. Running `TUIKit.Example` now launches a self-describing guided tour — a header names each feature, the left pane renders the live widget, and the right pane shows the code that builds it (PageUp/PageDown to browse, arrows/Enter to interact). The original agent-control harness is still available with `--harness`.
 
 Everything already shipped (core engine, layout, panes, input, mouse/links, modals, notifications, theming, diagnostics, headless testing) is documented in the sections above.
