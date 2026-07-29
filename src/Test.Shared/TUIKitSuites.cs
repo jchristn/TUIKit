@@ -54,7 +54,8 @@ namespace Test.Shared
                     Tranche8Suite.Suite(),
                     Tranche9Suite.Suite(),
                     Tranche10Suite.Suite(),
-                    Tranche11Suite.Suite()
+                    Tranche11Suite.Suite(),
+                    Tranche12Suite.Suite()
                 };
             }
         }
