@@ -11,23 +11,23 @@ namespace Test.Shared.Suites
     using TUIKit.Widgets;
 
     /// <summary>
-    /// Touchstone suite for tranche 6: the surface view and resizable/nestable split (10.22, 10.28),
+    /// Touchstone suite for split, menu, and file browser: the surface view and resizable/nestable split (10.22, 10.28),
     /// the menu bar (10.25), and the file browser (10.35).
     /// </summary>
-    public static class Tranche6Suite
+    public static class SplitMenuFileSuite
     {
         /// <summary>
-        /// Builds the tranche 6 suite descriptor.
+        /// Builds the split, menu, and file browser suite descriptor.
         /// </summary>
         /// <returns>The suite descriptor.</returns>
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche6",
-                displayName: "Tranche 6 (Split / Menu / Files)",
+                suiteId: "SplitMenuFile",
+                displayName: "Split, Menu & File Browser",
                 cases: new List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche6", "SurfaceView", "Surface view offsets and clips writes",
+                    new TestCaseDescriptor("SplitMenuFile", "SurfaceView", "Surface view offsets and clips writes",
                         _ =>
                         {
                             CellBuffer buffer = new CellBuffer(10, 5);
@@ -45,7 +45,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche6", "SplitRender", "Split view renders both children with a divider",
+                    new TestCaseDescriptor("SplitMenuFile", "SplitRender", "Split view renders both children with a divider",
                         _ =>
                         {
                             SplitView split = new SplitView(SplitOrientation.Horizontal,
@@ -55,7 +55,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche6", "SplitResize", "Split view resizes and clamps with arrows",
+                    new TestCaseDescriptor("SplitMenuFile", "SplitResize", "Split view resizes and clamps with arrows",
                         _ =>
                         {
                             SplitView split = new SplitView(SplitOrientation.Horizontal,
@@ -77,7 +77,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche6", "MenuNavigate", "Menu bar opens, navigates, and activates",
+                    new TestCaseDescriptor("SplitMenuFile", "MenuNavigate", "Menu bar opens, navigates, and activates",
                         _ =>
                         {
                             bool quit = false;
@@ -106,7 +106,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche6", "MenuGuards", "Menu bar handles empty state and null inputs",
+                    new TestCaseDescriptor("SplitMenuFile", "MenuGuards", "Menu bar handles empty state and null inputs",
                         _ =>
                         {
                             MenuBar empty = new MenuBar();
@@ -117,7 +117,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche6", "FileBrowser", "File browser lists, descends, and activates files",
+                    new TestCaseDescriptor("SplitMenuFile", "FileBrowser", "File browser lists, descends, and activates files",
                         _ =>
                         {
                             string root = Path.Combine(Path.GetTempPath(), "tuikit-fb-" + Guid.NewGuid().ToString("N"));

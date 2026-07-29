@@ -2,17 +2,16 @@ namespace TUIKit.Hosting
 {
     using System;
     using System.Collections.Generic;
-    using TUIKit;
-#if NET8_0_OR_GREATER
     using System.Runtime.InteropServices;
-#endif
+    using TUIKit;
 
     /// <summary>
     /// Surfaces terminal lifecycle events — suspend (Ctrl+Z / SIGTSTP), resume (SIGCONT), resize
     /// (SIGWINCH), and interrupt (SIGINT) — as ordinary .NET events so an app can restore raw mode and
-    /// redraw at the right moments. On .NET 8+ Unix, <see cref="HookPosixSignals"/> wires real signals;
-    /// on other targets it is a no-op. The Raise* methods let a host (or a test) drive the events
-    /// directly, keeping the behavior deterministic and portable.
+    /// redraw at the right moments. On Unix, <see cref="HookPosixSignals"/> wires real signals — via
+    /// <c>PosixSignalRegistration</c> on .NET 8+ and a libc <c>signal()</c> compat shim on
+    /// <c>netstandard2.0</c>; on Windows it is a no-op. The Raise* methods let a host (or a test) drive
+    /// the events directly, keeping the behavior deterministic and portable.
     /// </summary>
     public sealed class AppLifecycle : IDisposable
     {
@@ -71,11 +70,10 @@ namespace TUIKit.Hosting
         {
             if (_Registrations.Count > 0)
                 return;
-
-#if NET8_0_OR_GREATER
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && !RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 return;
 
+#if NET8_0_OR_GREATER
             _Registrations.Add(PosixSignalRegistration.Create(PosixSignal.SIGTSTP, _ => RaiseSuspending()));
             _Registrations.Add(PosixSignalRegistration.Create(PosixSignal.SIGCONT, _ => RaiseResumed()));
             _Registrations.Add(PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
@@ -93,6 +91,9 @@ namespace TUIKit.Hosting
             {
                 // SIGWINCH not supported on this platform; ignore.
             }
+#else
+            // netstandard2.0 has no PosixSignalRegistration; fall back to a libc signal() shim.
+            _Registrations.Add(PosixSignalShim.Hook(this));
 #endif
         }
 

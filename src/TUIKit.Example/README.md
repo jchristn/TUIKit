@@ -5,7 +5,15 @@ shown, the left "Live demo" pane renders the widget itself, and the right "Code"
 code that builds it. Browse features with **PageUp/PageDown** (or `[` / `]`), interact with the
 live widget using the **arrow keys** and **Enter**, and quit with **Ctrl+Q**. The tour covers
 markup, banners, charts, progress, tables, trees, tabs, fuzzy finding, menus, nested splits, the
-color picker, diffs, the key-binding editor, and half-block images.
+color picker, diffs, the key-binding editor, and images (half-block / sixel / kitty).
+
+Global keys open live UI on top of the tour:
+
+- **F1** or **?** — help overlay
+- **Ctrl+G** — settings & actions menu (cycle theme, cycle icon mode, notification, confirmation dialog)
+- **Ctrl+T** — cycle theme (dark / light / high-contrast)
+- **Ctrl+K** — confirmation dialog
+- **Ctrl+N** — notification toast
 
 A second demo — the original **agent-control harness** (streaming transcript, tool panel,
 telemetry, composer, palette, modals, notifications, links, theming, diagnostics against a

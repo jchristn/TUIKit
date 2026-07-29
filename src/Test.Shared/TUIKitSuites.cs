@@ -45,17 +45,18 @@ namespace Test.Shared
                     HostErgonomicsSuite.Suite(),
                     LayoutDslSuite.Suite(),
                     NewWidgetsSuite.Suite(),
-                    Tranche2Suite.Suite(),
-                    Tranche3Suite.Suite(),
-                    Tranche4Suite.Suite(),
-                    Tranche5Suite.Suite(),
-                    Tranche6Suite.Suite(),
-                    Tranche7Suite.Suite(),
-                    Tranche8Suite.Suite(),
-                    Tranche9Suite.Suite(),
-                    Tranche10Suite.Suite(),
-                    Tranche11Suite.Suite(),
-                    Tranche12Suite.Suite()
+                    FocusFormsPromptsSuite.Suite(),
+                    RichContentSuite.Suite(),
+                    ChartsIconsColorSuite.Suite(),
+                    ReactiveAnimationSuite.Suite(),
+                    SplitMenuFileSuite.Suite(),
+                    VisualEffectsSuite.Suite(),
+                    ModalLinkLifecycleSuite.Suite(),
+                    KeyBindingSuite.Suite(),
+                    ValueValidationSuite.Suite(),
+                    LayoutConstraintSuite.Suite(),
+                    InputWidgetSuite.Suite(),
+                    ImageProtocolSuite.Suite()
                 };
             }
         }

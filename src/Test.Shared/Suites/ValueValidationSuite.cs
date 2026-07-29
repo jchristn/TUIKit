@@ -15,7 +15,7 @@ namespace Test.Shared.Suites
     /// is either clamped to sensible bounds or rejects out-of-range values with
     /// <see cref="ArgumentOutOfRangeException"/>, and defaults are exercised.
     /// </summary>
-    public static class Tranche10Suite
+    public static class ValueValidationSuite
     {
         /// <summary>
         /// Builds the validation suite descriptor.

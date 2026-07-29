@@ -10,23 +10,23 @@ namespace Test.Shared.Suites
     using TUIKit.Widgets;
 
     /// <summary>
-    /// Touchstone suite for tranche 7: FIGlet banners (10.36), drop shadows (10.38), backdrop dimming
+    /// Touchstone suite for banners, shadows, dimming, and images: FIGlet banners (10.36), drop shadows (10.38), backdrop dimming
     /// (10.39), and half-block image rendering (10.40).
     /// </summary>
-    public static class Tranche7Suite
+    public static class VisualEffectsSuite
     {
         /// <summary>
-        /// Builds the tranche 7 suite descriptor.
+        /// Builds the banners, shadows, dimming, and images suite descriptor.
         /// </summary>
         /// <returns>The suite descriptor.</returns>
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche7",
-                displayName: "Tranche 7 (Banner / Shadow / Dim / Image)",
+                suiteId: "VisualEffects",
+                displayName: "Banners, Shadows, Dimming & Images",
                 cases: new List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche7", "Banner", "Banner renders five rows of block text",
+                    new TestCaseDescriptor("VisualEffects", "Banner", "Banner renders five rows of block text",
                         _ =>
                         {
                             IReadOnlyList<string> rows = Banner.Render("HI");
@@ -45,7 +45,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche7", "BannerUnknown", "Banner renders unknown characters as blank",
+                    new TestCaseDescriptor("VisualEffects", "BannerUnknown", "Banner renders unknown characters as blank",
                         _ =>
                         {
                             IReadOnlyList<string> rows = Banner.Render("~");
@@ -61,7 +61,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche7", "Shadow", "Drop shadow draws to the right and below",
+                    new TestCaseDescriptor("VisualEffects", "Shadow", "Drop shadow draws to the right and below",
                         _ =>
                         {
                             CellBuffer buffer = new CellBuffer(10, 6);
@@ -76,7 +76,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche7", "Dim", "Backdrop dims cells without losing glyphs",
+                    new TestCaseDescriptor("VisualEffects", "Dim", "Backdrop dims cells without losing glyphs",
                         _ =>
                         {
                             CellBuffer buffer = new CellBuffer(6, 2);
@@ -92,7 +92,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche7", "HalfBlockImage", "Half-block image packs two pixels per cell",
+                    new TestCaseDescriptor("VisualEffects", "HalfBlockImage", "Half-block image packs two pixels per cell",
                         _ =>
                         {
                             Color[,] pixels =

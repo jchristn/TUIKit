@@ -1,4 +1,4 @@
-﻿namespace Test.Shared.Suites
+namespace Test.Shared.Suites
 {
     using System;
     using System.Collections.Generic;
@@ -15,22 +15,22 @@
     /// Touchstone suite covering the focus manager (10.20), the form framework (10.15), async prompts
     /// (10.5), and find/replace (10.21).
     /// </summary>
-    public static class Tranche2Suite
+    public static class FocusFormsPromptsSuite
     {
         private const string Esc = "\u001b";
 
         /// <summary>
-        /// Builds the tranche 2 suite descriptor.
+        /// Builds the focus, forms, and prompts suite descriptor.
         /// </summary>
         /// <returns>The suite descriptor.</returns>
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche2",
+                suiteId: "FocusFormsPrompts",
                 displayName: "Focus, Forms, Prompts, Find",
                 cases: new List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche2", "FocusManager", "Focus cycles and routes keys",
+                    new TestCaseDescriptor("FocusFormsPrompts", "FocusManager", "Focus cycles and routes keys",
                         _ =>
                         {
                             TextField a = new TextField();
@@ -50,7 +50,7 @@
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche2", "Form", "Form tabs between fields and validates",
+                    new TestCaseDescriptor("FocusFormsPrompts", "Form", "Form tabs between fields and validates",
                         _ =>
                         {
                             Form form = new Form();
@@ -71,7 +71,7 @@
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche2", "ConfirmAsync", "Confirm dialog returns the choice",
+                    new TestCaseDescriptor("FocusFormsPrompts", "ConfirmAsync", "Confirm dialog returns the choice",
                         async ct =>
                         {
                             HeadlessBackend backend = new HeadlessBackend(40, 10);
@@ -85,7 +85,7 @@
                             }
                         }),
 
-                    new TestCaseDescriptor("Tranche2", "PromptAsync", "Prompt returns typed text and cancels on escape",
+                    new TestCaseDescriptor("FocusFormsPrompts", "PromptAsync", "Prompt returns typed text and cancels on escape",
                         async ct =>
                         {
                             HeadlessBackend backend = new HeadlessBackend(40, 10);
@@ -105,7 +105,7 @@
                             }
                         }),
 
-                    new TestCaseDescriptor("Tranche2", "SelectAsync", "Select returns the chosen index",
+                    new TestCaseDescriptor("FocusFormsPrompts", "SelectAsync", "Select returns the chosen index",
                         async ct =>
                         {
                             HeadlessBackend backend = new HeadlessBackend(40, 10);
@@ -119,7 +119,7 @@
                             }
                         }),
 
-                    new TestCaseDescriptor("Tranche2", "PaneFind", "Pane search finds and highlights matches",
+                    new TestCaseDescriptor("FocusFormsPrompts", "PaneFind", "Pane search finds and highlights matches",
                         _ =>
                         {
                             Pane pane = new Pane("p");
@@ -159,7 +159,7 @@
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche2", "EditorFindReplace", "Editor find and replace-all",
+                    new TestCaseDescriptor("FocusFormsPrompts", "EditorFindReplace", "Editor find and replace-all",
                         _ =>
                         {
                             TextEditor editor = new TextEditor();

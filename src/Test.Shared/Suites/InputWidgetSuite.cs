@@ -12,7 +12,7 @@ namespace Test.Shared.Suites
     /// Touchstone suite covering the form-input widgets (text field, checkbox, radio group) and the
     /// text-search edge cases of the editor and pane, with positive and negative cases.
     /// </summary>
-    public static class Tranche12Suite
+    public static class InputWidgetSuite
     {
         /// <summary>
         /// Builds the suite descriptor.
@@ -21,11 +21,11 @@ namespace Test.Shared.Suites
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche12",
-                displayName: "Tranche 12 (Inputs / Search)",
+                suiteId: "InputWidget",
+                displayName: "Input Widgets & Search",
                 cases: new System.Collections.Generic.List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche12", "TextField", "Text field edits, rejects null, and ignores control keys",
+                    new TestCaseDescriptor("InputWidget", "TextField", "Text field edits, rejects null, and ignores control keys",
                         _ =>
                         {
                             TextField field = new TextField();
@@ -45,7 +45,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche12", "Checkbox", "Checkbox toggles and validates its label",
+                    new TestCaseDescriptor("InputWidget", "Checkbox", "Checkbox toggles and validates its label",
                         _ =>
                         {
                             Checkbox box = new Checkbox("agree");
@@ -62,7 +62,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche12", "RadioGroup", "Radio group clamps selection and validates options",
+                    new TestCaseDescriptor("InputWidget", "RadioGroup", "Radio group clamps selection and validates options",
                         _ =>
                         {
                             RadioGroup group = new RadioGroup(new[] { "low", "medium", "high" });
@@ -82,7 +82,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche12", "EditorFind", "Editor find and replace handle misses and null arguments",
+                    new TestCaseDescriptor("InputWidget", "EditorFind", "Editor find and replace handle misses and null arguments",
                         _ =>
                         {
                             TextEditor editor = new TextEditor();
@@ -100,7 +100,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche12", "PaneSearch", "Pane search finds matches and clears on null",
+                    new TestCaseDescriptor("InputWidget", "PaneSearch", "Pane search finds matches and clears on null",
                         _ =>
                         {
                             Pane pane = new Pane("p");

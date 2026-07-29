@@ -10,23 +10,23 @@ namespace Test.Shared.Suites
     using TUIKit.Input;
 
     /// <summary>
-    /// Touchstone suite for tranche 8: modal (vi-style) key dispatch (10.32), link hints and clipboard
+    /// Touchstone suite for modal editing, links, and lifecycle: modal (vi-style) key dispatch (10.32), link hints and clipboard
     /// read (10.34), and the app lifecycle / signal surface (10.31).
     /// </summary>
-    public static class Tranche8Suite
+    public static class ModalLinkLifecycleSuite
     {
         /// <summary>
-        /// Builds the tranche 8 suite descriptor.
+        /// Builds the modal editing, links, and lifecycle suite descriptor.
         /// </summary>
         /// <returns>The suite descriptor.</returns>
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche8",
-                displayName: "Tranche 8 (Modal / Links / Lifecycle)",
+                suiteId: "ModalLinkLifecycle",
+                displayName: "Modal Editing, Links & Lifecycle",
                 cases: new List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche8", "ModalDispatch", "Modal dispatcher routes keys per mode",
+                    new TestCaseDescriptor("ModalLinkLifecycle", "ModalDispatch", "Modal dispatcher routes keys per mode",
                         _ =>
                         {
                             ModalDispatcher dispatcher = new ModalDispatcher();
@@ -56,7 +56,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche8", "LinkHints", "Link hints label and resolve links",
+                    new TestCaseDescriptor("ModalLinkLifecycle", "LinkHints", "Link hints label and resolve links",
                         _ =>
                         {
                             Check.Equal("a", LinkHints.Label(0), "first label");
@@ -86,7 +86,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche8", "Clipboard", "Clipboard builds a write sequence and reads without throwing",
+                    new TestCaseDescriptor("ModalLinkLifecycle", "Clipboard", "Clipboard builds a write sequence and reads without throwing",
                         _ =>
                         {
                             string sequence = SystemClipboard.BuildWriteSequence("hello");
@@ -102,7 +102,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche8", "Lifecycle", "App lifecycle raises suspend/resume/resize events",
+                    new TestCaseDescriptor("ModalLinkLifecycle", "Lifecycle", "App lifecycle raises suspend/resume/resize events",
                         _ =>
                         {
                             AppLifecycle life = new AppLifecycle();

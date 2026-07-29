@@ -11,23 +11,23 @@ namespace Test.Shared.Suites
     using TUIKit.Widgets;
 
     /// <summary>
-    /// Touchstone suite for tranche 5: observable data binding (10.30), easing/tween/timer animation
+    /// Touchstone suite for reactive, animation, and testing: observable data binding (10.30), easing/tween/timer animation
     /// (10.33), the multi-task progress widget (10.24), and the widget test harness (10.23).
     /// </summary>
-    public static class Tranche5Suite
+    public static class ReactiveAnimationSuite
     {
         /// <summary>
-        /// Builds the tranche 5 suite descriptor.
+        /// Builds the reactive, animation, and testing suite descriptor.
         /// </summary>
         /// <returns>The suite descriptor.</returns>
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche5",
-                displayName: "Tranche 5 (Reactive / Animation / Testing)",
+                suiteId: "ReactiveAnimation",
+                displayName: "Reactive, Animation & Testing",
                 cases: new System.Collections.Generic.List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche5", "Observable", "Observable notifies subscribers only on real change",
+                    new TestCaseDescriptor("ReactiveAnimation", "Observable", "Observable notifies subscribers only on real change",
                         _ =>
                         {
                             Observable<int> value = new Observable<int>(1);
@@ -48,7 +48,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche5", "ObservableBind", "Bind pushes current and future values",
+                    new TestCaseDescriptor("ReactiveAnimation", "ObservableBind", "Bind pushes current and future values",
                         _ =>
                         {
                             Observable<string> name = new Observable<string>("a");
@@ -63,7 +63,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche5", "Tween", "Tween interpolates and clamps with easing",
+                    new TestCaseDescriptor("ReactiveAnimation", "Tween", "Tween interpolates and clamps with easing",
                         _ =>
                         {
                             Tween tween = new Tween(0, 100, 1000, Easing.Linear);
@@ -80,7 +80,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche5", "FrameTimer", "Frame timer fires repeating and one-shot callbacks",
+                    new TestCaseDescriptor("ReactiveAnimation", "FrameTimer", "Frame timer fires repeating and one-shot callbacks",
                         _ =>
                         {
                             FrameTimer timer = new FrameTimer();
@@ -109,7 +109,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche5", "TimerCancel", "Disposing a timer handle cancels it",
+                    new TestCaseDescriptor("ReactiveAnimation", "TimerCancel", "Disposing a timer handle cancels it",
                         _ =>
                         {
                             FrameTimer timer = new FrameTimer();
@@ -124,7 +124,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche5", "MultiProgress", "Multi-progress renders bars and percentages",
+                    new TestCaseDescriptor("ReactiveAnimation", "MultiProgress", "Multi-progress renders bars and percentages",
                         _ =>
                         {
                             MultiProgress progress = new MultiProgress();
@@ -146,7 +146,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche5", "WidgetTester", "Widget tester drives keys and reads output",
+                    new TestCaseDescriptor("ReactiveAnimation", "WidgetTester", "Widget tester drives keys and reads output",
                         _ =>
                         {
                             FuzzyList list = new FuzzyList(new[] { "alpha", "beta", "gamma" });

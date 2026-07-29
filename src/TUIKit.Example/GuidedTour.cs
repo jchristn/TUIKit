@@ -7,13 +7,17 @@ namespace TUIKit.Example
     using TUIKit.Hosting;
     using TUIKit.Input;
     using TUIKit.Layout;
+    using TUIKit.Modals;
+    using TUIKit.Theming;
     using TUIKit.Widgets;
 
     /// <summary>
     /// A self-describing guided tour of TUIKit. A header names the feature being shown, the left
     /// "Live demo" pane renders the widget itself, and the right "Code" pane shows how to build it.
     /// PageUp/PageDown (or '[' / ']') browse the features; the arrow keys and Enter interact with the
-    /// live widget; Ctrl+Q quits. This is the default experience when you run <c>TUIKit.Example</c>.
+    /// live widget. Global keys open live UI: F1 or ? for help, Ctrl+G for the settings menu, Ctrl+T
+    /// to cycle the theme, Ctrl+K for a confirmation dialog, Ctrl+N for a notification, Ctrl+Q to quit.
+    /// This is the default experience when you run <c>TUIKit.Example</c>.
     /// </summary>
     internal sealed class GuidedTour
     {
@@ -21,6 +25,8 @@ namespace TUIKit.Example
         private readonly List<TourPage> _Pages;
         private readonly Layout _Layout;
         private int _Index;
+        private int _ThemeIndex;
+        private bool _ShowHelp;
 
         internal GuidedTour(TuiApplication app)
         {
@@ -37,10 +43,86 @@ namespace TUIKit.Example
 
             _App.Layout = _Layout;
             _App.Commands.Register(KeyChord.Parse("ctrl+q"), "quit");
+            _App.Commands.Register(KeyChord.Parse("f1"), "help");
+            _App.Commands.Register(KeyChord.Parse("?"), "help");
+            _App.Commands.Register(KeyChord.Parse("ctrl+g"), "settings");
+            _App.Commands.Register(KeyChord.Parse("ctrl+t"), "theme");
+            _App.Commands.Register(KeyChord.Parse("ctrl+k"), "confirm");
+            _App.Commands.Register(KeyChord.Parse("ctrl+n"), "notify");
+
             _App.RegisterCommand("quit", () => _App.RequestStop());
+            _App.RegisterCommand("help", () => _ShowHelp = !_ShowHelp);
+            _App.RegisterCommand("settings", OpenSettings);
+            _App.RegisterCommand("theme", CycleTheme);
+            _App.RegisterCommand("confirm", ConfirmDemo);
+            _App.RegisterCommand("notify", () => _App.Notify("This is a TUIKit notification toast.", NotificationSeverity.Info, 2500));
+
             _App.CtrlCPolicy = CtrlCPolicy.DoubleTapToExit;
             _App.KeyReceived += OnKey;
             _App.RenderOverlay = Draw;
+        }
+
+        private void CycleTheme()
+        {
+            _ThemeIndex = (_ThemeIndex + 1) % 3;
+            if (_ThemeIndex == 1)
+                _App.Theme = Theme.Light;
+            else if (_ThemeIndex == 2)
+                _App.Theme = Theme.HighContrast;
+            else
+                _App.Theme = Theme.Dark;
+
+            _App.Notify("Theme: " + _App.Theme.Name, NotificationSeverity.Success, 2000);
+        }
+
+        private async void OpenSettings()
+        {
+            int choice = await _App.SelectAsync(
+                "Settings & actions",
+                "Cycle theme (dark / light / high-contrast)",
+                "Cycle icon mode (Unicode / ASCII / Nerd)",
+                "Show a notification",
+                "Confirmation dialog",
+                "Help").ConfigureAwait(false);
+
+            switch (choice)
+            {
+                case 0:
+                    CycleTheme();
+                    break;
+                case 1:
+                    CycleIconMode();
+                    break;
+                case 2:
+                    _App.Notify("Settings applied.", NotificationSeverity.Success, 2000);
+                    break;
+                case 3:
+                    ConfirmDemo();
+                    break;
+                case 4:
+                    _ShowHelp = true;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        private void CycleIconMode()
+        {
+            if (Icons.Mode == IconMode.Unicode)
+                Icons.Mode = IconMode.Ascii;
+            else if (Icons.Mode == IconMode.Ascii)
+                Icons.Mode = IconMode.Nerd;
+            else
+                Icons.Mode = IconMode.Unicode;
+
+            _App.Notify("Icon mode: " + Icons.Mode + "  " + Icons.Star, NotificationSeverity.Info, 2000);
+        }
+
+        private async void ConfirmDemo()
+        {
+            bool ok = await _App.ConfirmAsync("Enable experimental sixel image output?", "Enable", "Cancel").ConfigureAwait(false);
+            _App.Notify(ok ? "Sixel output enabled." : "Left disabled.", ok ? NotificationSeverity.Success : NotificationSeverity.Warning, 2500);
         }
 
         internal void Start()
@@ -84,6 +166,17 @@ namespace TUIKit.Example
 
         private void OnKey(KeyEvent key)
         {
+            // While a modal dialog is open, let the host route keys to it.
+            if (_App.Modals.Count > 0)
+                return;
+
+            // Any key dismisses the help overlay.
+            if (_ShowHelp)
+            {
+                _ShowHelp = false;
+                return;
+            }
+
             if (key.Code == KeyCode.PageDown || IsChar(key, ']'))
             {
                 _Index = (_Index + 1) % _Pages.Count;
@@ -143,12 +236,80 @@ namespace TUIKit.Example
 
             CellStyle muted = _App.Theme.Muted;
             root.Fill(new Rect(0, size.Height - 1, size.Width, 1), Cell.Blank(muted));
-            root.DrawText(0, size.Height - 1, " PgUp/PgDn or [ ]  browse    arrows/Enter  interact    Ctrl+Q  quit", muted);
+            root.DrawText(0, size.Height - 1, " PgUp/PgDn browse   arrows/Enter interact   ^G settings   F1 help   ^T theme   ^K dialog   ^N notify   ^Q quit", muted);
+
+            if (_ShowHelp)
+                DrawHelp(root, size, buffer);
+        }
+
+        private void DrawHelp(ISurface root, Size size, BufferSurface buffer)
+        {
+            string[] lines =
+            {
+                "TUIKit guided tour — keys",
+                "",
+                "  PgUp / PgDn      previous / next feature",
+                "  [  /  ]          previous / next feature",
+                "  Up/Down/Enter    interact with the live widget",
+                "  Ctrl+G           settings & actions menu",
+                "  Ctrl+T           cycle theme (dark/light/high-contrast)",
+                "  Ctrl+K           confirmation dialog demo",
+                "  Ctrl+N           show a notification toast",
+                "  F1 / ?           toggle this help",
+                "  Ctrl+Q           quit",
+                "",
+                "  Press any key to close"
+            };
+
+            int contentWidth = 0;
+            for (int i = 0; i < lines.Length; i++)
+                contentWidth = Math.Max(contentWidth, lines[i].Length);
+
+            int width = Math.Min(size.Width, contentWidth + 4);
+            int height = Math.Min(size.Height, lines.Length + 2);
+            int x = Math.Max(0, (size.Width - width) / 2);
+            int y = Math.Max(0, (size.Height - height) / 2);
+            Rect box = new Rect(x, y, width, height);
+
+            root.DrawShadow(box);
+            root.Fill(box, Cell.Blank(CellStyle.Default.WithBackground(Color.FromPalette(0))));
+            root.DrawBox(box, CellStyle.Default.WithForeground(Color.FromPalette(3)), BorderStyle.Rounded, "Help");
+
+            BufferSurface inner = buffer.CreateView(new Rect(x + 2, y + 1, width - 4, height - 2));
+            for (int i = 0; i < lines.Length && i < height - 2; i++)
+                inner.DrawText(0, i, lines[i], CellStyle.Default);
         }
 
         private static List<TourPage> BuildPages()
         {
             List<TourPage> pages = new List<TourPage>();
+
+            Pane welcome = new Pane("welcome");
+            welcome.WriteMarkup("[bold]Welcome to the TUIKit tour.[/]");
+            welcome.WriteLine(string.Empty);
+            welcome.WriteMarkup("Browse features with [yellow]PgUp/PgDn[/].");
+            welcome.WriteLine(string.Empty);
+            welcome.WriteMarkup("Try the live [green]modals[/] and [green]settings[/]:");
+            welcome.WriteMarkup("  [yellow]Ctrl+G[/]  settings & actions menu");
+            welcome.WriteMarkup("  [yellow]Ctrl+K[/]  confirmation dialog");
+            welcome.WriteMarkup("  [yellow]Ctrl+N[/]  notification toast");
+            welcome.WriteMarkup("  [yellow]Ctrl+T[/]  cycle light / dark theme");
+            welcome.WriteMarkup("  [yellow]F1[/]      help overlay");
+            pages.Add(new TourPage(
+                "Welcome — modals, settings & help",
+                "Global keys open live UI. Press [bold]Ctrl+G[/] for settings or [bold]F1[/] for help now.",
+                welcome,
+                new[]
+                {
+                    "// Modal dialogs and toasts:",
+                    "bool ok = await app.ConfirmAsync(",
+                    "  \"Enable sixel output?\");",
+                    "int pick = await app.SelectAsync(",
+                    "  \"Theme\", \"Dark\", \"Light\");",
+                    "app.Notify(\"Saved\",",
+                    "  NotificationSeverity.Success);",
+                    "app.Theme = Theme.Light;"
+                }));
 
             Pane markup = new Pane("markup");
             markup.WriteMarkup("[bold]Bold[/], [red]red[/], [green]green[/], [blue on white] on white [/]");
@@ -365,15 +526,19 @@ namespace TUIKit.Example
                 }));
 
             pages.Add(new TourPage(
-                "Image (half-block)",
-                "[bold]HalfBlockImage[/] packs two pixels per cell with the [bold]▀[/] glyph.",
+                "Images (half-block / sixel / kitty)",
+                "[bold]HalfBlockImage[/] works everywhere; [bold]SixelEncoder[/]/[bold]KittyImageEncoder[/] target capable terminals.",
                 new HalfBlockImage(40, 32, (x, y) => Color.FromRgb((byte)(x * 6), (byte)(y * 7), 160)),
                 new[]
                 {
+                    "// Portable: draws into the cell grid",
                     "new HalfBlockImage(w, h,",
-                    "  (x, y) => Color.FromRgb(",
-                    "     r, g, b));",
-                    "// 2x vertical resolution"
+                    "  (x, y) => Color.FromRgb(r, g, b));",
+                    "",
+                    "// Capable terminals: raw escapes",
+                    "string s = SixelEncoder.Encode(px);",
+                    "string k = KittyImageEncoder.Encode(px);",
+                    "backend.Write(s); // at the cursor"
                 }));
 
             return pages;

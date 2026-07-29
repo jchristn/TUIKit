@@ -569,23 +569,23 @@ This library is under active development. The table below tracks which capabilit
 | 10.37 | Color picker widget (`ColorPicker`) | **Implemented** |
 | 10.38 | Box shadows / modal drop shadows (`ISurface.DrawShadow`) | **Implemented** |
 | 10.39 | Backdrop dimming behind modals (`Backdrop.Dim`) | **Implemented** |
-| 10.40 | Image rendering — half-block (`HalfBlockImage`) | **Implemented** (half-block; sixel/kitty not attempted) |
+| 10.40 | Image rendering — half-block + sixel + kitty (`HalfBlockImage`/`SixelEncoder`/`KittyImageEncoder`) | **Implemented** |
 | — | Keybinding editor / user-configurable keymap (`KeyBindingEditor`/`KeyBindingSet`) | **Implemented** |
 | — | Guided-tour example (self-describing `TUIKit.Example`) | **Implemented** |
 
 ### Summary: included vs. excluded
 
-**Implemented (39 of the 40 catalogued items, plus the keybinding editor):** 10.1–10.18, 10.20–10.40. Every requested widget, layout, reactivity, animation, testing, terminal-integration, and visual-effect capability now ships with public XML docs and several positive/negative Touchstone tests each (216 cases, all green across the console, xUnit, and NUnit runners on net8.0 and net10.0).
+**Implemented (39 of the 40 catalogued items, plus the keybinding editor):** 10.1–10.18, 10.20–10.40. Every requested widget, layout, reactivity, animation, testing, terminal-integration, and visual-effect capability now ships with public XML docs and several positive/negative Touchstone tests each (220 cases, all green across the console, xUnit, and NUnit runners on net8.0 and net10.0).
 
 **Deliberately excluded:**
 
 - **10.19 Autocomplete / typeahead popup** — excluded at the user's request.
 
-**Partial / scoped:**
+**Notes:**
 
-- **10.40 Image rendering** — the half-block (`▀`) renderer ships; sixel and kitty graphics protocols were not attempted (they need per-terminal capability negotiation and binary payloads out of scope for a dependency-free core).
-- **10.31 Suspend/resume signals** — event surface and POSIX signal wiring ship on .NET 8+ Unix; on `netstandard2.0` the signal hook is a documented no-op (the `PosixSignalRegistration` API is unavailable there).
+- **10.40 Image rendering** — `HalfBlockImage` draws into the cell grid and works everywhere; `SixelEncoder` and `KittyImageEncoder` emit raw escape sequences for terminals that support the sixel or kitty graphics protocols, written directly to the backend at the cursor.
+- **10.31 Suspend/resume signals** — POSIX signals (SIGTSTP/SIGCONT/SIGWINCH/SIGINT) are wired via `PosixSignalRegistration` on .NET 8+ and via a libc `signal()` compatibility shim on `netstandard2.0`; on Windows the hook is a no-op. The `netstandard2.0` shim invokes managed handlers from a native signal context, so it is documented as best-effort.
 
-**Still outstanding:** none. Running `TUIKit.Example` now launches a self-describing guided tour — a header names each feature, the left pane renders the live widget, and the right pane shows the code that builds it (PageUp/PageDown to browse, arrows/Enter to interact). The original agent-control harness is still available with `--harness`.
+**Still outstanding:** none. Running `TUIKit.Example` launches a self-describing guided tour — a header names each feature, the left pane renders the live widget, and the right pane shows the code that builds it (PageUp/PageDown to browse, arrows/Enter to interact). Global keys open live UI: **F1**/**?** help overlay, **Ctrl+G** settings & actions menu, **Ctrl+T** theme cycle, **Ctrl+K** confirmation dialog, **Ctrl+N** notification toast. The original agent-control harness is still available with `--harness`.
 
 Everything already shipped (core engine, layout, panes, input, mouse/links, modals, notifications, theming, diagnostics, headless testing) is documented in the sections above.

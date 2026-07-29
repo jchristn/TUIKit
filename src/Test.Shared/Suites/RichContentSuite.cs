@@ -11,23 +11,23 @@ namespace Test.Shared.Suites
     using TUIKit.Widgets;
 
     /// <summary>
-    /// Touchstone suite for tranche 3: the diff view (10.12), the data table (10.17), syntax
+    /// Touchstone suite for rich content: the diff view (10.12), the data table (10.17), syntax
     /// highlighting (10.18), and Markdown completeness — task lists, ordered lists, and tables (10.29).
     /// </summary>
-    public static class Tranche3Suite
+    public static class RichContentSuite
     {
         /// <summary>
-        /// Builds the tranche 3 suite descriptor.
+        /// Builds the rich content suite descriptor.
         /// </summary>
         /// <returns>The suite descriptor.</returns>
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche3",
-                displayName: "Tranche 3 (Diff / Table / Markdown)",
+                suiteId: "RichContent",
+                displayName: "Rich Content (Diff, Table, Syntax, Markdown)",
                 cases: new List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche3", "DiffComputes", "Diff classifies added, removed, and context lines",
+                    new TestCaseDescriptor("RichContent", "DiffComputes", "Diff classifies added, removed, and context lines",
                         _ =>
                         {
                             DiffView diff = new DiffView("a\nb\nc", "a\nx\nc");
@@ -44,7 +44,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "DiffIdentical", "Identical texts produce only context",
+                    new TestCaseDescriptor("RichContent", "DiffIdentical", "Identical texts produce only context",
                         _ =>
                         {
                             DiffView diff = new DiffView("one\ntwo", "one\ntwo");
@@ -54,7 +54,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "DiffGuards", "Diff rejects null texts",
+                    new TestCaseDescriptor("RichContent", "DiffGuards", "Diff rejects null texts",
                         _ =>
                         {
                             Check.Throws<ArgumentNullException>(() => new DiffView(null!, "x"), "null old text");
@@ -62,7 +62,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "DiffScroll", "Diff scrolls with the keyboard",
+                    new TestCaseDescriptor("RichContent", "DiffScroll", "Diff scrolls with the keyboard",
                         _ =>
                         {
                             StringBuilder oldText = new StringBuilder();
@@ -80,7 +80,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "TableRenders", "Data table renders headers and rows",
+                    new TestCaseDescriptor("RichContent", "TableRenders", "Data table renders headers and rows",
                         _ =>
                         {
                             DataTable<string> table = new DataTable<string>()
@@ -98,7 +98,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "TableNavigate", "Data table moves selection with arrows",
+                    new TestCaseDescriptor("RichContent", "TableNavigate", "Data table moves selection with arrows",
                         _ =>
                         {
                             DataTable<string> table = new DataTable<string>().Column("V", s => s);
@@ -113,7 +113,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "TableSort", "Data table sorts a sortable column and toggles order",
+                    new TestCaseDescriptor("RichContent", "TableSort", "Data table sorts a sortable column and toggles order",
                         _ =>
                         {
                             DataTable<string> table = new DataTable<string>()
@@ -128,7 +128,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "TableGuards", "Data table validates inputs",
+                    new TestCaseDescriptor("RichContent", "TableGuards", "Data table validates inputs",
                         _ =>
                         {
                             DataTable<string> table = new DataTable<string>().Column("V", s => s);
@@ -144,7 +144,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "SyntaxHighlight", "Syntax highlighter colors keywords, strings, and comments",
+                    new TestCaseDescriptor("RichContent", "SyntaxHighlight", "Syntax highlighter colors keywords, strings, and comments",
                         _ =>
                         {
                             StyledText line = SyntaxHighlighter.HighlightLine("int x = 5; // note", "csharp");
@@ -169,7 +169,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "MarkdownTaskList", "Markdown renders checked and unchecked task items",
+                    new TestCaseDescriptor("RichContent", "MarkdownTaskList", "Markdown renders checked and unchecked task items",
                         _ =>
                         {
                             IReadOnlyList<StyledText> lines = MarkdownRenderer.Render("- [ ] todo\n- [x] done");
@@ -178,7 +178,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "MarkdownOrdered", "Markdown preserves ordered list markers",
+                    new TestCaseDescriptor("RichContent", "MarkdownOrdered", "Markdown preserves ordered list markers",
                         _ =>
                         {
                             IReadOnlyList<StyledText> lines = MarkdownRenderer.Render("1. first\n2. second");
@@ -187,7 +187,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "MarkdownNested", "Markdown indents nested bullets",
+                    new TestCaseDescriptor("RichContent", "MarkdownNested", "Markdown indents nested bullets",
                         _ =>
                         {
                             IReadOnlyList<StyledText> lines = MarkdownRenderer.Render("- top\n    - nested");
@@ -196,7 +196,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche3", "MarkdownTable", "Markdown renders table rows and rules",
+                    new TestCaseDescriptor("RichContent", "MarkdownTable", "Markdown renders table rows and rules",
                         _ =>
                         {
                             IReadOnlyList<StyledText> lines = MarkdownRenderer.Render("| A | B |\n| --- | --- |\n| 1 | 2 |");

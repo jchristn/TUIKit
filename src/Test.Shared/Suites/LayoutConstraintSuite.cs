@@ -13,7 +13,7 @@ namespace Test.Shared.Suites
     /// Touchstone suite adding coverage for the layout DSL and constraint validation, plus more
     /// positive/negative cases for markup, the split-layout builder, tabs, trees, and the fuzzy list.
     /// </summary>
-    public static class Tranche11Suite
+    public static class LayoutConstraintSuite
     {
         /// <summary>
         /// Builds the suite descriptor.
@@ -22,11 +22,11 @@ namespace Test.Shared.Suites
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche11",
-                displayName: "Tranche 11 (Layout DSL / More Coverage)",
+                suiteId: "LayoutConstraint",
+                displayName: "Layout DSL & Constraint Validation",
                 cases: new List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche11", "ColumnLayout", "Column layout sizes fixed and fill slots",
+                    new TestCaseDescriptor("LayoutConstraint", "ColumnLayout", "Column layout sizes fixed and fill slots",
                         _ =>
                         {
                             Layout layout = Layout.Column(
@@ -46,7 +46,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche11", "RowLayout", "Row layout splits fill slots equally",
+                    new TestCaseDescriptor("LayoutConstraint", "RowLayout", "Row layout splits fill slots equally",
                         _ =>
                         {
                             Layout layout = Layout.Row(LayoutSlot.Fill("a"), LayoutSlot.Fill("b"));
@@ -61,7 +61,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche11", "SlotGuards", "Layout slots and constraints validate arguments",
+                    new TestCaseDescriptor("LayoutConstraint", "SlotGuards", "Layout slots and constraints validate arguments",
                         _ =>
                         {
                             Check.Throws<ArgumentException>(() => LayoutSlot.Fixed("", 3), "empty slot id");
@@ -77,7 +77,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche11", "MarkupEscapes", "Markup escapes brackets and tolerates stray tags",
+                    new TestCaseDescriptor("LayoutConstraint", "MarkupEscapes", "Markup escapes brackets and tolerates stray tags",
                         _ =>
                         {
                             Check.Equal("[x]", Markup.Parse("[[x]]").ToString(), "double brackets escape to literals");
@@ -90,7 +90,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche11", "TabsAndTree", "Tabs and tree validate indices and null arguments",
+                    new TestCaseDescriptor("LayoutConstraint", "TabsAndTree", "Tabs and tree validate indices and null arguments",
                         _ =>
                         {
                             TabView tabs = new TabView()
@@ -110,7 +110,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche11", "FuzzyAndBanner", "Fuzzy list rejects null query; banner handles edges",
+                    new TestCaseDescriptor("LayoutConstraint", "FuzzyAndBanner", "Fuzzy list rejects null query; banner handles edges",
                         _ =>
                         {
                             FuzzyList list = new FuzzyList(new[] { "one", "two", "three" });
@@ -136,7 +136,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche11", "DataTableBind", "Data table keeps selection valid after rebind",
+                    new TestCaseDescriptor("LayoutConstraint", "DataTableBind", "Data table keeps selection valid after rebind",
                         _ =>
                         {
                             DataTable<string> table = new DataTable<string>().Column("V", s => s);

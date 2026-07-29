@@ -9,23 +9,23 @@ namespace Test.Shared.Suites
     using TUIKit.Widgets;
 
     /// <summary>
-    /// Touchstone suite for tranche 9: the editable key-binding set and the key-binding editor widget
+    /// Touchstone suite for key bindings: the editable key-binding set and the key-binding editor widget
     /// (the user-configurable keymap).
     /// </summary>
-    public static class Tranche9Suite
+    public static class KeyBindingSuite
     {
         /// <summary>
-        /// Builds the tranche 9 suite descriptor.
+        /// Builds the key bindings suite descriptor.
         /// </summary>
         /// <returns>The suite descriptor.</returns>
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche9",
-                displayName: "Tranche 9 (Key Bindings)",
+                suiteId: "KeyBinding",
+                displayName: "Key Bindings",
                 cases: new List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche9", "BindingSet", "Binding set rebinds and rejects conflicts",
+                    new TestCaseDescriptor("KeyBinding", "BindingSet", "Binding set rebinds and rejects conflicts",
                         _ =>
                         {
                             KeyBindingSet set = new KeyBindingSet()
@@ -50,7 +50,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche9", "BindingEditor", "Binding editor captures and rebinds keys",
+                    new TestCaseDescriptor("KeyBinding", "BindingEditor", "Binding editor captures and rebinds keys",
                         _ =>
                         {
                             KeyBindingSet set = new KeyBindingSet().Add("save", "s").Add("quit", "q");

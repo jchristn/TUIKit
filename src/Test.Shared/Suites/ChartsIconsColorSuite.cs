@@ -10,23 +10,23 @@ namespace Test.Shared.Suites
     using TUIKit.Widgets;
 
     /// <summary>
-    /// Touchstone suite for tranche 4: the Braille canvas and charts (10.27), the icon catalog
+    /// Touchstone suite for charts, icons, and color: the Braille canvas and charts (10.27), the icon catalog
     /// (10.26), and the color picker (10.37).
     /// </summary>
-    public static class Tranche4Suite
+    public static class ChartsIconsColorSuite
     {
         /// <summary>
-        /// Builds the tranche 4 suite descriptor.
+        /// Builds the charts, icons, and color suite descriptor.
         /// </summary>
         /// <returns>The suite descriptor.</returns>
         public static TestSuiteDescriptor Suite()
         {
             return new TestSuiteDescriptor(
-                suiteId: "Tranche4",
-                displayName: "Tranche 4 (Charts / Icons / Color)",
+                suiteId: "ChartsIconsColor",
+                displayName: "Charts, Icons & Color",
                 cases: new List<TestCaseDescriptor>
                 {
-                    new TestCaseDescriptor("Tranche4", "BraillePixels", "Braille canvas sets, clears, and reports pixels",
+                    new TestCaseDescriptor("ChartsIconsColor", "BraillePixels", "Braille canvas sets, clears, and reports pixels",
                         _ =>
                         {
                             BrailleCanvas canvas = new BrailleCanvas(3, 2);
@@ -44,7 +44,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche4", "BrailleRender", "Braille canvas renders the correct glyph",
+                    new TestCaseDescriptor("ChartsIconsColor", "BrailleRender", "Braille canvas renders the correct glyph",
                         _ =>
                         {
                             BrailleCanvas canvas = new BrailleCanvas(1, 1);
@@ -56,7 +56,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche4", "BrailleGuards", "Braille canvas rejects bad dimensions",
+                    new TestCaseDescriptor("ChartsIconsColor", "BrailleGuards", "Braille canvas rejects bad dimensions",
                         _ =>
                         {
                             Check.Throws<ArgumentOutOfRangeException>(() => new BrailleCanvas(0, 2), "zero width");
@@ -64,7 +64,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche4", "LineChart", "Line chart plots a series without error",
+                    new TestCaseDescriptor("ChartsIconsColor", "LineChart", "Line chart plots a series without error",
                         _ =>
                         {
                             LineChart chart = new LineChart(new double[] { 0, 2, 1, 3, 2 });
@@ -83,7 +83,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche4", "BarChart", "Bar chart renders labels, bars, and values",
+                    new TestCaseDescriptor("ChartsIconsColor", "BarChart", "Bar chart renders labels, bars, and values",
                         _ =>
                         {
                             BarChart chart = new BarChart().Add("cpu", 80).Add("mem", 40);
@@ -101,7 +101,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche4", "IconModes", "Icons resolve per mode and by name",
+                    new TestCaseDescriptor("ChartsIconsColor", "IconModes", "Icons resolve per mode and by name",
                         _ =>
                         {
                             IconMode previous = Icons.Mode;
@@ -128,7 +128,7 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
-                    new TestCaseDescriptor("Tranche4", "ColorPicker", "Color picker edits channels and composes a color",
+                    new TestCaseDescriptor("ChartsIconsColor", "ColorPicker", "Color picker edits channels and composes a color",
                         _ =>
                         {
                             ColorPicker picker = new ColorPicker(Color.FromRgb(10, 20, 30));
