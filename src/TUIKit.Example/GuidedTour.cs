@@ -24,6 +24,8 @@ namespace TUIKit.Example
         private readonly TuiApplication _App;
         private readonly List<TourPage> _Pages;
         private readonly Layout _Layout;
+        private readonly List<string> _Events = new List<string>();
+        private readonly object _EventsLock = new object();
         private int _Index;
         private int _ThemeIndex;
         private bool _ShowHelp;
@@ -36,8 +38,9 @@ namespace TUIKit.Example
             _Layout = Layout.Create()
                 .Add("header", r => r.FillWidth().TopAnchored(0, 1))
                 .Add("desc", r => r.FillWidth().TopAnchored(1, 1).WithPadding(0))
-                .Add("demo", r => r.ProportionalWidth(0.0, 0.5).Vertical(AxisConstraint.Stretch(2, 1)).WithBorder(BorderStyle.Rounded, "Live demo"))
-                .Add("code", r => r.ProportionalWidth(0.5, 0.5).Vertical(AxisConstraint.Stretch(2, 1)).WithBorder(BorderStyle.Rounded, "Code"))
+                .Add("demo", r => r.ProportionalWidth(0.0, 0.5).Vertical(AxisConstraint.Stretch(2, 8)).WithBorder(BorderStyle.Rounded, "Live demo"))
+                .Add("code", r => r.ProportionalWidth(0.5, 0.5).Vertical(AxisConstraint.Stretch(2, 8)).WithBorder(BorderStyle.Rounded, "Code"))
+                .Add("actions", r => r.FillWidth().BottomAnchored(1, 7).WithBorder(BorderStyle.Rounded, "Actions"))
                 .Add("footer", r => r.FillWidth().BottomAnchored(0, 1))
                 .Build();
 
@@ -52,11 +55,11 @@ namespace TUIKit.Example
             _App.Commands.Register(KeyChord.Parse("f12"), "mouse");
 
             _App.RegisterCommand("quit", () => _App.RequestStop());
-            _App.RegisterCommand("help", () => _ShowHelp = !_ShowHelp);
+            _App.RegisterCommand("help", () => { _ShowHelp = !_ShowHelp; Log(_ShowHelp ? "F1 was pressed, opening help" : "Help closed"); });
             _App.RegisterCommand("settings", OpenSettings);
             _App.RegisterCommand("theme", CycleTheme);
             _App.RegisterCommand("confirm", ConfirmDemo);
-            _App.RegisterCommand("notify", () => _App.Notify("This is a TUIKit notification toast.", NotificationSeverity.Info, 2500));
+            _App.RegisterCommand("notify", () => { _App.Notify("This is a TUIKit notification toast.", NotificationSeverity.Info, 2500); Log("Ctrl+N was pressed, showing a notification toast"); });
             _App.RegisterCommand("mouse", ToggleMouse);
 
             _App.CtrlCPolicy = CtrlCPolicy.DoubleTapToExit;
@@ -67,6 +70,7 @@ namespace TUIKit.Example
         private void ToggleMouse()
         {
             bool on = _App.ToggleMouseCapture();
+            Log("F12 was pressed, mouse capture " + (on ? "ON" : "OFF"));
             _App.Notify(
                 on
                     ? "Mouse capture ON — widgets are interactive again."
@@ -85,11 +89,13 @@ namespace TUIKit.Example
             else
                 _App.Theme = Theme.Dark;
 
+            Log("Ctrl+T was pressed, theme is now " + _App.Theme.Name);
             _App.Notify("Theme: " + _App.Theme.Name, NotificationSeverity.Success, 2000);
         }
 
         private async void OpenSettings()
         {
+            Log("Ctrl+G was pressed, opening the settings menu");
             int choice = await _App.SelectAsync(
                 "Settings & actions",
                 "Cycle theme (dark / light / high-contrast)",
@@ -195,22 +201,43 @@ namespace TUIKit.Example
             if (key.Code == KeyCode.PageDown || IsChar(key, ']'))
             {
                 _Index = (_Index + 1) % _Pages.Count;
+                Log("Page down was pressed, navigating to " + _Pages[_Index].Title);
                 return;
             }
 
             if (key.Code == KeyCode.PageUp || IsChar(key, '['))
             {
                 _Index = (_Index - 1 + _Pages.Count) % _Pages.Count;
+                Log("Page up was pressed, navigating to " + _Pages[_Index].Title);
                 return;
             }
 
-            if (_Pages[_Index].Demo is IFocusable focusable)
-                focusable.HandleKey(key);
+            if (_Pages[_Index].Demo is IFocusable focusable && focusable.HandleKey(key))
+                Log(Describe(key) + " sent to the " + _Pages[_Index].Title + " demo");
         }
 
         private static bool IsChar(KeyEvent key, char c)
         {
             return key.Code == KeyCode.Character && key.Rune == c;
+        }
+
+        private void Log(string message)
+        {
+            lock (_EventsLock)
+            {
+                _Events.Add(message);
+                const int Max = 200;
+                if (_Events.Count > Max)
+                    _Events.RemoveRange(0, _Events.Count - Max);
+            }
+        }
+
+        private static string Describe(KeyEvent key)
+        {
+            if (key.Code == KeyCode.Character)
+                return "'" + char.ConvertFromUtf32(key.Rune) + "'";
+
+            return key.Code.ToString();
         }
 
         private void Draw(ISurface root)
@@ -237,17 +264,27 @@ namespace TUIKit.Example
                 descView.DrawStyledText(0, 0, Markup.Parse(page.Description));
             }
 
+            Color blackColor = Color.FromRgb(0, 0, 0);
+            CellStyle black = CellStyle.Default.WithBackground(blackColor);
+
             Rect demoRect = _Layout.FindById("demo")!.ContentRect(size);
             if (!demoRect.IsEmpty)
-                page.Demo.Render(buffer.CreateView(demoRect));
+            {
+                BufferSurface demoView = buffer.CreateView(demoRect);
+                demoView.Fill(new Rect(0, 0, demoRect.Width, demoRect.Height), Cell.Blank(black));
+                page.Demo.Render(new SolidBackgroundSurface(demoView, blackColor));
+            }
 
             Rect codeRect = _Layout.FindById("code")!.ContentRect(size);
             if (!codeRect.IsEmpty)
             {
                 BufferSurface codeView = buffer.CreateView(codeRect);
+                codeView.Fill(new Rect(0, 0, codeRect.Width, codeRect.Height), Cell.Blank(black));
                 for (int i = 0; i < page.Code.Count && i < codeRect.Height; i++)
-                    codeView.DrawStyledText(0, i, SyntaxHighlighter.HighlightLine(page.Code[i], "csharp"));
+                    codeView.DrawStyledText(0, i, SyntaxHighlighter.HighlightLine(page.Code[i], "csharp"), black);
             }
+
+            DrawActions(buffer, size);
 
             CellStyle muted = _App.Theme.Muted;
             root.Fill(new Rect(0, size.Height - 1, size.Width, 1), Cell.Blank(muted));
@@ -255,6 +292,38 @@ namespace TUIKit.Example
 
             if (_ShowHelp)
                 DrawHelp(root, size, buffer);
+        }
+
+        private void DrawActions(BufferSurface buffer, Size size)
+        {
+            Rect rect = _Layout.FindById("actions")!.ContentRect(size);
+            if (rect.IsEmpty)
+                return;
+
+            string[] events;
+            lock (_EventsLock)
+                events = _Events.ToArray();
+
+            BufferSurface view = buffer.CreateView(rect);
+            if (events.Length == 0)
+            {
+                view.DrawText(0, 0, "Press PgUp / PgDn to navigate — key events are logged here.", _App.Theme.Muted);
+                return;
+            }
+
+            int start = Math.Max(0, events.Length - rect.Height);
+            for (int row = 0; start + row < events.Length && row < rect.Height; row++)
+            {
+                string text = events[start + row];
+                if (text.Length > rect.Width)
+                    text = text.Substring(0, rect.Width);
+
+                bool newest = start + row == events.Length - 1;
+                CellStyle style = newest
+                    ? CellStyle.Default.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true)
+                    : CellStyle.Default;
+                view.DrawText(0, row, text, style);
+            }
         }
 
         private void DrawHelp(ISurface root, Size size, BufferSurface buffer)
@@ -360,19 +429,26 @@ namespace TUIKit.Example
                     "// Measures 5 cells tall."
                 }));
 
-            double[] wave = new double[48];
-            for (int i = 0; i < wave.Length; i++)
-                wave[i] = Math.Sin(i * 0.3) + Math.Sin(i * 0.11);
+            double[] waveA = new double[48];
+            double[] waveB = new double[48];
+            for (int i = 0; i < waveA.Length; i++)
+            {
+                waveA[i] = Math.Sin(i * 0.30);
+                waveB[i] = Math.Sin(i * 0.18 + 1.0) * 0.8;
+            }
+
             pages.Add(new TourPage(
                 "Line chart (braille)",
-                "[bold]LineChart[/] plots a series onto a [bold]BrailleCanvas[/] at 2x4 resolution.",
-                new LineChart(wave),
+                "[bold]LineChart[/] plots a series onto a [bold]BrailleCanvas[/] — here two waves in two colors.",
+                new DualLineChart(waveA, Color.FromPalette(6), waveB, Color.FromPalette(5)),
                 new[]
                 {
-                    "double[] data = Sample();",
-                    "LineChart chart =",
-                    "  new LineChart(data);",
-                    "chart.Render(surface);"
+                    "LineChart a = new LineChart(waveA);",
+                    "a.Color = Color.FromPalette(6);  // cyan",
+                    "LineChart b = new LineChart(waveB);",
+                    "b.Color = Color.FromPalette(5);  // magenta",
+                    "a.Render(surface);",
+                    "b.Render(surface); // overlay"
                 }));
 
             pages.Add(new TourPage(
@@ -488,8 +564,10 @@ namespace TUIKit.Example
 
             SplitView split = new SplitView(
                 SplitOrientation.Vertical,
-                new SplitView(SplitOrientation.Horizontal, new Label(Text.From("left")), new Label(Text.From("right"))),
-                new Label(Text.From("bottom")));
+                new SplitView(SplitOrientation.Horizontal,
+                    new Label(Text.From("This is the top-left rectangle")),
+                    new Label(Text.From("This is the top-right rectangle"))),
+                new Label(Text.From("This is the bottom rectangle")));
             pages.Add(new TourPage(
                 "Split view (nested)",
                 "[bold]SplitView[/] nests and resizes. [bold]Up/Down[/] drags this divider.",

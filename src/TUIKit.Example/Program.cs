@@ -96,11 +96,23 @@ namespace TUIKit.Example
 
             bool help = Array.IndexOf(args, "--help") >= 0;
 
+            bool nav = Array.IndexOf(args, "--nav") >= 0;
+
             HeadlessBackend backend = new HeadlessBackend(100, 30);
             using (TuiApplication app = new TuiApplication(backend))
             {
                 GuidedTour tour = new GuidedTour(app);
                 app.Start();
+                if (nav)
+                {
+                    backend.FeedInput("\u001b[6~"); // PageDown
+                    app.PumpInputOnce();
+                    backend.FeedInput("\u001b[6~"); // PageDown
+                    app.PumpInputOnce();
+                    backend.FeedInput("\u001b[5~"); // PageUp
+                    app.PumpInputOnce();
+                }
+
                 string frame = tour.RenderFrame(100, 30, page, help);
                 app.Stop();
 
