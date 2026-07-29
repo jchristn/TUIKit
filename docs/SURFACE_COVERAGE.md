@@ -2,7 +2,7 @@
 
 > **Historical snapshot.** This report captured the surface at Phase 19 (the original 12 widgets, 111 Touchstone cases). The library has since grown substantially — the widget toolkit, charts, images, reactive/animation layers, and a large battery of validation suites were added, bringing the total to **254 Touchstone cases** run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0. For the authoritative, current list of test suites see `src/Test.Shared/Suites/`, and for the feature/capability status see [`../CHANGELOG.md`](../CHANGELOG.md) and [`../BUILDING_TERMINAL_APPS.md`](../BUILDING_TERMINAL_APPS.md). The methodology below still applies.
 
-This is the closing coverage pass required by `TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
+This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
 ## Coverage snapshot
 

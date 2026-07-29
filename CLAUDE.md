@@ -4,7 +4,7 @@ Guidance for working in this repository. These rules are derived from `c:\code\a
 
 ## Project
 
-TUIKit is a concurrent terminal UI framework for .NET. It multi-targets `netstandard2.0;net8.0;net10.0`. The build tree lives under `src/`; the phase-by-phase plan is in `TUIKIT_PLAN.md`. Requirements live in `c:\code\agents\requirements` and are authoritative.
+TUIKit is a concurrent terminal UI framework for .NET. It multi-targets `netstandard2.0;net8.0;net10.0`. The build tree lives under `src/`; the phase-by-phase plan is in `archive/TUIKIT_PLAN.md`. Requirements live in `c:\code\agents\requirements` and are authoritative.
 
 ## Code style (strict)
 
