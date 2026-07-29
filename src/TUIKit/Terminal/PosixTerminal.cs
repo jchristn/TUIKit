@@ -19,8 +19,12 @@ namespace TUIKit.Terminal
     /// </remarks>
     internal static class PosixTerminal
     {
-        // The controlling terminal's standard input file descriptor.
+        // The controlling terminal's standard input and output file descriptors.
         private const int StdInputFileDescriptor = 0;
+        private const int StdOutputFileDescriptor = 1;
+
+        // errno EINTR: a call was interrupted by a signal and should be retried.
+        private const int Eintr = 4;
 
         // tcsetattr: apply the change immediately without discarding pending input (TCSANOW == 0 on
         // both Linux and macOS).
@@ -38,6 +42,70 @@ namespace TUIKit.Terminal
 
         [DllImport("libc")]
         private static extern void cfmakeraw(byte[] termios);
+
+        [DllImport("libc", SetLastError = true, EntryPoint = "read")]
+        private static extern IntPtr ReadNative(int fd, byte[] buffer, UIntPtr count);
+
+        [DllImport("libc", SetLastError = true, EntryPoint = "write")]
+        private static extern IntPtr WriteNative(int fd, IntPtr buffer, UIntPtr count);
+
+        /// <summary>
+        /// Reads up to <paramref name="count"/> bytes of raw input directly from standard input,
+        /// bypassing <see cref="Console"/> (whose Unix implementation echoes and re-cooks the
+        /// terminal). Blocks until at least one byte is available while in raw mode.
+        /// </summary>
+        /// <param name="buffer">The destination buffer. Must not be null.</param>
+        /// <param name="count">The maximum number of bytes to read.</param>
+        /// <returns>The number of bytes read, 0 at end of input, or -1 on error.</returns>
+        internal static int ReadStdin(byte[] buffer, int count)
+        {
+            while (true)
+            {
+                IntPtr result = ReadNative(StdInputFileDescriptor, buffer, (UIntPtr)count);
+                int read = (int)result;
+                if (read < 0 && Marshal.GetLastWin32Error() == Eintr)
+                    continue;
+
+                return read;
+            }
+        }
+
+        /// <summary>
+        /// Writes <paramref name="length"/> bytes of <paramref name="data"/> to standard output
+        /// directly, bypassing <see cref="Console"/>. Retries short writes and signal interruptions.
+        /// </summary>
+        /// <param name="data">The bytes to write. Must not be null.</param>
+        /// <param name="length">The number of bytes at the start of <paramref name="data"/> to write.</param>
+        internal static void WriteStdout(byte[] data, int length)
+        {
+            GCHandle handle = GCHandle.Alloc(data, GCHandleType.Pinned);
+            try
+            {
+                IntPtr basePointer = handle.AddrOfPinnedObject();
+                int offset = 0;
+                while (offset < length)
+                {
+                    IntPtr result = WriteNative(StdOutputFileDescriptor, IntPtr.Add(basePointer, offset), (UIntPtr)(length - offset));
+                    int written = (int)result;
+                    if (written < 0)
+                    {
+                        if (Marshal.GetLastWin32Error() == Eintr)
+                            continue;
+
+                        break;
+                    }
+
+                    if (written == 0)
+                        break;
+
+                    offset += written;
+                }
+            }
+            finally
+            {
+                handle.Free();
+            }
+        }
 
         /// <summary>
         /// Reads the current terminal attributes and switches standard input to raw mode.

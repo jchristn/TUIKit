@@ -208,6 +208,55 @@
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("Input", "DecodeCsiFunctionKeys", "Decoder handles F1-F4 in CSI form (Kitty / modified)",
+                        _ =>
+                        {
+                            InputParser parser = new InputParser();
+
+                            Feed(parser, Esc + "[P"); // F1 as bare CSI (Kitty disambiguate mode)
+                            List<InputEvent> events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(1, events.Count, "One event for CSI F1");
+                            Check.Equal(KeyCode.F1, events[0].Key.Code, "F1 via CSI");
+                            Check.Equal(KeyModifiers.None, events[0].Key.Modifiers, "Unmodified F1");
+
+                            Feed(parser, Esc + "[1;5P"); // Ctrl+F1
+                            events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.F1, events[0].Key.Code, "Ctrl+F1 code");
+                            Check.True((events[0].Key.Modifiers & KeyModifiers.Ctrl) != 0, "Ctrl+F1 modifier");
+
+                            Feed(parser, Esc + "[S"); // F4
+                            Check.Equal(KeyCode.F4, new List<InputEvent>(parser.Drain())[0].Key.Code, "F4 via CSI");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "DecodeCsiCprNotFunctionKey", "A Cursor Position Report is not mistaken for F3",
+                        _ =>
+                        {
+                            InputParser parser = new InputParser();
+                            Feed(parser, Esc + "[24;80R"); // CPR: row 24, col 80 — leading param is not 1
+                            List<InputEvent> events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(0, events.Count, "CPR yields no key event");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Input", "DecodeKittyReleaseSuppressed", "Kitty key-release events are not dispatched as presses",
+                        _ =>
+                        {
+                            InputParser parser = new InputParser();
+
+                            // Press: Ctrl+G reported via CSI u with the ctrl modifier (5 = 1 + Ctrl).
+                            Feed(parser, Esc + "[103;5u");
+                            List<InputEvent> press = new List<InputEvent>(parser.Drain());
+                            Check.Equal(1, press.Count, "Press emits one event");
+                            Check.Equal((int)'g', press[0].Key.Rune, "Press rune g");
+                            Check.True((press[0].Key.Modifiers & KeyModifiers.Ctrl) != 0, "Press keeps Ctrl despite sub-parameter parsing");
+
+                            // Release: same key with event-type sub-parameter 3. Must be swallowed.
+                            Feed(parser, Esc + "[103;5:3u");
+                            Check.Equal(0, new List<InputEvent>(parser.Drain()).Count, "Release emits nothing");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("Input", "DecodeSplitEscapeSequence", "An escape sequence split across reads decodes once complete",
                         _ =>
                         {

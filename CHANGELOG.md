@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-29
+
+Unix keyboard input follow-up to v0.3.0.
+
+### Fixed
+- **macOS/Linux: keystrokes no longer echo and the screen no longer scrolls.** The Unix `ConsoleBackend` now performs all terminal I/O directly on the standard file descriptors (libc `read`/`write`) instead of through `System.Console`. `System.Console`'s Unix implementation echoed input and re-cooked the terminal (re-enabling `ISIG`/`OPOST`/echo) *behind* the `termios` raw mode we set, which is why typing, Enter, and Tab echoed and scrolled the view even after raw mode was applied. Window size still comes from `Console.WindowWidth`/`Height`, which queries the tty without re-cooking it.
+- **Function keys and help are reliable.** F1–F4 are now decoded in their CSI form (`ESC [ P`, `ESC [ 1;5 P`) in addition to SS3 (`ESC O P`), so F1 opens help under the enhanced-keyboard protocol iTerm2 and others use. Kitty key-release events and modifier sub-parameters (`5:3`) are parsed, so a key release no longer double-fires a command or dismisses the modal its press just opened — the cause of the phantom command and the settings dialog not appearing.
+
+### Added
+- The example binds `?` as a help alias (macOS frequently reserves F1–F12 for system functions) and renders footer/help key hints via `KeyChord.ToLabel(KeyLabel.Recommended)`.
+- Input-decoder tests for F1–F4 via CSI, a Cursor Position Report not being mistaken for F3, and Kitty release-event suppression.
+
 ## [0.3.0] - 2026-07-29
 
 Native cross-platform keyboard input.

@@ -229,6 +229,12 @@ namespace TUIKit.Input
 
             int[] parameters = ParseParams(paramText);
 
+            // The Kitty keyboard protocol can report a key event type as a sub-parameter of the
+            // modifier field (CSI key ; modifier : eventType ...); event type 3 is a key release. A
+            // release must not be dispatched as a fresh key press, or it would double-fire commands
+            // and dismiss a modal the matching press just opened.
+            bool release = IsReleaseEvent(paramText);
+
             if (final == '~')
             {
                 int code = parameters.Length > 0 ? parameters[0] : 0;
@@ -240,7 +246,7 @@ namespace TUIKit.Input
 
                 KeyModifiers tildeMods = parameters.Length > 1 ? DecodeModifiers(parameters[1]) : KeyModifiers.None;
                 KeyCode tilde = MapTilde(code);
-                if (tilde != KeyCode.Character)
+                if (!release && tilde != KeyCode.Character)
                     events.Add(InputEvent.FromKey(KeyEvent.Special(tilde, tildeMods)));
 
                 return total;
@@ -250,21 +256,35 @@ namespace TUIKit.Input
             {
                 int rune = parameters.Length > 0 ? parameters[0] : 0;
                 KeyModifiers uMods = parameters.Length > 1 ? DecodeModifiers(parameters[1]) : KeyModifiers.None;
-                if (rune > 0)
+                if (!release && rune > 0)
                     events.Add(InputEvent.FromKey(KeyEvent.Char(rune, uMods)));
 
                 return total;
             }
 
             KeyModifiers mods = parameters.Length > 1 ? DecodeModifiers(parameters[1]) : KeyModifiers.None;
-            KeyCode code2 = MapFinal((char)final);
+
             if (final == 'Z')
             {
-                events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Tab, KeyModifiers.Shift)));
+                if (!release)
+                    events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Tab, KeyModifiers.Shift)));
+
                 return total;
             }
 
-            if (code2 != KeyCode.Character)
+            // xterm and the Kitty protocol encode F1–F4 with a CSI final of P/Q/R/S (for example
+            // ESC [ P for F1, or ESC [ 1 ; 5 P for Ctrl+F1) in addition to the SS3 form handled above.
+            KeyCode functionKey = MapCsiFunctionKey((char)final, parameters);
+            if (functionKey != KeyCode.Character)
+            {
+                if (!release)
+                    events.Add(InputEvent.FromKey(KeyEvent.Special(functionKey, mods)));
+
+                return total;
+            }
+
+            KeyCode code2 = MapFinal((char)final);
+            if (!release && code2 != KeyCode.Character)
                 events.Add(InputEvent.FromKey(KeyEvent.Special(code2, mods)));
 
             return total;
@@ -392,6 +412,43 @@ namespace TUIKit.Input
             }
         }
 
+        private static KeyCode MapCsiFunctionKey(char final, int[] parameters)
+        {
+            // A leading parameter other than 1 indicates a different sequence that happens to share a
+            // final byte — most notably a Cursor Position Report (ESC [ row ; col R) — so only treat
+            // P/Q/R/S as F1–F4 when the sequence is unmodified or led by the standard 1.
+            int lead = parameters.Length > 0 ? parameters[0] : 0;
+            if (lead != 0 && lead != 1)
+                return KeyCode.Character;
+
+            switch (final)
+            {
+                case 'P':
+                    return KeyCode.F1;
+                case 'Q':
+                    return KeyCode.F2;
+                case 'R':
+                    return KeyCode.F3;
+                case 'S':
+                    return KeyCode.F4;
+                default:
+                    return KeyCode.Character;
+            }
+        }
+
+        private static bool IsReleaseEvent(string paramText)
+        {
+            if (string.IsNullOrEmpty(paramText))
+                return false;
+
+            string[] fields = paramText.Split(';');
+            if (fields.Length < 2)
+                return false;
+
+            string[] sub = fields[1].Split(':');
+            return sub.Length >= 2 && sub[1] == "3";
+        }
+
         private static KeyCode MapTilde(int code)
         {
             switch (code)
@@ -467,8 +524,15 @@ namespace TUIKit.Input
             int[] result = new int[parts.Length];
             for (int i = 0; i < parts.Length; i++)
             {
+                // A parameter may carry Kitty sub-parameters after a colon (for example the modifier
+                // field "5:3"); the primary value is the portion before the first colon.
+                string token = parts[i];
+                int colon = token.IndexOf(':');
+                if (colon >= 0)
+                    token = token.Substring(0, colon);
+
                 int value;
-                int.TryParse(parts[i], out value);
+                int.TryParse(token, out value);
                 result[i] = value;
             }
 

@@ -9,9 +9,12 @@ namespace TUIKit.Terminal
 
     /// <summary>
     /// An <see cref="ITerminalBackend"/> backed by the real process console. On Windows it enables
-    /// virtual terminal processing and raw input through the console API; on Unix-like systems it
-    /// puts the terminal into raw mode in-process through the libc <c>termios</c> API (see
-    /// <see cref="PosixTerminal"/>). A background thread reads raw input bytes so
+    /// virtual terminal processing and raw input through the console API and reads and writes through
+    /// <see cref="Console"/>. On Unix-like systems it puts the terminal into raw mode in-process
+    /// through the libc <c>termios</c> API and performs all input and output directly on the standard
+    /// file descriptors (see <see cref="PosixTerminal"/>), bypassing <see cref="Console"/> entirely —
+    /// the Unix <see cref="Console"/> implementation otherwise echoes keystrokes and re-cooks the
+    /// terminal behind the raw-mode settings. A background thread reads raw input bytes so
     /// <see cref="ReadInput"/> never blocks the render loop.
     /// </summary>
     /// <remarks>
@@ -49,6 +52,10 @@ namespace TUIKit.Terminal
         {
             get
             {
+                // Console.WindowWidth/Height query the tty size via a platform-correct ioctl and,
+                // unlike Console's stdin/stdout streams, do not re-cook the terminal on Unix. (A direct
+                // ioctl P/Invoke is avoided because ioctl is variadic and unsafe to call that way on
+                // Apple Silicon.)
                 int width;
                 int height;
                 try
@@ -101,17 +108,24 @@ namespace TUIKit.Terminal
 
             _Running = true;
 
-            try
+            if (_IsWindows)
             {
-                Console.OutputEncoding = new UTF8Encoding(false);
-            }
-            catch (IOException)
-            {
-                // Non-interactive or redirected output; encoding cannot be set.
+                // Windows: Console is well-behaved and provides the VT-enabled streams.
+                try
+                {
+                    Console.OutputEncoding = new UTF8Encoding(false);
+                }
+                catch (IOException)
+                {
+                    // Non-interactive or redirected output; encoding cannot be set.
+                }
+
+                _OutputStream = Console.OpenStandardOutput();
+                _InputStream = Console.OpenStandardInput();
             }
 
-            _OutputStream = Console.OpenStandardOutput();
-            _InputStream = Console.OpenStandardInput();
+            // Unix deliberately does not touch System.Console: it performs I/O on the raw file
+            // descriptors so its echo/line-discipline management cannot fight the termios raw mode.
 
             if (!_Interactive)
                 return;
@@ -151,9 +165,6 @@ namespace TUIKit.Terminal
         /// <inheritdoc/>
         public void Flush()
         {
-            if (_OutputStream == null)
-                return;
-
             string pending;
             lock (_WriteSync)
             {
@@ -165,8 +176,18 @@ namespace TUIKit.Terminal
             }
 
             byte[] bytes = Encoding.UTF8.GetBytes(pending);
-            _OutputStream.Write(bytes, 0, bytes.Length);
-            _OutputStream.Flush();
+            if (_IsWindows)
+            {
+                if (_OutputStream == null)
+                    return;
+
+                _OutputStream.Write(bytes, 0, bytes.Length);
+                _OutputStream.Flush();
+            }
+            else
+            {
+                PosixTerminal.WriteStdout(bytes, bytes.Length);
+            }
         }
 
         /// <inheritdoc/>
@@ -272,13 +293,9 @@ namespace TUIKit.Terminal
 
             try
             {
-                if (_OutputStream != null)
-                {
-                    byte[] reset = Encoding.UTF8.GetBytes(
-                        Ansi.ShowCursor + Ansi.ExitAltScreen + Ansi.ResetAttributes);
-                    _OutputStream.Write(reset, 0, reset.Length);
-                    _OutputStream.Flush();
-                }
+                byte[] reset = Encoding.UTF8.GetBytes(
+                    Ansi.ShowCursor + Ansi.ExitAltScreen + Ansi.ResetAttributes);
+                PosixTerminal.WriteStdout(reset, reset.Length);
             }
             catch (IOException)
             {
@@ -288,16 +305,15 @@ namespace TUIKit.Terminal
 
         private void ReaderLoop()
         {
-            if (_InputStream == null)
-                return;
-
             byte[] buffer = new byte[1024];
             while (_Running)
             {
                 int read;
                 try
                 {
-                    read = _InputStream.Read(buffer, 0, buffer.Length);
+                    read = _IsWindows
+                        ? (_InputStream != null ? _InputStream.Read(buffer, 0, buffer.Length) : -1)
+                        : PosixTerminal.ReadStdin(buffer, buffer.Length);
                 }
                 catch (IOException)
                 {

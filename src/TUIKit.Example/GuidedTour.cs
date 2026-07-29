@@ -55,6 +55,7 @@ namespace TUIKit.Example
             _App.Layout = _Layout;
             _App.Commands.Register(KeyChord.Parse("ctrl+q"), "quit");
             _App.Commands.Register(KeyChord.Parse("f1"), "help");
+            _App.Commands.Register(KeyChord.Parse("?"), "help");
             _App.Commands.Register(KeyChord.Parse("ctrl+g"), "settings");
             _App.Commands.Register(KeyChord.Parse("ctrl+t"), "theme");
             _App.Commands.Register(KeyChord.Parse("ctrl+k"), "confirm");
@@ -364,7 +365,7 @@ namespace TUIKit.Example
             root.Fill(new Rect(0, size.Height - 1, size.Width, 1), Cell.Blank(muted));
             root.DrawText(0, size.Height - 1, " " + Hint("tab") + ": focus [" + FocusName + "]   "
                 + Hint("pageup") + "/" + Hint("pagedown") + ": browse   arrows/" + Hint("enter") + ": interact   "
-                + Hint("ctrl+g") + " settings   " + Hint("f1") + " help   " + Hint("ctrl+q") + " quit", muted);
+                + Hint("ctrl+g") + " settings   " + Hint("f1") + "/? help   " + Hint("ctrl+q") + " quit", muted);
 
             if (_ShowHelp)
                 DrawHelp(root, size, buffer);
@@ -473,7 +474,7 @@ namespace TUIKit.Example
                 "  " + Hint("ctrl+k").PadRight(16) + "confirmation dialog demo",
                 "  " + Hint("ctrl+n").PadRight(16) + "show a notification toast",
                 "  " + Hint("f12").PadRight(16) + "toggle mouse capture (native text select)",
-                "  " + Hint("f1").PadRight(16) + "toggle this help",
+                "  " + (Hint("f1") + " / ?").PadRight(16) + "toggle this help",
                 "  " + Hint("ctrl+q").PadRight(16) + "quit",
                 "",
                 "  With mouse capture OFF, drag to select and copy",
