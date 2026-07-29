@@ -120,6 +120,25 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("HostErgo", "NotifyPadding", "Toast is framed with one leading and one trailing space",
+                        _ =>
+                        {
+                            NotificationCenter center = new NotificationCenter();
+                            center.Add("saved", NotificationSeverity.Info, 0, 5000);
+
+                            CellBuffer buffer = new CellBuffer(20, 3);
+                            center.Render(new BufferSurface(buffer), 0);
+
+                            int width = Math.Min(40, 20 - 2);
+                            int x = 20 - width - 1;
+                            System.Text.StringBuilder label = new System.Text.StringBuilder();
+                            for (int c = x; c < x + 7; c++)
+                                label.Append(buffer.Get(c, 0).Grapheme);
+
+                            Check.Equal(" saved ", label.ToString(), "exactly one leading and one trailing space");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("HostErgo", "BindArgumentGuards", "Bind rejects null arguments",
                         _ =>
                         {

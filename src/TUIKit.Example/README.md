@@ -2,10 +2,12 @@
 
 Running the example launches a **guided tour** of TUIKit: a header names the feature being
 shown, the left "Live demo" pane renders the widget itself, and the right "Code" pane shows the
-code that builds it. Browse features with **PageUp/PageDown** (or `[` / `]`), interact with the
-live widget using the **arrow keys** and **Enter**, and quit with **Ctrl+Q**. The tour covers
-markup, banners, charts, progress, tables, trees, tabs, fuzzy finding, menus, nested splits, the
-color picker, diffs, the key-binding editor, and images (half-block / sixel / kitty).
+code that builds it. **Tab** cycles focus between the **Live demo** and a full-width **Interactive**
+box that echoes whatever you type. While the Live demo is focused, browse features with
+**PageUp/PageDown** (or `[` / `]`); the **arrow keys** and **Enter** interact with the focused box,
+and **Ctrl+Q** quits. The tour covers markup, banners, charts, progress, tables, trees, tabs, fuzzy
+finding, menus, nested splits, the color picker, diffs, the key-binding editor, and images
+(half-block / sixel / kitty).
 
 Global keys open live UI on top of the tour:
 

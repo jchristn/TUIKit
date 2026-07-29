@@ -102,6 +102,7 @@ namespace TUIKit.Modals
 
         /// <summary>
         /// Renders active notifications into the top-right corner of the surface, stacking downward.
+        /// Each message is framed with exactly one leading and one trailing space.
         /// </summary>
         /// <param name="surface">The screen surface. Must not be null.</param>
         /// <param name="nowMilliseconds">The current time in milliseconds.</param>
@@ -123,7 +124,10 @@ namespace TUIKit.Modals
                 CellStyle style = CellStyle.Default.WithForeground(SeverityColor(item.Severity));
                 int x = surface.Size.Width - width - 1;
                 surface.Fill(new Rect(x, row, width, 1), Cell.Blank(CellStyle.Default));
-                surface.DrawText(x, row, Truncate(item.Text, width), style);
+
+                // Frame the message with exactly one leading and one trailing space.
+                string label = " " + Truncate(item.Text, Math.Max(0, width - 2)) + " ";
+                surface.DrawText(x, row, label, style);
                 row++;
             }
         }

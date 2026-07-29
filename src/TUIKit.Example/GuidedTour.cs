@@ -14,8 +14,10 @@ namespace TUIKit.Example
     /// <summary>
     /// A self-describing guided tour of TUIKit. A header names the feature being shown, the left
     /// "Live demo" pane renders the widget itself, and the right "Code" pane shows how to build it.
-    /// PageUp/PageDown (or '[' / ']') browse the features; the arrow keys and Enter interact with the
-    /// live widget. Global keys open live UI: F1 for help, Ctrl+G for the settings menu, Ctrl+T
+    /// Tab cycles focus between the "Live demo" and a full-width "Interactive" box that echoes typed
+    /// text. PageUp/PageDown (or '[' / ']') browse the features while the Live demo is focused; the
+    /// arrow keys and Enter interact with whichever box is focused. Global keys open live UI: F1 for
+    /// help, Ctrl+G for the settings menu, Ctrl+T
     /// to cycle the theme, Ctrl+K for a confirmation dialog, Ctrl+N for a notification, Ctrl+Q to quit.
     /// This is the default experience when you run <c>TUIKit.Example</c>.
     /// </summary>
@@ -26,9 +28,14 @@ namespace TUIKit.Example
         private readonly Layout _Layout;
         private readonly List<string> _Events = new List<string>();
         private readonly object _EventsLock = new object();
+        private const int FocusLiveDemo = 0;
+        private const int FocusInteractive = 1;
+        private const int FocusCount = 2;
         private int _Index;
         private int _ThemeIndex;
+        private int _FocusIndex = FocusLiveDemo;
         private bool _ShowHelp;
+        private string _Input = string.Empty;
 
         internal GuidedTour(TuiApplication app)
         {
@@ -38,8 +45,9 @@ namespace TUIKit.Example
             _Layout = Layout.Create()
                 .Add("header", r => r.FillWidth().TopAnchored(0, 1))
                 .Add("desc", r => r.FillWidth().TopAnchored(1, 1).WithPadding(0))
-                .Add("demo", r => r.ProportionalWidth(0.0, 0.5).Vertical(AxisConstraint.Stretch(2, 8)).WithBorder(BorderStyle.Rounded, "Live demo"))
-                .Add("code", r => r.ProportionalWidth(0.5, 0.5).Vertical(AxisConstraint.Stretch(2, 8)).WithBorder(BorderStyle.Rounded, "Code"))
+                .Add("demo", r => r.ProportionalWidth(0.0, 0.5).Vertical(AxisConstraint.Stretch(2, 13)).WithBorder(BorderStyle.Rounded, "Live demo"))
+                .Add("code", r => r.ProportionalWidth(0.5, 0.5).Vertical(AxisConstraint.Stretch(2, 13)).WithBorder(BorderStyle.Rounded, "Code"))
+                .Add("interactive", r => r.FillWidth().BottomAnchored(8, 5).WithBorder(BorderStyle.Rounded, "Interactive").WithPadding(1, 0, 1, 0))
                 .Add("actions", r => r.FillWidth().BottomAnchored(1, 7).WithBorder(BorderStyle.Rounded, "Actions"))
                 .Add("footer", r => r.FillWidth().BottomAnchored(0, 1))
                 .Build();
@@ -201,8 +209,24 @@ namespace TUIKit.Example
                 return;
             }
 
-            // PageUp/PageDown always browse — they are not printable, so they never conflict with a
-            // widget that accepts typed input.
+            // Tab (and Shift+Tab) cycle focus between the navigable rectangles: Live demo and Interactive.
+            if (key.Code == KeyCode.Tab)
+            {
+                bool back = (key.Modifiers & KeyModifiers.Shift) != 0;
+                _FocusIndex = (_FocusIndex + (back ? FocusCount - 1 : 1)) % FocusCount;
+                Log("Tab was pressed, focus is now " + FocusName);
+                return;
+            }
+
+            // While the Interactive box is focused it receives every other key.
+            if (_FocusIndex == FocusInteractive)
+            {
+                HandleInteractive(key);
+                return;
+            }
+
+            // From here on the Live demo is focused.
+            // PageUp/PageDown browse features — only meaningful while the Live demo is focused.
             if (key.Code == KeyCode.PageDown)
             {
                 Navigate(1, "Page down");
@@ -215,7 +239,7 @@ namespace TUIKit.Example
                 return;
             }
 
-            // Let a focusable demo consume the key first, so typing (e.g. in the fuzzy finder) works
+            // Let the focusable demo consume the key first, so typing (e.g. in the fuzzy finder) works
             // instead of triggering navigation. Only keys the widget ignores fall through below.
             if (_Pages[_Index].Demo is IFocusable focusable && focusable.HandleKey(key))
             {
@@ -228,6 +252,28 @@ namespace TUIKit.Example
                 Navigate(1, "]");
             else if (IsChar(key, '['))
                 Navigate(-1, "[");
+        }
+
+        private void HandleInteractive(KeyEvent key)
+        {
+            if (key.Code == KeyCode.Character && (key.Modifiers & KeyModifiers.Ctrl) == 0)
+            {
+                _Input += char.ConvertFromUtf32(key.Rune);
+            }
+            else if (key.Code == KeyCode.Backspace && _Input.Length > 0)
+            {
+                _Input = _Input.Substring(0, _Input.Length - 1);
+            }
+            else if (key.Code == KeyCode.Enter)
+            {
+                Log("Interactive: you typed \"" + _Input + "\"");
+                _Input = string.Empty;
+            }
+        }
+
+        private string FocusName
+        {
+            get { return _FocusIndex == FocusInteractive ? "Interactive" : "Live demo"; }
         }
 
         private void Navigate(int delta, string cause)
@@ -292,7 +338,12 @@ namespace TUIKit.Example
             // black so nothing shows the theme background.
             FillInterior(buffer, "demo", size, blackCell);
             FillInterior(buffer, "code", size, blackCell);
+            FillInterior(buffer, "interactive", size, blackCell);
             FillInterior(buffer, "actions", size, blackCell);
+
+            // Highlight the border of whichever navigable rectangle is focused.
+            DrawFocusBorder(root, "demo", "Live demo", size, _FocusIndex == FocusLiveDemo);
+            DrawFocusBorder(root, "interactive", "Interactive", size, _FocusIndex == FocusInteractive);
 
             Rect demoRect = _Layout.FindById("demo")!.ContentRect(size);
             if (!demoRect.IsEmpty)
@@ -306,11 +357,12 @@ namespace TUIKit.Example
                     codeView.DrawStyledText(0, i, SyntaxHighlighter.HighlightLine(page.Code[i], "csharp"), black);
             }
 
+            DrawInteractive(buffer, size, black);
             DrawActions(buffer, size, black);
 
             CellStyle muted = _App.Theme.Muted;
             root.Fill(new Rect(0, size.Height - 1, size.Width, 1), Cell.Blank(muted));
-            root.DrawText(0, size.Height - 1, " PgUp/PgDn browse   arrows/Enter interact   ^G settings   F1 help   ^T theme   F12 select-mode   ^Q quit", muted);
+            root.DrawText(0, size.Height - 1, " Tab: focus [" + FocusName + "]   PgUp/PgDn: browse   arrows/Enter: interact   ^G settings   F1 help   ^Q quit", muted);
 
             if (_ShowHelp)
                 DrawHelp(root, size, buffer);
@@ -327,6 +379,42 @@ namespace TUIKit.Example
                 return;
 
             buffer.Fill(new Rect(full.X + 1, full.Y + 1, full.Width - 2, full.Height - 2), cell);
+        }
+
+        private void DrawFocusBorder(ISurface root, string regionId, string title, Size size, bool focused)
+        {
+            Region? region = _Layout.FindById(regionId);
+            if (region == null)
+                return;
+
+            Rect rect = region.Resolve(size);
+            if (rect.Width < 2 || rect.Height < 2)
+                return;
+
+            CellStyle style = focused
+                ? _App.Theme.Border.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true)
+                : _App.Theme.Border;
+            root.DrawBox(rect, style, BorderStyle.Rounded, title);
+        }
+
+        private void DrawInteractive(BufferSurface buffer, Size size, CellStyle black)
+        {
+            Rect rect = _Layout.FindById("interactive")!.ContentRect(size);
+            if (rect.IsEmpty)
+                return;
+
+            bool focused = _FocusIndex == FocusInteractive;
+            BufferSurface view = buffer.CreateView(rect);
+
+            string cursor = focused ? "▊" : "";
+            CellStyle promptStyle = black.WithForeground(Color.FromPalette((byte)(focused ? 6 : 7)));
+            view.DrawText(0, 0, "Type here: " + _Input + cursor, promptStyle);
+
+            if (rect.Height > 1)
+                view.DrawText(0, 1, "Echo: " + _Input, black.WithForeground(Color.FromPalette(2)));
+
+            if (!focused && rect.Height > 2)
+                view.DrawText(0, 2, "(press Tab to focus this box)", black.WithForeground(Color.FromPalette(8)));
         }
 
         private void DrawActions(BufferSurface buffer, Size size, CellStyle black)
@@ -367,9 +455,10 @@ namespace TUIKit.Example
             {
                 "TUIKit guided tour — keys",
                 "",
-                "  PgUp / PgDn      previous / next feature",
-                "  [  /  ]          previous / next feature",
-                "  Up/Down/Enter    interact with the live widget",
+                "  Tab              switch focus: Live demo / Interactive",
+                "  PgUp / PgDn      previous / next feature (Live demo focus)",
+                "  [  /  ]          previous / next feature (Live demo focus)",
+                "  Up/Down/Enter    interact with the focused box",
                 "  Ctrl+G           settings & actions menu",
                 "  Ctrl+T           cycle theme (dark/light/high-contrast)",
                 "  Ctrl+K           confirmation dialog demo",
@@ -411,6 +500,7 @@ namespace TUIKit.Example
             welcome.WriteMarkup("[bold]Welcome to the TUIKit tour.[/]");
             welcome.WriteLine(string.Empty);
             welcome.WriteMarkup("Browse features with [yellow]PgUp/PgDn[/].");
+            welcome.WriteMarkup("[yellow]Tab[/] switches focus: [green]Live demo[/] / [green]Interactive[/].");
             welcome.WriteLine(string.Empty);
             welcome.WriteMarkup("Try the live [green]modals[/] and [green]settings[/]:");
             welcome.WriteMarkup("  [yellow]Ctrl+G[/]  settings & actions menu");
