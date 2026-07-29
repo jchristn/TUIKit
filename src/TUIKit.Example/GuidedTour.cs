@@ -155,10 +155,12 @@ namespace TUIKit.Example
         /// <param name="width">The frame width.</param>
         /// <param name="height">The frame height.</param>
         /// <param name="pageIndex">The zero-based page to show.</param>
+        /// <param name="showHelp">When true, overlays the help panel (for screenshots).</param>
         /// <returns>The frame as text.</returns>
-        internal string RenderFrame(int width, int height, int pageIndex = 0)
+        internal string RenderFrame(int width, int height, int pageIndex = 0, bool showHelp = false)
         {
             _Index = ((pageIndex % _Pages.Count) + _Pages.Count) % _Pages.Count;
+            _ShowHelp = showHelp;
 
             CellBuffer buffer = new CellBuffer(width, height);
             BufferSurface surface = new BufferSurface(buffer);

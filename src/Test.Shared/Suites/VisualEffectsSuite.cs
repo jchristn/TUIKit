@@ -69,7 +69,9 @@ namespace Test.Shared.Suites
                             surface.DrawShadow(new Rect(1, 1, 4, 3));
 
                             Check.Equal("░", buffer.Get(5, 2).Grapheme, "shadow on the right edge");
-                            Check.Equal("░", buffer.Get(2, 4).Grapheme, "shadow on the bottom edge");
+                            Check.Equal("░", buffer.Get(6, 2).Grapheme, "right shadow is two cells wide");
+                            Check.Equal("░", buffer.Get(3, 4).Grapheme, "shadow on the bottom edge");
+                            Check.Equal(" ", buffer.Get(2, 4).Grapheme, "bottom shadow is inset two cells from the left");
                             Check.Equal(" ", buffer.Get(1, 1).Grapheme, "no shadow over the box itself");
 
                             Check.Throws<ArgumentNullException>(() => SurfaceExtensionsProxy(null!), "null surface");

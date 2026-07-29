@@ -94,12 +94,14 @@ namespace TUIKit.Example
             if (flag >= 0 && flag + 1 < args.Length)
                 int.TryParse(args[flag + 1], out page);
 
+            bool help = Array.IndexOf(args, "--help") >= 0;
+
             HeadlessBackend backend = new HeadlessBackend(100, 30);
             using (TuiApplication app = new TuiApplication(backend))
             {
                 GuidedTour tour = new GuidedTour(app);
                 app.Start();
-                string frame = tour.RenderFrame(100, 30, page);
+                string frame = tour.RenderFrame(100, 30, page, help);
                 app.Stop();
 
                 Console.WriteLine("TUIKit guided tour — headless snapshot (--tour-once --page " + page + ")");

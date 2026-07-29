@@ -136,9 +136,11 @@ namespace TUIKit
         }
 
         /// <summary>
-        /// Draws a drop shadow just outside the bottom and right edges of a rectangle, offset by one
-        /// cell, giving boxes and modals a sense of depth. Call this before drawing the box itself so
-        /// the shadow sits underneath. The shadow is a shaded glyph and is clipped to the surface.
+        /// Draws a drop shadow just outside the bottom and right edges of a rectangle, giving boxes and
+        /// modals a sense of depth. Call this before drawing the box itself so the shadow sits
+        /// underneath. The right shadow is two cells wide and the bottom shadow is inset two cells from
+        /// the left edge, so the shadow looks balanced given that terminal cells are about twice as
+        /// tall as they are wide. The shadow is a shaded glyph and is clipped to the surface.
         /// </summary>
         /// <param name="surface">The target surface. Must not be null.</param>
         /// <param name="rect">The rectangle casting the shadow, in local coordinates.</param>
@@ -154,8 +156,8 @@ namespace TUIKit
             CellStyle shade = style ?? CellStyle.Default.WithForeground(Color.FromPalette(8));
             Cell cell = Cell.Glyph("░", shade, 1);
 
-            surface.Fill(new Rect(rect.X + rect.Width, rect.Y + 1, 1, rect.Height), cell);
-            surface.Fill(new Rect(rect.X + 1, rect.Y + rect.Height, rect.Width, 1), cell);
+            surface.Fill(new Rect(rect.X + rect.Width, rect.Y + 1, 2, rect.Height), cell);
+            surface.Fill(new Rect(rect.X + 2, rect.Y + rect.Height, rect.Width, 1), cell);
         }
 
         /// <summary>
