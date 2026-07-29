@@ -575,7 +575,7 @@ This library is under active development. The table below tracks which capabilit
 
 ### Summary: included vs. excluded
 
-**Implemented (39 of the 40 catalogued items, plus the keybinding editor):** 10.1–10.18, 10.20–10.40. Every requested widget, layout, reactivity, animation, testing, terminal-integration, and visual-effect capability now ships with public XML docs and several positive/negative Touchstone tests each (194 cases, all green across the console, xUnit, and NUnit runners).
+**Implemented (39 of the 40 catalogued items, plus the keybinding editor):** 10.1–10.18, 10.20–10.40. Every requested widget, layout, reactivity, animation, testing, terminal-integration, and visual-effect capability now ships with public XML docs and several positive/negative Touchstone tests each (216 cases, all green across the console, xUnit, and NUnit runners on net8.0 and net10.0).
 
 **Deliberately excluded:**
 
