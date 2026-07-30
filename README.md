@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application — the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v0.4.0 — Alpha.** An early public preview. The API and capabilities are subject to change. It is usable and extensively tested, but treat it as pre-1.0: pin your version and expect breaking changes between minor releases until it stabilizes. This release adds a host-owned **interaction contract** — a focus ring, an explicit key-precedence chain, mouse hit-testing with click-to-focus, typed modals, and application-shell layout helpers — so a full interactive app is "bind widgets, set focus, run." See the [changelog](CHANGELOG.md#040---2026-07-29).
+> **v0.4.1 — Alpha.** An early public preview. The API and capabilities are subject to change. It is usable and extensively tested, but treat it as pre-1.0: pin your version and expect breaking changes between minor releases until it stabilizes. This release makes the input decoder keep carriage return (Enter) and line feed (Ctrl+J) distinct, so an application can bind `Ctrl+J` as a terminal-independent "insert newline" chord that works even where the terminal can't report Shift+Enter. It builds on the host-owned **interaction contract** — a focus ring, an explicit key-precedence chain, mouse hit-testing with click-to-focus, typed modals, and application-shell layout helpers — so a full interactive app is "bind widgets, set focus, run." See the [changelog](CHANGELOG.md#041---2026-07-30).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -16,7 +16,7 @@ A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you d
 >
 > ```bash
 > dotnet run --project src/TUIKit.Example              # guided tour
-> dotnet run --project src/TUIKit.Example -- --contract # the v0.4.0 interaction-contract demo
+> dotnet run --project src/TUIKit.Example -- --contract # the interaction-contract demo
 > ```
 
 ## What it is
@@ -75,7 +75,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="0.4.0" />
+<PackageReference Include="TUIKit" Version="0.4.1" />
 ```
 
 ## Quick start
@@ -152,7 +152,7 @@ dotnet run --project src/TUIKit.Example -- --contract-once  # the interaction-co
 dotnet run --project src/TUIKit.Example | cat               # non-TTY -> plain line output
 ```
 
-The **interaction-contract demo** (`--contract`) is the shortest path to seeing the v0.4.0 host at work: a four-way dock shell (header, sidebar, editor, footer) built from real regions, a focus ring you drive with `Tab` or the mouse, a focus-scoped `Enter` that opens a file in the sidebar while `Enter` in the editor inserts a newline, a two-key theme chord, and a typed picker modal marshalled back onto the loop with `Post` — the whole app in ~120 lines of [`ContractDemo.cs`](src/TUIKit.Example/ContractDemo.cs).
+The **interaction-contract demo** (`--contract`) is the shortest path to seeing the host at work: a four-way dock shell (header, sidebar, editor, footer) built from real regions, a focus ring you drive with `Tab` or the mouse, a focus-scoped `Enter` that opens a file in the sidebar while `Enter` in the editor inserts a newline, a two-key theme chord, and a typed picker modal marshalled back onto the loop with `Post` — the whole app in ~120 lines of [`ContractDemo.cs`](src/TUIKit.Example/ContractDemo.cs).
 
 ## Terminal support
 
@@ -178,7 +178,7 @@ Tests are written with [Touchstone](https://github.com/jchristn/touchstone): one
 
 ## Project status
 
-**Alpha.** The core — plus the full widget, layout, reactive, animation, testing, and terminal-integration surface — is implemented and covered by an extensive suite of [Touchstone](https://github.com/jchristn/touchstone) cases that run identically through the console, xUnit, and NUnit runners on `net8.0` and `net10.0`. 39 of the 40 catalogued capabilities ship; autocomplete/typeahead is intentionally excluded. The features once listed here as "in progress" — suspend/resume and POSIX signal restoration, OSC 8 emission, keyboard link hints, and native drag-selection — are now shipped. As of **v0.4.0** the host also owns the interaction contract: a focus ring, an explicit key-precedence chain with focused-widget first refusal, mouse hit-testing for click-to-focus and wheel routing, typed modals, and application-shell dock helpers — so a standard interactive app is "bind widgets, set focus, run." Still outstanding: a benchmark suite. The platform-specific `ConsoleBackend` and the interactive run loop are validated by manual smoke testing rather than headless tests, and have been confirmed working on Windows, macOS, and Linux, including over SSH. See [`CHANGELOG.md`](CHANGELOG.md) and [`archive/TUIKIT_PLAN.md`](archive/TUIKIT_PLAN.md) for detail.
+**Alpha.** The core — plus the full widget, layout, reactive, animation, testing, and terminal-integration surface — is implemented and covered by an extensive suite of [Touchstone](https://github.com/jchristn/touchstone) cases that run identically through the console, xUnit, and NUnit runners on `net8.0` and `net10.0`. 39 of the 40 catalogued capabilities ship; autocomplete/typeahead is intentionally excluded. The features once listed here as "in progress" — suspend/resume and POSIX signal restoration, OSC 8 emission, keyboard link hints, and native drag-selection — are now shipped. The host also owns an interaction contract: a focus ring, an explicit key-precedence chain with focused-widget first refusal, mouse hit-testing for click-to-focus and wheel routing, typed modals, and application-shell dock helpers — so a standard interactive app is "bind widgets, set focus, run." Still outstanding: a benchmark suite. The platform-specific `ConsoleBackend` and the interactive run loop are validated by manual smoke testing rather than headless tests, and have been confirmed working on Windows, macOS, and Linux, including over SSH. See [`CHANGELOG.md`](CHANGELOG.md) and [`archive/TUIKIT_PLAN.md`](archive/TUIKIT_PLAN.md) for detail.
 
 ## Contributing, issues, and discussions
 
