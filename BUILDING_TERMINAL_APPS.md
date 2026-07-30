@@ -280,6 +280,54 @@ app.MouseReceived += m =>
 
 Mouse decoding is SGR (1006), so coordinates beyond column 223 work. Double/triple clicks are synthesized from timing via `ClickSynthesizer`.
 
+`KeyReceived`, `PasteReceived`, and `MouseReceived` are the raw escape hatches — they always work. But for a standard interactive app you rarely need them: the host wires focus, key precedence, and mouse hit-testing for you, described next.
+
+### The interaction contract (focus, precedence, and mouse)
+
+Bind a focusable widget (one that implements `IFocusable` — text fields, editors, lists, trees, tabs, menus) and it joins a **host focus ring** automatically, in bind order. The first one bound is focused. You drive and observe focus through the host:
+
+```csharp
+app.Bind("files", list);        // joins the ring
+app.Bind("editor", editor);     // joins the ring
+app.Focus("editor");            // focus a specific region
+app.FocusNext();                // Tab order; also FocusPrevious()
+app.FocusChanged += region => header.Content = Text.From("focus: " + region);
+```
+
+`Tab` / `Shift+Tab` traverse the ring when the focused widget doesn't consume them, and `FocusContext` is set to the focused region automatically, so focus-scoped commands follow focus. Widgets that implement the optional **`IFocusAware`** interface are told when focus enters or leaves (`OnFocusChanged(bool)`) so their rendered state — a caret, a selection highlight — never diverges from routing.
+
+Keys route through one explicit precedence chain:
+
+> **modal trap → `KeyFilter` pre-filter → focus-scoped commands → focused widget (first refusal) → focus traversal (`Tab`) → global commands → `KeyReceived`**
+
+Giving the focused widget first refusal is what lets a focused editor keep `Ctrl+K` (kill-to-end-of-line) even when a global `Ctrl+K …` sequence is bound — the global chord only fires when no focused widget claims the key. A dangling sequence prefix is abandoned after `SequenceTimeoutMilliseconds` (default 800) instead of swallowing the next key. Set an app-wide pre-filter with `app.KeyFilter = key => …` (return `true` to consume).
+
+Mouse input is routed from a per-frame, host-owned hit-test map: a press **focuses** the `IFocusable` widget under the pointer (click-to-focus), and wheel/click events are forwarded to widgets that implement the optional **`IMouseAware`** interface, with coordinates translated into the widget's own rectangle. `Pane` and `ScrollView` scroll on the wheel out of the box. Turn the whole thing off with `app.EnableMouseRouting = false` to fall back to raw `MouseReceived`.
+
+### The application shell (dock helpers)
+
+`LayoutBuilder` builds the common four-way shell — header, footer, sidebar, main — as real, non-overlapping regions, so you bind `StatusBar`/`MenuBar`/content into them instead of computing rectangles by hand:
+
+```csharp
+app.Layout = Layout.Create()
+    .DockTop("header", 1)
+    .DockBottom("status", 1)
+    .DockLeft("sidebar", 22)
+    .Fill("main")            // fills the space left after the docks
+    .Build();
+```
+
+Dock the edges first, then `Fill` the center. Each dock honors the space already reserved. Pick **one** construction path: assign `app.Layout` as above, or build incrementally with `AddRegion`/`AddPane`/`AddWidget` — assigning a layout after incremental construction is rejected rather than silently discarding your regions.
+
+### Typed modals and the loop scheduler
+
+`ShowAsync<T>` returns the modal result already cast, and `Post` marshals a continuation back onto the loop thread so it can safely mutate UI state:
+
+```csharp
+int? choice = await app.ShowAsync<int>(new SelectModal("Open", files));
+app.Post(() => { if (choice is int i) editor.Text = Load(i); });   // runs on the loop thread
+```
+
 ### Links, selection, clipboard
 
 ```csharp

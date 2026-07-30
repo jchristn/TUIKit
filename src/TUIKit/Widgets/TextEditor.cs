@@ -11,7 +11,7 @@ namespace TUIKit.Widgets
     /// a kill ring, and undo/redo. Drive it by forwarding key events to <see cref="HandleKey"/>. This
     /// is the interactive composer in the example harness.
     /// </summary>
-    public sealed class TextEditor : IWidget, IFocusable
+    public sealed class TextEditor : IWidget, IFocusable, IFocusAware
     {
         private readonly List<string> _Lines = new List<string> { string.Empty };
         private readonly Stack<EditorSnapshot> _Undo = new Stack<EditorSnapshot>();
@@ -25,6 +25,16 @@ namespace TUIKit.Widgets
         /// Gets or sets a value indicating whether the editor is focused and should render a caret.
         /// </summary>
         public bool IsFocused { get; set; }
+
+        /// <summary>
+        /// Updates the focused state so the caret shows or hides on the next frame. Part of
+        /// <see cref="IFocusAware"/>; called by the host and <see cref="FocusManager"/> on focus changes.
+        /// </summary>
+        /// <param name="focused"><c>true</c> when the editor has gained focus; otherwise <c>false</c>.</param>
+        public void OnFocusChanged(bool focused)
+        {
+            IsFocused = focused;
+        }
 
         /// <summary>
         /// Gets the caret row (zero-based).

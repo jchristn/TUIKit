@@ -25,7 +25,14 @@ namespace TUIKit.Example
                 return 0;
             }
 
+            if (Array.IndexOf(args, "--contract-once") >= 0)
+            {
+                RunContractSnapshot();
+                return 0;
+            }
+
             bool harnessMode = Array.IndexOf(args, "--harness") >= 0;
+            bool contractMode = Array.IndexOf(args, "--contract") >= 0;
 
             using (ConsoleBackend backend = new ConsoleBackend())
             using (TuiApplication app = new TuiApplication(backend))
@@ -36,7 +43,20 @@ namespace TUIKit.Example
                     app.RequestStop();
                 };
 
-                if (harnessMode)
+                if (contractMode)
+                {
+                    ContractDemo demo = new ContractDemo(app);
+                    demo.Start();
+                    try
+                    {
+                        await app.RunAsync(CancellationToken.None).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        demo.Stop();
+                    }
+                }
+                else if (harnessMode)
                 {
                     HarnessApp harness = new HarnessApp(app);
                     harness.StartLive();
@@ -82,6 +102,23 @@ namespace TUIKit.Example
                 app.Stop();
 
                 Console.WriteLine("TUIKit example — headless snapshot (--once)");
+                Console.WriteLine(new string('=', 100));
+                Console.WriteLine(frame);
+            }
+        }
+
+        private static void RunContractSnapshot()
+        {
+            HeadlessBackend backend = new HeadlessBackend(100, 30);
+            using (TuiApplication app = new TuiApplication(backend))
+            {
+                ContractDemo demo = new ContractDemo(app);
+                app.Start();
+                app.RenderOnce();
+                string frame = demo.RenderFrame(100, 30);
+                app.Stop();
+
+                Console.WriteLine("TUIKit example — interaction contract demo (--contract-once)");
                 Console.WriteLine(new string('=', 100));
                 Console.WriteLine(frame);
             }

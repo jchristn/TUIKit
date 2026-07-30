@@ -24,11 +24,26 @@ A second demo — the original **agent-control harness** (streaming transcript, 
 telemetry, composer, palette, modals, notifications, links, theming, diagnostics against a
 *simulated* agent) — is available with `--harness`.
 
+A third demo — the **v0.4.0 interaction-contract demo** (`--contract`) — is the shortest illustration
+of the host-owned interaction contract. In ~120 lines ([`ContractDemo.cs`](ContractDemo.cs)) it builds
+a four-way dock shell (header, sidebar, editor, footer) from real regions, joins the sidebar list and
+the editor into a host focus ring, and wires:
+
+- **Tab / Shift+Tab** to cycle focus, and **click-to-focus** — click any pane to focus it.
+- A **focus-scoped `Enter`** that opens the selected file while the sidebar is focused, while `Enter`
+  in the editor still inserts a newline (the precedence chain in action).
+- **Ctrl+O** — a typed picker modal (`ShowAsync<int>`) whose result is applied on the loop with `Post`.
+- **Ctrl+K Ctrl+T** — a two-key theme chord (the syntax the old `Bind` could not parse).
+- **Ctrl+Q** — quit.
+
 ## Running it
 
 ```bash
 # Guided tour, live and interactive (needs a real terminal)
 dotnet run --project src/TUIKit.Example
+
+# The v0.4.0 interaction-contract demo
+dotnet run --project src/TUIKit.Example -- --contract
 
 # The agent-control harness instead of the tour
 dotnet run --project src/TUIKit.Example -- --harness
@@ -36,6 +51,7 @@ dotnet run --project src/TUIKit.Example -- --harness
 # Headless one-frame snapshots printed to stdout (great for CI and screenshots)
 dotnet run --project src/TUIKit.Example -- --tour-once --page 3   # a tour page
 dotnet run --project src/TUIKit.Example -- --once                 # the harness
+dotnet run --project src/TUIKit.Example -- --contract-once        # the interaction-contract demo
 ```
 
 In the harness, press **F1** or **?** for the built-in keybinding help — the demo documents itself.

@@ -9,11 +9,30 @@ namespace TUIKit.Widgets
     /// A vertical list of selectable items with keyboard navigation and scrolling. The selected item
     /// is highlighted; the view scrolls to keep it visible.
     /// </summary>
-    public sealed class ListView : IWidget, IFocusable
+    public sealed class ListView : IWidget, IFocusable, IFocusAware
     {
         private readonly List<string> _Items = new List<string>();
         private int _Selected;
         private int _Top;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the list is focused. When focused the selected item
+        /// is drawn with a solid highlight bar; when not focused it is drawn as bold text only, so the
+        /// selection stays visible without competing with the focused widget. Defaults to true so a
+        /// standalone list looks the same as before. Set automatically by the host focus ring and
+        /// <see cref="FocusManager"/> through <see cref="IFocusAware"/>.
+        /// </summary>
+        public bool IsFocused { get; set; } = true;
+
+        /// <summary>
+        /// Updates the focused state so the selection highlight reflects focus on the next frame. Part
+        /// of <see cref="IFocusAware"/>.
+        /// </summary>
+        /// <param name="focused"><c>true</c> when the list has gained focus; otherwise <c>false</c>.</param>
+        public void OnFocusChanged(bool focused)
+        {
+            IsFocused = focused;
+        }
 
         /// <summary>
         /// Gets the items. Never null.
@@ -132,12 +151,20 @@ namespace TUIKit.Widgets
             {
                 int index = _Top + row;
                 bool selected = index == _Selected;
-                CellStyle style = selected
-                    ? CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(HighlightColor)
-                    : CellStyle.Default;
-
-                if (selected)
+                CellStyle style;
+                if (selected && IsFocused)
+                {
+                    style = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(HighlightColor);
                     surface.Fill(new Rect(0, row, width, 1), Cell.Blank(style));
+                }
+                else if (selected)
+                {
+                    style = CellStyle.Default.WithForeground(HighlightColor).WithAttribute(CellAttributes.Bold, true);
+                }
+                else
+                {
+                    style = CellStyle.Default;
+                }
 
                 surface.DrawText(0, row, _Items[index], style);
             }

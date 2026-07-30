@@ -5,6 +5,7 @@ namespace TUIKit.Content
     using System.Text;
     using System.Threading;
     using TUIKit;
+    using TUIKit.Input;
     using TUIKit.Widgets;
 
     /// <summary>
@@ -19,7 +20,7 @@ namespace TUIKit.Content
     /// All members are thread-safe. Rendering reads pane state under the same lock used by writers,
     /// so a frame never captures a half-written batch.
     /// </remarks>
-    public sealed class Pane : IWidget
+    public sealed class Pane : IWidget, IMouseAware
     {
         private readonly string _Id;
         private readonly object _Sync = new object();
@@ -309,6 +310,32 @@ namespace TUIKit.Content
                 throw new ArgumentNullException(nameof(markup));
 
             return WriteLine(Markup.Parse(markup));
+        }
+
+        /// <summary>
+        /// Scrolls the viewport in response to a mouse wheel event. Part of <see cref="IMouseAware"/>;
+        /// the host forwards wheel events when the pointer is over the pane so the user can scroll
+        /// scrollback without a key binding.
+        /// </summary>
+        /// <param name="mouse">The mouse event in pane-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when a wheel event scrolled the pane; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            switch (mouse.Button)
+            {
+                case MouseButton.WheelUp:
+                    ScrollUp(3);
+                    return true;
+                case MouseButton.WheelDown:
+                    ScrollDown(3);
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         /// <inheritdoc/>

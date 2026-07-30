@@ -1,6 +1,7 @@
 namespace TUIKit.Hosting
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Threading;
@@ -41,11 +42,15 @@ namespace TUIKit.Hosting
         private readonly InputParser _Parser = new InputParser();
         private readonly Stopwatch _Clock = new Stopwatch();
         private readonly byte[] _ReadBuffer = new byte[4096];
+        private readonly List<string> _FocusOrder = new List<string>();
+        private readonly ConcurrentQueue<Action> _PostQueue = new ConcurrentQueue<Action>();
+        private readonly List<HitTestEntry> _HitMap = new List<HitTestEntry>();
 
         private TerminalRenderer? _Renderer;
         private Layout? _Layout;
         private Theme _Theme = Theme.Dark;
         private string? _FocusContext;
+        private string? _FocusedRegion;
         private CtrlCPolicy _CtrlCPolicy = CtrlCPolicy.Kill;
         private Action<ISurface>? _OnRenderOverlay;
         private bool _AutoRenderNotifications = true;
@@ -53,6 +58,10 @@ namespace TUIKit.Hosting
         private volatile bool _Running;
         private volatile bool _StopRequested;
         private long _LastCtrlC = long.MinValue;
+        private long _PendingSinceMs = long.MinValue;
+        private int _SequenceTimeoutMs = 800;
+        private bool _EnableMouseRouting = true;
+        private bool _IncrementalRegions;
         private bool _Started;
         private bool _Disposed;
         private bool _MouseCaptureEnabled = true;
@@ -107,22 +116,104 @@ namespace TUIKit.Hosting
         }
 
         /// <summary>
-        /// Gets or sets the region layout. Must be set before panes are useful.
+        /// Gets or sets the region layout. Must be set before panes are useful. Choose one construction
+        /// path: either assign a layout built with <see cref="TUIKit.Layout.Layout.Create"/> here, or build
+        /// it incrementally with <see cref="AddRegion"/>, <see cref="AddPane"/>, and <see cref="AddWidget"/>.
+        /// Assigning a layout after regions were added incrementally is rejected rather than silently
+        /// discarding those regions.
         /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when a non-null layout is assigned after regions were already added with
+        /// <see cref="AddRegion"/>, <see cref="AddPane"/>, or <see cref="AddWidget"/>.
+        /// </exception>
         public Layout? Layout
         {
             get { return _Layout; }
-            set { _Layout = value; }
+            set
+            {
+                if (value != null && _IncrementalRegions)
+                    throw new InvalidOperationException(
+                        "The layout was already built incrementally with AddRegion/AddPane/AddWidget; "
+                        + "assigning Layout would discard those regions. Use one construction path.");
+
+                _Layout = value;
+                _Renderer?.Invalidate();
+            }
         }
 
         /// <summary>
-        /// Gets or sets the current focus context used for focus-scoped key bindings.
+        /// Gets or sets the current focus context used for focus-scoped key bindings. When a focusable
+        /// widget is bound and the host focus ring drives focus, this is set automatically to the
+        /// focused region's id so focus-scoped commands follow focus. Set it yourself only when not
+        /// using the host focus ring.
         /// </summary>
         public string? FocusContext
         {
             get { return _FocusContext; }
             set { _FocusContext = value; }
         }
+
+        /// <summary>
+        /// Gets the id of the region whose widget currently holds keyboard focus, or null when nothing
+        /// is focused. Focusable widgets join the focus ring in bind order; the first one bound is
+        /// focused by default.
+        /// </summary>
+        public string? FocusedRegion
+        {
+            get { return _FocusedRegion; }
+        }
+
+        /// <summary>
+        /// Gets the region ids of focusable bound widgets in tab order. Never null.
+        /// </summary>
+        public IReadOnlyList<string> FocusOrder
+        {
+            get { return _FocusOrder; }
+        }
+
+        /// <summary>
+        /// Gets or sets an optional pre-filter consulted for every key before focus-scoped commands, the
+        /// focused widget, and global commands. Return <c>true</c> to consume the key and stop further
+        /// routing; return <c>false</c> to let routing continue. Modal input and the Ctrl+C policy still
+        /// take precedence over the filter. Defaults to null.
+        /// </summary>
+        public Func<KeyEvent, bool>? KeyFilter { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the host routes mouse events to bound widgets:
+        /// click-to-focus for <see cref="IFocusable"/> widgets and wheel/click forwarding to
+        /// <see cref="IMouseAware"/> widgets under the pointer, using a per-frame hit-test map. When a
+        /// widget consumes an event the raw <see cref="MouseReceived"/> event is not raised for it.
+        /// Defaults to true. Turn it off to receive only raw <see cref="MouseReceived"/> events.
+        /// </summary>
+        public bool EnableMouseRouting
+        {
+            get { return _EnableMouseRouting; }
+            set { _EnableMouseRouting = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets how long, in milliseconds, a pending multi-key sequence prefix waits for its
+        /// second key before it is abandoned so a later key is not swallowed. Defaults to 800. Must be
+        /// at least 1.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set to less than 1.</exception>
+        public int SequenceTimeoutMilliseconds
+        {
+            get { return _SequenceTimeoutMs; }
+            set
+            {
+                if (value < 1)
+                    throw new ArgumentOutOfRangeException(nameof(value), value, "Sequence timeout must be at least 1 millisecond.");
+                _SequenceTimeoutMs = value;
+            }
+        }
+
+        /// <summary>
+        /// Raised after keyboard focus moves between focusable bound widgets, with the newly focused
+        /// region id (or null when focus was cleared). Raised on the loop thread.
+        /// </summary>
+        public event Action<string?>? FocusChanged;
 
         /// <summary>
         /// Gets or sets how Ctrl+C is handled. Defaults to <see cref="CtrlCPolicy.Kill"/>.
@@ -274,6 +365,13 @@ namespace TUIKit.Hosting
                 throw new ArgumentNullException(nameof(widget));
 
             _Content[regionId] = widget;
+
+            if (widget is IFocusable && !_FocusOrder.Contains(regionId))
+            {
+                _FocusOrder.Add(regionId);
+                if (_FocusedRegion == null)
+                    SetFocusInternal(regionId);
+            }
         }
 
         /// <summary>
@@ -295,6 +393,7 @@ namespace TUIKit.Hosting
             List<Region> regions = _Layout != null ? new List<Region>(_Layout.Regions) : new List<Region>();
             regions.Add(region);
             _Layout = new Layout(regions);
+            _IncrementalRegions = true;
             _Renderer?.Invalidate();
             return region;
         }
@@ -353,14 +452,16 @@ namespace TUIKit.Hosting
         }
 
         /// <summary>
-        /// Binds a key chord directly to an action, replacing any existing binding for that chord.
-        /// A convenience over <see cref="RegisterCommand"/> plus a routing-table registration for the
-        /// common case where a config-file command id is not needed.
+        /// Binds a key chord — or a two-chord sequence — directly to an action, replacing any existing
+        /// binding. A convenience over <see cref="RegisterCommand"/> plus a routing-table registration
+        /// for the common case where a config-file command id is not needed. Pass a single chord such as
+        /// <c>"ctrl+q"</c>, or two space-separated chords such as <c>"ctrl+k ctrl+t"</c> for a sequence.
         /// </summary>
-        /// <param name="chord">The chord string, such as <c>"ctrl+q"</c>. Must not be null or empty.</param>
+        /// <param name="chord">The chord string, or two space-separated chords for a sequence. Must not be null or empty.</param>
         /// <param name="action">The action to run. Must not be null.</param>
-        /// <exception cref="ArgumentException">Thrown when <paramref name="chord"/> is null or empty.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="chord"/> is null, empty, or has more than two chords.</exception>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
+        /// <exception cref="FormatException">Thrown when a chord token is not a recognized key or modifier.</exception>
         public void Bind(string chord, Action action)
         {
             if (string.IsNullOrEmpty(chord))
@@ -368,7 +469,23 @@ namespace TUIKit.Hosting
             if (action == null)
                 throw new ArgumentNullException(nameof(action));
 
-            KeyChord parsed = KeyChord.Parse(chord);
+            string[] steps = chord.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (steps.Length == 2)
+            {
+                KeyChord first = KeyChord.Parse(steps[0]);
+                KeyChord second = KeyChord.Parse(steps[1]);
+                string sequenceId = "bind:" + first + " " + second;
+                _Routing.UnregisterSequence(first, second);
+                _Commands[sequenceId] = action;
+                _Routing.RegisterSequence(first, second, sequenceId);
+                return;
+            }
+
+            if (steps.Length != 1)
+                throw new ArgumentException(
+                    "A key binding must be a single chord or two space-separated chords.", nameof(chord));
+
+            KeyChord parsed = KeyChord.Parse(steps[0]);
             string id = "bind:" + parsed;
             _Routing.Unregister(parsed);
             _Commands[id] = action;
@@ -384,6 +501,43 @@ namespace TUIKit.Hosting
         }
 
         /// <summary>
+        /// Moves keyboard focus to the widget bound to the supplied region. The region's widget must
+        /// have been bound and must implement <see cref="IFocusable"/>. Notifies the previously and
+        /// newly focused widgets (when they implement <see cref="IFocusAware"/>), updates
+        /// <see cref="FocusContext"/>, and raises <see cref="FocusChanged"/>.
+        /// </summary>
+        /// <param name="regionId">The region id of the focusable widget. Must not be null or empty.</param>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="regionId"/> is null or empty.</exception>
+        /// <exception cref="InvalidOperationException">Thrown when the region is not a focusable bound widget.</exception>
+        public void Focus(string regionId)
+        {
+            if (string.IsNullOrEmpty(regionId))
+                throw new ArgumentException("Region id must not be null or empty.", nameof(regionId));
+            if (!_FocusOrder.Contains(regionId))
+                throw new InvalidOperationException("Region '" + regionId + "' is not a focusable bound widget.");
+
+            SetFocusInternal(regionId);
+        }
+
+        /// <summary>
+        /// Moves keyboard focus to the next focusable widget in tab order, wrapping around.
+        /// </summary>
+        /// <returns><c>true</c> when focus moved; <c>false</c> when no focusable widgets are bound.</returns>
+        public bool FocusNext()
+        {
+            return MoveFocus(1);
+        }
+
+        /// <summary>
+        /// Moves keyboard focus to the previous focusable widget in tab order, wrapping around.
+        /// </summary>
+        /// <returns><c>true</c> when focus moved; <c>false</c> when no focusable widgets are bound.</returns>
+        public bool FocusPrevious()
+        {
+            return MoveFocus(-1);
+        }
+
+        /// <summary>
         /// Shows a modal and returns its result. The input loop drives it to completion.
         /// </summary>
         /// <param name="modal">The modal. Must not be null.</param>
@@ -396,6 +550,42 @@ namespace TUIKit.Hosting
 
             _Modals.Push(modal);
             return modal.Completion;
+        }
+
+        /// <summary>
+        /// Shows a modal and returns its result cast to <typeparamref name="T"/>. When the modal closes
+        /// with a value of another type (for example a cancel that yields null), the default value of
+        /// <typeparamref name="T"/> is returned. Use this to avoid the untyped <see cref="object"/> cast
+        /// that <see cref="ShowAsync(Modal)"/> otherwise requires at every custom modal call site.
+        /// </summary>
+        /// <typeparam name="T">The expected result type.</typeparam>
+        /// <param name="modal">The modal. Must not be null.</param>
+        /// <returns>The modal's result as <typeparamref name="T"/>, or the type default when it is not that type.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="modal"/> is null.</exception>
+        public async Task<T?> ShowAsync<T>(Modal modal)
+        {
+            if (modal == null)
+                throw new ArgumentNullException(nameof(modal));
+
+            object? result = await ShowAsync(modal).ConfigureAwait(false);
+            return result is T typed ? typed : default;
+        }
+
+        /// <summary>
+        /// Queues an action to run on the application loop thread at the start of the next frame. Use
+        /// this to marshal work back onto the render/input thread — for example from a modal
+        /// continuation or a background task — so it can safely mutate UI state. Thread-safe; may be
+        /// called from any thread. Queued actions run in the order posted, and any exception they throw
+        /// propagates out of the loop.
+        /// </summary>
+        /// <param name="action">The action to run on the loop thread. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
+        public void Post(Action action)
+        {
+            if (action == null)
+                throw new ArgumentNullException(nameof(action));
+
+            _PostQueue.Enqueue(action);
         }
 
         /// <summary>
@@ -577,6 +767,8 @@ namespace TUIKit.Hosting
         /// </summary>
         public void PumpInputOnce()
         {
+            DrainPostQueue();
+
             int read = _Backend.ReadInput(_ReadBuffer, 0, _ReadBuffer.Length);
             if (read > 0)
             {
@@ -599,6 +791,8 @@ namespace TUIKit.Hosting
             if (_Renderer == null)
                 return;
 
+            DrainPostQueue();
+
             if (!_Backend.IsInteractive)
             {
                 RenderLineMode();
@@ -611,6 +805,7 @@ namespace TUIKit.Hosting
         private void Compose(ISurface root)
         {
             Size size = root.Size;
+            _HitMap.Clear();
 
             if (_Layout != null && !_Layout.FitsIn(size))
             {
@@ -640,6 +835,8 @@ namespace TUIKit.Hosting
                     Rect rect = region.ContentRect(size).Intersect(new Rect(0, 0, size.Width, size.Height));
                     if (rect.IsEmpty)
                         continue;
+
+                    _HitMap.Add(new HitTestEntry(region.Id, widget, rect));
 
                     ISurface view = bufferSurface != null ? bufferSurface.CreateView(rect) : root;
                     if (widget is Pane pane)
@@ -695,7 +892,7 @@ namespace TUIKit.Hosting
                     break;
                 case InputEventKind.Mouse:
                     if (inputEvent.Mouse != null)
-                        MouseReceived?.Invoke(inputEvent.Mouse);
+                        DispatchMouse(inputEvent.Mouse);
                     break;
                 default:
                     break;
@@ -710,23 +907,173 @@ namespace TUIKit.Hosting
                 return;
             }
 
+            // 1. Modal trap.
             if (_Modals.IsActive)
             {
                 _Modals.HandleKey(key);
                 return;
             }
 
-            CommandResolution resolution = _Router.Process(key, _FocusContext);
-            if (resolution.Status == CommandResolutionStatus.Command)
+            // 2. Optional application pre-filter.
+            Func<KeyEvent, bool>? filter = KeyFilter;
+            if (filter != null && filter(key))
+                return;
+
+            // Expire a stale pending sequence prefix so it never swallows a later key.
+            if (_Router.HasPending && _PendingSinceMs != long.MinValue
+                && NowMilliseconds - _PendingSinceMs > _SequenceTimeoutMs)
             {
-                InvokeCommand(resolution.CommandId);
+                _Router.ResetPending();
+                _PendingSinceMs = long.MinValue;
+            }
+
+            KeyChord chord = KeyChord.FromKeyEvent(key);
+
+            // Complete or abandon a pending two-key sequence. When abandoned, the key falls through and
+            // is processed normally rather than being swallowed.
+            if (_Router.HasPending)
+            {
+                CommandResolution completion = _Router.TryCompletePending(chord);
+                _PendingSinceMs = long.MinValue;
+                if (completion.Status == CommandResolutionStatus.Command)
+                {
+                    InvokeCommand(completion.CommandId);
+                    return;
+                }
+            }
+
+            // 3. Focus-scoped commands (an app explicitly scoped them to the current context).
+            string? scoped = _Routing.ResolveFocusScoped(chord, _FocusContext);
+            if (scoped != null)
+            {
+                InvokeCommand(scoped);
                 return;
             }
 
-            if (resolution.Status == CommandResolutionStatus.Pending)
+            // 4. Focused widget gets first refusal on its own keys (fixes global-vs-widget collisions).
+            IFocusable? focused = FocusedWidget;
+            if (focused != null && focused.HandleKey(key))
                 return;
 
+            // 5. Host focus traversal when the focused widget did not consume Tab.
+            if (_FocusOrder.Count > 0 && key.Code == KeyCode.Tab)
+            {
+                if ((key.Modifiers & KeyModifiers.Shift) != 0)
+                    FocusPrevious();
+                else
+                    FocusNext();
+                return;
+            }
+
+            // 6. Global commands: a sequence prefix begins a pending sequence; otherwise a single chord.
+            if (_Routing.IsSequencePrefix(chord))
+            {
+                _Router.BeginPending(chord);
+                _PendingSinceMs = NowMilliseconds;
+                return;
+            }
+
+            string? global = _Routing.ResolveGlobalSingle(chord);
+            if (global != null)
+            {
+                InvokeCommand(global);
+                return;
+            }
+
+            // 7. Fallback for unconsumed keys.
             KeyReceived?.Invoke(key);
+        }
+
+        private void DispatchMouse(MouseEvent mouse)
+        {
+            if (_EnableMouseRouting && RouteMouse(mouse))
+                return;
+
+            MouseReceived?.Invoke(mouse);
+        }
+
+        private bool RouteMouse(MouseEvent mouse)
+        {
+            HitTestEntry? hit = HitTest(mouse.X, mouse.Y);
+            if (hit == null)
+                return false;
+
+            // Click-to-focus is a side effect; it does not, by itself, swallow the event.
+            if (mouse.Kind == MouseEventKind.Press && hit.Widget is IFocusable && _FocusOrder.Contains(hit.RegionId))
+                SetFocusInternal(hit.RegionId);
+
+            if (hit.Widget is IMouseAware aware)
+            {
+                MouseEvent local = new MouseEvent(
+                    mouse.Kind, mouse.Button, mouse.X - hit.Rect.X, mouse.Y - hit.Rect.Y, mouse.Modifiers, mouse.ClickCount);
+                return aware.HandleMouse(local);
+            }
+
+            return false;
+        }
+
+        private HitTestEntry? HitTest(int x, int y)
+        {
+            Point point = new Point(x, y);
+            for (int i = _HitMap.Count - 1; i >= 0; i--)
+            {
+                if (_HitMap[i].Rect.Contains(point))
+                    return _HitMap[i];
+            }
+
+            return null;
+        }
+
+        private IFocusable? FocusedWidget
+        {
+            get
+            {
+                if (_FocusedRegion != null && _Content.TryGetValue(_FocusedRegion, out IWidget? widget) && widget is IFocusable focusable)
+                    return focusable;
+
+                return null;
+            }
+        }
+
+        private bool MoveFocus(int direction)
+        {
+            if (_FocusOrder.Count == 0)
+                return false;
+
+            int current = _FocusedRegion != null ? _FocusOrder.IndexOf(_FocusedRegion) : -1;
+            int next = current < 0
+                ? (direction > 0 ? 0 : _FocusOrder.Count - 1)
+                : (current + direction + _FocusOrder.Count) % _FocusOrder.Count;
+
+            SetFocusInternal(_FocusOrder[next]);
+            return true;
+        }
+
+        private void SetFocusInternal(string? regionId)
+        {
+            if (string.Equals(_FocusedRegion, regionId, StringComparison.Ordinal))
+                return;
+
+            if (_FocusedRegion != null && _Content.TryGetValue(_FocusedRegion, out IWidget? previous) && previous is IFocusAware previousAware)
+                previousAware.OnFocusChanged(false);
+
+            _FocusedRegion = regionId;
+
+            if (regionId != null)
+            {
+                _FocusContext = regionId;
+                if (_Content.TryGetValue(regionId, out IWidget? next) && next is IFocusAware nextAware)
+                    nextAware.OnFocusChanged(true);
+            }
+
+            _Renderer?.Invalidate();
+            FocusChanged?.Invoke(regionId);
+        }
+
+        private void DrainPostQueue()
+        {
+            while (_PostQueue.TryDequeue(out Action? action))
+                action();
         }
 
         private void HandleCtrlC()

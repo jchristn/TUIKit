@@ -7,7 +7,9 @@ namespace TUIKit.Widgets
     /// <summary>
     /// Tracks keyboard focus across a set of focusable widgets and routes input to the focused one.
     /// Tab moves to the next widget, Shift+Tab to the previous; other keys go to the current widget.
-    /// Used by forms and any multi-widget screen that needs a focus ring.
+    /// Used by forms and any multi-widget screen that needs a focus ring. Whenever focus moves, widgets
+    /// that implement <see cref="IFocusAware"/> are notified through <see cref="IFocusAware.OnFocusChanged"/>
+    /// so their rendered focus state (caret, highlight) follows the routing.
     /// </summary>
     public sealed class FocusManager
     {
@@ -48,12 +50,19 @@ namespace TUIKit.Widgets
             if (widgets == null)
                 throw new ArgumentNullException(nameof(widgets));
 
+            bool wasEmpty = _Widgets.Count == 0;
             for (int i = 0; i < widgets.Length; i++)
             {
                 if (widgets[i] == null)
                     throw new ArgumentNullException(nameof(widgets));
 
                 _Widgets.Add(widgets[i]);
+            }
+
+            if (wasEmpty && _Widgets.Count > 0)
+            {
+                _Index = 0;
+                NotifyFocus(_Widgets[0], true);
             }
         }
 
@@ -62,8 +71,8 @@ namespace TUIKit.Widgets
         /// </summary>
         public void Next()
         {
-            if (_Widgets.Count > 0)
-                _Index = (_Index + 1) % _Widgets.Count;
+            if (_Widgets.Count > 1)
+                SetFocus((_Index + 1) % _Widgets.Count);
         }
 
         /// <summary>
@@ -71,8 +80,33 @@ namespace TUIKit.Widgets
         /// </summary>
         public void Previous()
         {
-            if (_Widgets.Count > 0)
-                _Index = (_Index - 1 + _Widgets.Count) % _Widgets.Count;
+            if (_Widgets.Count > 1)
+                SetFocus((_Index - 1 + _Widgets.Count) % _Widgets.Count);
+        }
+
+        /// <summary>
+        /// Moves focus to the widget at the supplied index, notifying both the widget that loses focus
+        /// and the one that gains it.
+        /// </summary>
+        /// <param name="index">The zero-based index of the widget to focus. Must be within [0, Count).</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="index"/> is out of range.</exception>
+        public void SetFocus(int index)
+        {
+            if (index < 0 || index >= _Widgets.Count)
+                throw new ArgumentOutOfRangeException(nameof(index), index, "Index must be within [0, Count).");
+
+            if (index == _Index)
+                return;
+
+            NotifyFocus(_Widgets[_Index], false);
+            _Index = index;
+            NotifyFocus(_Widgets[_Index], true);
+        }
+
+        private static void NotifyFocus(IFocusable widget, bool focused)
+        {
+            if (widget is IFocusAware aware)
+                aware.OnFocusChanged(focused);
         }
 
         /// <summary>

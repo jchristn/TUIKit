@@ -10,7 +10,7 @@ namespace TUIKit.Widgets
     /// rendered at its full content size into an off-screen buffer, and a window of it is blitted into
     /// the viewport.
     /// </summary>
-    public sealed class ScrollView : IWidget, IFocusable
+    public sealed class ScrollView : IWidget, IFocusable, IMouseAware
     {
         private readonly IWidget _Child;
         private int _ContentWidth;
@@ -135,6 +135,31 @@ namespace TUIKit.Widgets
                     return true;
                 case KeyCode.PageDown:
                     ScrollBy(0, 10);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Scrolls vertically in response to a mouse wheel event. Part of <see cref="IMouseAware"/>;
+        /// the host forwards wheel events when the pointer is over this view.
+        /// </summary>
+        /// <param name="mouse">The mouse event in view-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when a wheel event scrolled the view; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            switch (mouse.Button)
+            {
+                case MouseButton.WheelUp:
+                    ScrollBy(0, -3);
+                    return true;
+                case MouseButton.WheelDown:
+                    ScrollBy(0, 3);
                     return true;
                 default:
                     return false;

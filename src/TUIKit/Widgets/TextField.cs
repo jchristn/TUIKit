@@ -7,7 +7,7 @@ namespace TUIKit.Widgets
     /// <summary>
     /// A single-line text input widget with a caret, suitable for modal forms.
     /// </summary>
-    public sealed class TextField : IWidget, IFocusable
+    public sealed class TextField : IWidget, IFocusable, IFocusAware
     {
         private string _Value = string.Empty;
         private int _Caret;
@@ -16,6 +16,16 @@ namespace TUIKit.Widgets
         /// Gets or sets a value indicating whether the field is focused and renders a caret.
         /// </summary>
         public bool IsFocused { get; set; }
+
+        /// <summary>
+        /// Updates the focused state so the caret shows or hides on the next frame. Part of
+        /// <see cref="IFocusAware"/>; called by the host and <see cref="FocusManager"/> on focus changes.
+        /// </summary>
+        /// <param name="focused"><c>true</c> when the field has gained focus; otherwise <c>false</c>.</param>
+        public void OnFocusChanged(bool focused)
+        {
+            IsFocused = focused;
+        }
 
         /// <summary>
         /// Gets or sets the field value. Setting places the caret at the end. Must not be null.

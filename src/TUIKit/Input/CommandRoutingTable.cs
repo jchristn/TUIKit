@@ -145,6 +145,70 @@ namespace TUIKit.Input
         }
 
         /// <summary>
+        /// Resolves a chord against only the focus-scoped bindings for the supplied context, ignoring
+        /// global bindings. A host uses this to run focus-scoped commands ahead of the focused widget in
+        /// an explicit input-precedence chain.
+        /// </summary>
+        /// <param name="chord">The chord.</param>
+        /// <param name="focusContext">The current focus context, or null.</param>
+        /// <returns>The command identifier, or null when no focus-scoped binding matches.</returns>
+        public string? ResolveFocusScoped(KeyChord chord, string? focusContext)
+        {
+            if (string.IsNullOrEmpty(focusContext))
+                return null;
+
+            lock (_Sync)
+            {
+                if (_Focus.TryGetValue(focusContext!, out Dictionary<KeyChord, string>? focusMap)
+                    && focusMap.TryGetValue(chord, out string? focusCommand))
+                {
+                    return focusCommand;
+                }
+
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Resolves a chord against only the global bindings, ignoring any focus scope. A host uses this
+        /// to run global commands after the focused widget has declined the key.
+        /// </summary>
+        /// <param name="chord">The chord.</param>
+        /// <returns>The command identifier, or null when no global binding matches.</returns>
+        public string? ResolveGlobalSingle(KeyChord chord)
+        {
+            lock (_Sync)
+            {
+                if (_Global.TryGetValue(chord, out string? globalCommand))
+                    return globalCommand;
+
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Removes a two-key sequence binding. Used to make a rebind idempotent when the conflict policy
+        /// is <see cref="ConflictPolicy.Throw"/>.
+        /// </summary>
+        /// <param name="first">The first chord (the prefix).</param>
+        /// <param name="second">The second chord.</param>
+        /// <returns><c>true</c> when a binding was removed; otherwise <c>false</c>.</returns>
+        public bool UnregisterSequence(KeyChord first, KeyChord second)
+        {
+            lock (_Sync)
+            {
+                if (!_Sequences.TryGetValue(first, out Dictionary<KeyChord, string>? map))
+                    return false;
+
+                bool removed = map.Remove(second);
+                if (map.Count == 0)
+                    _Sequences.Remove(first);
+
+                return removed;
+            }
+        }
+
+        /// <summary>
         /// Determines whether a chord is the prefix of a registered two-key sequence.
         /// </summary>
         /// <param name="chord">The chord.</param>

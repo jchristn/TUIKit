@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-29
+
+The interaction-contract release. The host now assembles the interactive skeleton — focus, key
+precedence, mouse hit-testing, and modal marshalling — on the consumer's behalf, turning "read the
+example and replicate the wiring" into "bind widgets, set focus, run." Everything is additive: the
+raw escape hatches (`KeyReceived`, `MouseReceived`, `RenderOverlay`) still work unchanged.
+
+### Added
+- **Host-owned focus ring.** Focusable widgets bound with `Bind`/`AddWidget` join a focus ring in
+  bind order; the first is focused automatically. `TuiApplication.Focus(regionId)`, `FocusNext()`,
+  `FocusPrevious()`, the `FocusedRegion`/`FocusOrder` properties, and the `FocusChanged` event drive
+  and observe focus. `FocusContext` now follows focus automatically, so focus-scoped commands apply
+  to whatever is focused. `Tab`/`Shift+Tab` traverse the ring when the focused widget declines them.
+- **Focus contract (`IFocusAware`).** A new optional companion to `IFocusable`: the host and
+  `FocusManager` call `OnFocusChanged(bool)` on every focus transition so a widget's rendered focus
+  state never diverges from routing. `TextField`, `TextEditor`, and `ListView` implement it;
+  `FocusManager` now drives visual focus.
+- **Explicit input-precedence chain.** Keys route in a defined order: modal trap → optional
+  `KeyFilter` pre-filter → focus-scoped commands → **focused widget (first refusal)** → host focus
+  traversal → global commands → `KeyReceived`. Giving the focused widget first refusal fixes the
+  global-chord-vs-widget-key collision (e.g. a global `Ctrl+K` sequence no longer steals the editor's
+  kill-to-end-of-line).
+- **Sequence timeout is wired.** A dangling two-key sequence prefix is cleared after
+  `SequenceTimeoutMilliseconds` (default 800), and an abandoned prefix no longer swallows the
+  following keystroke — the next key falls through and is processed normally.
+- **Host-owned mouse routing.** A per-frame, host-owned hit-test map (rebuilt every draw pass, never
+  stored on widgets) powers click-to-focus for `IFocusable` widgets and wheel/click forwarding to the
+  new optional `IMouseAware` interface, with coordinates translated into each widget's own rectangle.
+  `Pane` and `ScrollView` scroll on the wheel out of the box. Toggle with `EnableMouseRouting`.
+- **Typed modals and a loop scheduler.** `ShowAsync<T>(Modal)` returns the modal result as `T` with no
+  cast, and `Post(Action)` queues work onto the loop thread (drained each frame) so a modal
+  continuation or a background task can safely mutate UI state.
+- **Application-shell layout helpers.** `LayoutBuilder.DockTop`/`DockBottom`/`DockLeft`/`DockRight`/
+  `Fill` build a four-way shell (header, footer, sidebar, main) as real, non-overlapping regions you
+  bind `StatusBar`/`MenuBar`/content into — no hand-computed rectangles or overlay math.
+- **Interaction-contract example.** A new `--contract` demo (and `--contract-once` snapshot) stands up
+  a full interactive app in ~120 lines using the dock shell, the focus ring, click-to-focus, a
+  focus-scoped `Enter`, a two-key theme chord, and a typed picker modal marshalled back with `Post`.
+- Touchstone `Usability` suite covering the focus ring, precedence chain, sequence timeout,
+  click-to-focus, wheel routing, typed modals, `Post`, multi-key `Bind`, the layout guard, and the
+  dock helpers.
+
+### Fixed
+- **`Bind` now parses the documented multi-key syntax.** `app.Bind("ctrl+k ctrl+t", …)` registers a
+  two-key sequence instead of throwing; a single chord still binds a single command. Rebinding a
+  sequence is idempotent (`CommandRoutingTable.UnregisterSequence`).
+- **Assigning `Layout` after incremental construction is now rejected** with a clear
+  `InvalidOperationException` instead of silently discarding regions added via
+  `AddRegion`/`AddPane`/`AddWidget`. Appending with `AddRegion` after assigning a layout still works.
+- **Version/documentation drift** corrected: the README and package metadata now agree on the current
+  version.
+
+### Changed
+- `CommandRoutingTable` gained `ResolveFocusScoped` and `ResolveGlobalSingle` (scope-specific
+  resolution) and `CommandRouter` gained `BeginPending`/`TryCompletePending` so a host can own the
+  precedence chain. The existing `Process`/`ResolveSingle` methods are unchanged and still available.
+
 ## [0.3.1] - 2026-07-29
 
 Unix keyboard input follow-up to v0.3.0.

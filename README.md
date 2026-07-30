@@ -8,14 +8,15 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application — the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v0.2.0 — Alpha.** An early public preview. The API and capabilities are subject to change. It is usable and extensively tested, but treat it as pre-1.0: pin your version and expect breaking changes between minor releases until it stabilizes.
+> **v0.4.0 — Alpha.** An early public preview. The API and capabilities are subject to change. It is usable and extensively tested, but treat it as pre-1.0: pin your version and expect breaking changes between minor releases until it stabilizes. This release adds a host-owned **interaction contract** — a focus ring, an explicit key-precedence chain, mouse hit-testing with click-to-focus, typed modals, and application-shell layout helpers — so a full interactive app is "bind widgets, set focus, run." See the [changelog](CHANGELOG.md#040---2026-07-29).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
 > **See it live** in ~30 seconds — a self-describing guided tour of every feature, with the code beside each one:
 >
 > ```bash
-> dotnet run --project src/TUIKit.Example
+> dotnet run --project src/TUIKit.Example              # guided tour
+> dotnet run --project src/TUIKit.Example -- --contract # the v0.4.0 interaction-contract demo
 > ```
 
 ## What it is
@@ -32,7 +33,8 @@ It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`. The modern targets a
 - **Rich text.** A fluent styled-text builder, inline markup (`[bold red]…[/]`), a Markdown renderer (headings, lists, task lists, tables, blockquotes, code), word/character wrapping, and correct Unicode column width for CJK, combining marks, and emoji grapheme clusters.
 - **Enhanced input.** A byte decoder for UTF-8, control keys, arrows, function keys, the Kitty/CSI-u protocol, SGR mouse, and bracketed paste — routed through a central command table with scopes, multi-key chords (`Ctrl+K Ctrl+T`), and a configurable Ctrl+C policy.
 - **Mouse, links, and selection.** Click-to-focus, hover scroll, virtual links with per-frame hit-testing and a security allowlist for auto-linkification, OSC 8 hyperlink emission, keyboard link hints, text selection, and OSC 52 clipboard copy that works over SSH — plus a one-key toggle to hand the mouse back to the terminal for native drag-select.
-- **Modals, notifications, and prompts.** A focus-trapping modal stack with awaitable results (`ConfirmAsync` / `PromptAsync` / `SelectAsync`), non-focus-stealing toasts, and a global focus manager for `Tab` order.
+- **A host-owned interaction contract.** The host wires the interactive skeleton for you: a **focus ring** across bound focusable widgets (`Focus`, `FocusNext`/`FocusPrevious`, `FocusChanged`, `Tab` traversal, `FocusContext` that follows focus), an explicit **key-precedence chain** (modal → pre-filter → focus-scoped commands → focused-widget first refusal → global commands → fallback), **click-to-focus** and wheel routing from a per-frame hit-test map, and application-shell **dock layout helpers** (`DockTop`/`DockBottom`/`DockLeft`/`DockRight`/`Fill`). It's all additive — the raw `KeyReceived`/`MouseReceived`/`RenderOverlay` hooks still work.
+- **Modals, notifications, and prompts.** A focus-trapping modal stack with awaitable, **typed** results (`ShowAsync<T>`, plus `ConfirmAsync` / `PromptAsync` / `SelectAsync`), a `Post(Action)` loop scheduler for marshalling continuations back onto the UI thread, non-focus-stealing toasts, and a global focus manager for `Tab` order.
 - **A broad widget toolkit.** Inputs (text field, multi-line editor with undo and a kill ring, checkbox, radio group, forms); data (sortable, virtualized `DataTable<T>`, tree, tabs, fuzzy finder, list); navigation (menu bar, file browser, scroll view, collapsible section, status bar); feedback (gauge, sparkline, progress bar, spinner, concurrent multi-task progress); plus a user-editable key-binding editor.
 - **Charts, diffs, and images.** Braille line and bar charts, a diff viewer with syntax highlighting, FIGlet-style banners, a color picker, and image rendering — half-block on any terminal, sixel or kitty where supported.
 - **Reactive and animated.** Thread-safe `Observable<T>` one-way data binding, and deterministic, tick-driven animation (`Easing`, `Tween`, `FrameTimer`) that replays identically in tests.
@@ -73,7 +75,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="0.2.0" />
+<PackageReference Include="TUIKit" Version="0.4.0" />
 ```
 
 ## Quick start
@@ -146,8 +148,11 @@ The example renders a single frame to text without a terminal, which is how you 
 ```bash
 dotnet run --project src/TUIKit.Example -- --once          # print one frame to stdout
 dotnet run --project src/TUIKit.Example -- --once --debug   # ... with the debug overlay
+dotnet run --project src/TUIKit.Example -- --contract-once  # the interaction-contract demo frame
 dotnet run --project src/TUIKit.Example | cat               # non-TTY -> plain line output
 ```
+
+The **interaction-contract demo** (`--contract`) is the shortest path to seeing the v0.4.0 host at work: a four-way dock shell (header, sidebar, editor, footer) built from real regions, a focus ring you drive with `Tab` or the mouse, a focus-scoped `Enter` that opens a file in the sidebar while `Enter` in the editor inserts a newline, a two-key theme chord, and a typed picker modal marshalled back onto the loop with `Post` — the whole app in ~120 lines of [`ContractDemo.cs`](src/TUIKit.Example/ContractDemo.cs).
 
 ## Terminal support
 
