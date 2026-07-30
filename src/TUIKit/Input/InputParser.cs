@@ -117,7 +117,11 @@ namespace TUIKit.Input
             switch (b)
             {
                 case 0x0D:
-                case 0x0A:
+                    // Carriage return (Enter). Line feed (0x0A) is deliberately NOT folded in here: in raw
+                    // mode Enter transmits as CR on every platform, while LF arrives only from Ctrl+J. Keeping
+                    // them distinct lets an application bind Ctrl+J (which falls through to the C0 handler
+                    // below as Char 'j' + Ctrl) as a terminal-independent "insert newline" chord, since no
+                    // terminal reports Shift+Enter or Ctrl+Enter without the enhanced keyboard protocol.
                     events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Enter)));
                     return 1;
                 case 0x09:

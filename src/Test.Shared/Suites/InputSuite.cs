@@ -150,6 +150,24 @@
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("Input", "CarriageReturnAndLineFeedAreDistinct", "CR decodes as Enter while LF (Ctrl+J) is a distinct chord",
+                        _ =>
+                        {
+                            InputParser parser = new InputParser();
+
+                            parser.Feed(new byte[] { 0x0D }, 1); // Enter (carriage return)
+                            List<InputEvent> events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.Enter, events[0].Key.Code, "CR is Enter");
+                            Check.Equal(KeyModifiers.None, events[0].Key.Modifiers, "Enter has no modifiers");
+
+                            parser.Feed(new byte[] { 0x0A }, 1); // Ctrl+J (line feed)
+                            events = new List<InputEvent>(parser.Drain());
+                            Check.Equal(KeyCode.Character, events[0].Key.Code, "LF is a character chord");
+                            Check.Equal((int)'j', events[0].Key.Rune, "LF decodes as 'j'");
+                            Check.True((events[0].Key.Modifiers & KeyModifiers.Ctrl) != 0, "LF carries Ctrl (Ctrl+J)");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("Input", "DecodeFunctionKeys", "Decoder handles F-keys via SS3 and CSI tilde",
                         _ =>
                         {

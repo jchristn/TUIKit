@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-30
+
+Input decoding fix so applications can offer a terminal-independent "insert newline" chord.
+
+### Fixed
+- **Carriage return and line feed are decoded distinctly.** `InputParser` previously folded both
+  `0x0D` (CR) and `0x0A` (LF) into `Enter`. Now CR decodes as `Enter` while LF decodes as `Ctrl+J`
+  (`Char` `'j'` + `Ctrl`). In raw mode Enter always transmits as CR, so this is lossless — LF arrives
+  only from Ctrl+J. Because no terminal reports `Shift+Enter` or `Ctrl+Enter` without the enhanced
+  keyboard protocol (Windows Terminal, macOS Terminal.app, and legacy xterm all send a bare CR), an
+  application can now bind `Ctrl+J` as a newline chord that works on every platform. Bracketed paste
+  is unaffected: pasted newlines are still captured as literal paste text, not key events.
+
 ## [0.4.0] - 2026-07-29
 
 The interaction-contract release. The host now assembles the interactive skeleton — focus, key
