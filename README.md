@@ -19,6 +19,21 @@ A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you d
 > dotnet run --project src/TUIKit.Example -- --contract # the interaction-contract demo
 > ```
 
+<details>
+<summary><strong>Screenshots</strong></summary>
+
+<br />
+
+<a href="assets/ss1.png"><img src="assets/ss1.png" alt="Screenshot 1" width="100%" /></a>
+
+<a href="assets/ss2.png"><img src="assets/ss2.png" alt="Screenshot 2" width="100%" /></a>
+
+<a href="assets/ss3.png"><img src="assets/ss3.png" alt="Screenshot 3" width="100%" /></a>
+
+<a href="assets/ss4.png"><img src="assets/ss4.png" alt="Screenshot 4" width="100%" /></a>
+
+</details>
+
 ## What it is
 
 TUIKit is a library, not an application. You reference it, describe a layout as a set of rectangles, bind panes to those rectangles, register some keybindings, and hand control to a host that owns the render and input loops. It is built for the case where **several threads write at once**: a background worker can call `pane.WriteLine(...)` while the render thread repaints, and TUIKit handles the ordering, the diffing, and the minimization of escape sequences for you.
