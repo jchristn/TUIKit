@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application — the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v0.4.1 — Alpha.** An early public preview. The API and capabilities are subject to change. It is usable and extensively tested, but treat it as pre-1.0: pin your version and expect breaking changes between minor releases until it stabilizes. This release makes the input decoder keep carriage return (Enter) and line feed (Ctrl+J) distinct, so an application can bind `Ctrl+J` as a terminal-independent "insert newline" chord that works even where the terminal can't report Shift+Enter. It builds on the host-owned **interaction contract** — a focus ring, an explicit key-precedence chain, mouse hit-testing with click-to-focus, typed modals, and application-shell layout helpers — so a full interactive app is "bind widgets, set focus, run." See the [changelog](CHANGELOG.md#041---2026-07-30).
+> **v0.5.1 — Alpha.** An early public preview. The API and capabilities are subject to change. It is usable and extensively tested, but treat it as pre-1.0: pin your version and expect breaking changes between minor releases until it stabilizes. The 0.5 line adds optional character masking to the text field so a field can obscure its value for secret entry such as passwords, API keys, and bearer tokens (set `TextField.MaskChar`); the default is unchanged, so existing fields render as before. It builds on the host-owned **interaction contract** — a focus ring, an explicit key-precedence chain, mouse hit-testing with click-to-focus, typed modals, and application-shell layout helpers — so a full interactive app is "bind widgets, set focus, run." See the [changelog](CHANGELOG.md#051---2026-08-04).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -90,7 +90,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="0.4.1" />
+<PackageReference Include="TUIKit" Version="0.5.1" />
 ```
 
 ## Quick start

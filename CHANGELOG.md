@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-04
+
+Documentation fixes. No code changes from 0.5.0.
+
+### Fixed
+- **README version references.** The header banner and the `<PackageReference>` install snippet now
+  reflect the 0.5 line (masked text input) instead of 0.4.1.
+
+### Changed
+- **Archived internal notes.** `USABILITY_IMPROVEMENTS.md` moved into `archive/`.
+
 ## [0.5.0] - 2026-08-04
 
 Masked text input for secret entry.
