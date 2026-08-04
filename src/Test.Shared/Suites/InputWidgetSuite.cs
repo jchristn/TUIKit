@@ -45,6 +45,34 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("InputWidget", "TextFieldMask", "Text field masks its rendered value but keeps the real value and editing",
+                        _ =>
+                        {
+                            TextField field = new TextField();
+                            Check.False(field.IsMasked, "not masked by default");
+
+                            field.MaskChar = '•';
+                            Check.True(field.IsMasked, "masked once a mask char is set");
+
+                            field.HandleKey(KeyEvent.Char('s'));
+                            field.HandleKey(KeyEvent.Char('3'));
+                            field.HandleKey(KeyEvent.Char('c'));
+                            Check.Equal("s3c", field.Value, "underlying value is the typed text, not the mask");
+
+                            CellBuffer buffer = new CellBuffer(8, 1);
+                            field.Render(new BufferSurface(buffer));
+                            Check.Equal("•", buffer.Get(0, 0).Grapheme, "first cell rendered as the mask char");
+                            Check.Equal("•", buffer.Get(1, 0).Grapheme, "second cell rendered as the mask char");
+                            Check.Equal("•", buffer.Get(2, 0).Grapheme, "third cell rendered as the mask char");
+
+                            field.MaskChar = '\0';
+                            Check.False(field.IsMasked, "clearing the mask char disables masking");
+                            CellBuffer plain = new CellBuffer(8, 1);
+                            field.Render(new BufferSurface(plain));
+                            Check.Equal("s", plain.Get(0, 0).Grapheme, "value renders in clear once unmasked");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("InputWidget", "Checkbox", "Checkbox toggles and validates its label",
                         _ =>
                         {

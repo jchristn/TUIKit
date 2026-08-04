@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-04
+
+Masked text input for secret entry.
+
+### Added
+- **`TextField` value masking.** `TextField` gains a `MaskChar` property and an `IsMasked`
+  convenience flag so a field can obscure its rendered value — for passwords, API keys, bearer
+  tokens, and other secrets. When `MaskChar` is `'\0'` (the default) the field renders as typed, so
+  the change is additive and backward compatible. Set it to a visible character (for example `'•'`)
+  and every value character, including the glyph shown under the caret, renders as the mask while
+  `Value` and all editing and caret behavior stay unchanged.
+
 ## [0.4.1] - 2026-07-30
 
 Input decoding fix so applications can offer a terminal-independent "insert newline" chord.
