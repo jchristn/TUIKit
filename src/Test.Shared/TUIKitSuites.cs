@@ -38,6 +38,8 @@ namespace Test.Shared
                     MouseLinkSuite.Suite(),
                     SelectionSuite.Suite(),
                     ModalSuite.Suite(),
+                    DialogModalSuite.Suite(),
+                    MultiSelectSuite.Suite(),
                     WidgetSuite.Suite(),
                     HostingSuite.Suite(),
                     DiagnosticsSuite.Suite(),

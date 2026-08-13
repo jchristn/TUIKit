@@ -59,6 +59,7 @@ namespace TUIKit.Example
             _App.Commands.Register(KeyChord.Parse("ctrl+g"), "settings");
             _App.Commands.Register(KeyChord.Parse("ctrl+t"), "theme");
             _App.Commands.Register(KeyChord.Parse("ctrl+k"), "confirm");
+            _App.Commands.Register(KeyChord.Parse("ctrl+l"), "multiselect");
             _App.Commands.Register(KeyChord.Parse("ctrl+n"), "notify");
             _App.Commands.Register(KeyChord.Parse("f12"), "mouse");
 
@@ -67,6 +68,7 @@ namespace TUIKit.Example
             _App.RegisterCommand("settings", OpenSettings);
             _App.RegisterCommand("theme", CycleTheme);
             _App.RegisterCommand("confirm", ConfirmDemo);
+            _App.RegisterCommand("multiselect", MultiSelectDemo);
             _App.RegisterCommand("notify", () => { _App.Notify("This is a TUIKit notification toast.", NotificationSeverity.Info, 2500); Log("Ctrl+N was pressed, showing a notification toast"); });
             _App.RegisterCommand("mouse", ToggleMouse);
 
@@ -150,6 +152,24 @@ namespace TUIKit.Example
         {
             bool ok = await _App.ConfirmAsync("Enable experimental sixel image output?", "Enable", "Cancel").ConfigureAwait(false);
             _App.Notify(ok ? "Sixel output enabled." : "Left disabled.", ok ? NotificationSeverity.Success : NotificationSeverity.Warning, 2500);
+        }
+
+        private async void MultiSelectDemo()
+        {
+            MultiSelectModal<string> modal = new MultiSelectModal<string>(
+                "Select build targets",
+                new[] { "netstandard2.0", "net8.0", "net10.0", "net48" });
+            modal.List.SetChecked(1, true);
+            modal.List.SetChecked(2, true);
+
+            IReadOnlyList<int>? chosen = await _App.ShowAsync<IReadOnlyList<int>>(modal).ConfigureAwait(false);
+            if (chosen == null)
+            {
+                _App.Notify("Selection cancelled.", NotificationSeverity.Warning, 2000);
+                return;
+            }
+
+            _App.Notify(chosen.Count + " target(s) selected.", NotificationSeverity.Success, 2500);
         }
 
         internal void Start()

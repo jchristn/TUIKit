@@ -20,6 +20,14 @@ consumers had to build by hand, plus per-region background colors.
   `NoBackground()` clears it. Regions with no background stay transparent and inherit the theme text
   background, so the change is backward compatible. The built-in themes register conventional
   `Theme.SidebarRole` and `Theme.StatusBarRole` styles for panels and status strips.
+- **`DialogModal` base class.** A reusable base for centered, bordered dialogs that owns box
+  measurement, min/max content clamping, centering, background fill, border, an optional title and a
+  dim footer hint, and hands subclasses a clipped inner surface through `RenderContent`. Subclasses
+  report their natural content size and draw content; they no longer compute box geometry by hand.
+- **`CheckList<T>` widget and `MultiSelectModal<T>` dialog.** A vertical list whose items can each be
+  checked independently (Space toggles, a configurable key toggles all), of any item type with a
+  display selector, plus a dialog wrapper that completes with the checked indices (Enter) or null
+  (Escape).
 
 ### Changed
 
