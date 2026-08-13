@@ -69,7 +69,8 @@ namespace Test.Shared
                     DiagnosticsValidationSuite.Suite(),
                     WidgetGuardValidationSuite.Suite(),
                     StyledOutputSuite.Suite(),
-                    UsabilitySuite.Suite()
+                    UsabilitySuite.Suite(),
+                    UtilitiesSuite.Suite()
                 };
             }
         }

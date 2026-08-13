@@ -577,6 +577,33 @@ namespace TUIKit.Example
                     "  .BackgroundRole(Theme.SidebarRole);"
                 }));
 
+            Pane utilities = new Pane("utilities");
+            List<IReadOnlyList<string>> reference = new List<IReadOnlyList<string>>
+            {
+                new List<string> { "Open", "Ctrl+O", "/open" },
+                new List<string> { "Save", "Ctrl+S", "/save" },
+                new List<string> { "Quit", "Ctrl+Q", "/quit" }
+            };
+            foreach (string line in TUIKit.Content.ColumnFormatter.Format(reference))
+                utilities.WriteLine(line);
+            utilities.WriteLine(string.Empty);
+            foreach (string line in TUIKit.Content.HintText.Wrap("Tab: next · Space: toggle · Enter: ok · Esc: back", 40))
+                utilities.WriteMarkup("[dim]" + line + "[/]");
+            pages.Add(new TourPage(
+                "Utilities — columns, hints, rules, keys",
+                "Small helpers: aligned columns, wrapping hint footers, section rules, and submit-key handling.",
+                utilities,
+                new[]
+                {
+                    "ColumnFormatter.Format(rows);",
+                    "HintText.Wrap(hint, width);",
+                    "new Rule { Caption = \"Section\" };",
+                    "",
+                    "SubmitKeyResolver keys = new();",
+                    "// Enter submits, Ctrl+J newline:",
+                    "keys.Resolve(keyEvent);"
+                }));
+
             Pane markup = new Pane("markup");
             markup.WriteMarkup("[bold]Bold[/], [red]red[/], [green]green[/], [blue on white] on white [/]");
             markup.WriteLine(string.Empty);

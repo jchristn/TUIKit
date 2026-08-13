@@ -28,6 +28,11 @@ consumers had to build by hand, plus per-region background colors.
   checked independently (Space toggles, a configurable key toggles all), of any item type with a
   display selector, plus a dialog wrapper that completes with the checked indices (Enter) or null
   (Escape).
+- **Text and input utilities.** `HintText.Wrap` wraps a separator-delimited hint footer to a width
+  without splitting a segment; `ColumnFormatter.Format` aligns rows into columns sized to the widest
+  cell; the `Rule` widget draws a horizontal or vertical divider with an optional centered caption;
+  and `SubmitKeyResolver` resolves a key to submit / insert-newline / ignore, encoding the
+  cross-terminal Enter-vs-Ctrl+J-vs-Shift+Enter reality so multi-line editors stop reinventing it.
 
 ### Changed
 
