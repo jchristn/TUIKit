@@ -46,6 +46,10 @@ consumers had to build by hand, plus per-region background colors.
   action raises a typed `ListAction<T>` carrying the row index, item, and action id.
 - **`ReorderableList<T>` widget.** A list that moves the selected item up/down (Alt+Up/Down or "["/"]")
   and removes it (Delete/"d"), exposing the current order and raising `Reordered`/`Removed` events.
+- **`Command` and `CommandRegistry`.** One command descriptor (id, title, category, optional chord,
+  slash aliases, handler, enabled predicate) projected onto every surface: `ApplyTo` binds chords and
+  handlers into the host, `BuildMenuBar` groups enabled commands by category, `BuildPalette` returns a
+  `FuzzyList<Command>` for a command palette, and `ResolveSlash` routes `/name args` input.
 
 ### Changed
 
