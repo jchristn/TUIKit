@@ -41,6 +41,11 @@ consumers had to build by hand, plus per-region background colors.
 - **`StreamingTranscript` helper.** Projects a stream of text and keyed status lines onto a `Pane`:
   buffer streaming text into a block shown on a live line, re-render the finished block as Markdown,
   and update named lines in place (for example flipping a task line from "running…" to "done").
+- **`ActionListView<T>` widget.** A list whose rows expose keyboard actions (Enter to activate, plus
+  consumer-registered chords like "e"/Delete) with an optional per-row enabled predicate; firing an
+  action raises a typed `ListAction<T>` carrying the row index, item, and action id.
+- **`ReorderableList<T>` widget.** A list that moves the selected item up/down (Alt+Up/Down or "["/"]")
+  and removes it (Delete/"d"), exposing the current order and raising `Reordered`/`Removed` events.
 
 ### Changed
 

@@ -73,7 +73,8 @@ namespace Test.Shared
                     UtilitiesSuite.Suite(),
                     PanelsSuite.Suite(),
                     StreamingTranscriptSuite.Suite(),
-                    GenericListSuite.Suite()
+                    GenericListSuite.Suite(),
+                    ListEditingSuite.Suite()
                 };
             }
         }
