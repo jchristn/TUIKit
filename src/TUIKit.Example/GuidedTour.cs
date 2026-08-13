@@ -766,10 +766,10 @@ namespace TUIKit.Example
             pages.Add(new TourPage(
                 "Fuzzy finder",
                 "[bold]FuzzyList[/] filters as you type. Type letters; [bold]Backspace[/] edits.",
-                new FuzzyList(new[] { "apple", "apricot", "banana", "grape", "grapefruit", "mango" }),
+                new FuzzyList<string>(new[] { "apple", "apricot", "banana", "grape", "grapefruit", "mango" }),
                 new[]
                 {
-                    "FuzzyList list = new FuzzyList(items);",
+                    "FuzzyList<string> list = new(items);",
                     "// typing filters:",
                     "list.Query = \"ap\";",
                     "string? pick = list.SelectedItem;"

@@ -29,7 +29,7 @@ namespace Test.Shared.Suites
                     new TestCaseDescriptor("Widget", "ListNavigation", "List selection moves and clamps",
                         _ =>
                         {
-                            ListView list = new ListView();
+                            ListView<string> list = new ListView<string>();
                             list.SetItems(new[] { "a", "b", "c" });
                             Check.Equal(0, list.SelectedIndex, "Starts at first");
                             list.HandleKey(KeyEvent.Special(KeyCode.Down));

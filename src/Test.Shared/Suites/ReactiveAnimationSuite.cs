@@ -149,7 +149,7 @@ namespace Test.Shared.Suites
                     new TestCaseDescriptor("ReactiveAnimation", "WidgetTester", "Widget tester drives keys and reads output",
                         _ =>
                         {
-                            FuzzyList list = new FuzzyList(new[] { "alpha", "beta", "gamma" });
+                            FuzzyList<string> list = new FuzzyList<string>(new[] { "alpha", "beta", "gamma" });
                             WidgetTester tester = WidgetTester.For(list, 20, 5);
 
                             tester.Type("al").Render();

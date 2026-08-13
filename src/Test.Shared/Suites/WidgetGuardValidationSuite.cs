@@ -31,7 +31,7 @@ namespace Test.Shared.Suites
                             Check.Throws<ArgumentNullException>(() => new Table(null!), "null table headers");
                             Check.Throws<ArgumentException>(() => new Table(Array.Empty<string>()), "empty table headers");
                             Check.Throws<ArgumentNullException>(() => new Table(new[] { "H" }).AddRow((string[])null!), "null table row");
-                            Check.Throws<ArgumentNullException>(() => new ListView().SetItems(null!), "null list items");
+                            Check.Throws<ArgumentNullException>(() => new ListView<string>().SetItems(null!), "null list items");
                             return Task.CompletedTask;
                         }),
 

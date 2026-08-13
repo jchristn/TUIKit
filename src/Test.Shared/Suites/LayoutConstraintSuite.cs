@@ -113,7 +113,7 @@ namespace Test.Shared.Suites
                     new TestCaseDescriptor("LayoutConstraint", "FuzzyAndBanner", "Fuzzy list rejects null query; banner handles edges",
                         _ =>
                         {
-                            FuzzyList list = new FuzzyList(new[] { "one", "two", "three" });
+                            FuzzyList<string> list = new FuzzyList<string>(new[] { "one", "two", "three" });
                             list.Query = "t";
                             Check.Equal(2, list.MatchCount, "two match 't'");
                             list.Query = string.Empty;

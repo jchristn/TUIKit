@@ -45,6 +45,13 @@ consumers had to build by hand, plus per-region background colors.
 ### Changed
 
 ### Breaking
+- **Generic list widgets.** `ListView`, `FuzzyList`, and (internally) the list picker are now generic
+  over the item type: `ListView<T>` and `FuzzyList<T>` take an optional `Func<T,string>` display
+  selector (the identity when `T` is `string`) and expose `SelectedItem` as `T`, so the selection is
+  the original object rather than a string that had to be mapped back. Migration: `new ListView()`
+  becomes `new ListView<string>()` and `new FuzzyList(items)` becomes `new FuzzyList<string>(items)`;
+  a non-string type supplies a selector, e.g. `new ListView<FileInfo>(f => f.Name)`. `SelectModal`
+  keeps its string+index API (it is backed by `ListView<string>`), so its call sites are unchanged.
 
 ## [0.5.1] - 2026-08-04
 
