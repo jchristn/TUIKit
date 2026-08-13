@@ -39,17 +39,27 @@ out below are acceptable within a minor bump per the project's stated `0.x` poli
 
 | Phase | Title | Items | Status |
 |---|---|---|---|
-| 0 | Release setup & conventions | version bump, branch, manifests | TODO |
-| 1 | Region backgrounds | R1–R3 | TODO |
-| 2 | Tier 1 — core primitives | T1-1 … T1-4 | TODO |
-| 3 | Tier 2 — composition | T2-1 … T2-5 | TODO |
-| 4 | Tier 3 — streaming & typeahead | T3-1 … T3-3 | TODO |
-| 5 | Tier 4 — utilities | T4-1 … T4-5 | TODO |
-| 6 | Example gallery integration | E1–E2 | TODO |
-| 7 | Documentation & packaging | D1–D5 | TODO |
-| 8 | Final passes | F1–F3 | TODO |
+| 0 | Release setup & conventions | version bump, branch, manifests | **DONE** (0.6.0 set; branch `feature/v0.6.0`) |
+| 1 | Region backgrounds | R1–R3 | **DONE** |
+| 2 | Tier 1 — core primitives | T1-1 … T1-4 | **WIP** (T1-1, T1-2 DONE; T1-3, T1-4 TODO) |
+| 3 | Tier 2 — composition | T2-1 … T2-5 | **WIP** (T2-4 DONE; T2-1/2/3/5 TODO) |
+| 4 | Tier 3 — streaming & typeahead | T3-1 … T3-3 | **WIP** (T3-1, T3-2 DONE; T3-3 TODO) |
+| 5 | Tier 4 — utilities | T4-1 … T4-5 | **WIP** (T4-1…T4-4 DONE; T4-5 TODO) |
+| 6 | Example gallery integration | E1–E2 | **WIP** (tour pages added for shipped widgets; `--gallery` mode TODO) |
+| 7 | Documentation & packaging | D1–D5 | **WIP** (CHANGELOG per-item + README + csproj DONE; example README, coverage/conformance TODO) |
+| 8 | Final passes | F1–F3 | **WIP** (build clean + 336 tests green after each increment; coverage/conformance audits TODO) |
 
-_Last updated: **plan created; no items started.**_
+_Last updated: **10 of 18 components shipped** (region backgrounds, DialogModal, CheckList/MultiSelectModal,
+DefinitionList, ActivityIndicator, StreamingTranscript, HintText, ColumnFormatter, Rule, SubmitKeyResolver).
+All committed on `feature/v0.6.0`, building clean across netstandard2.0/net8.0/net10.0, 336 Touchstone
+cases green. Remaining: T1-3 (focus-follow scroll), T1-4 (generic list widgets — breaking), T2-1
+(ActionListView), T2-2 (ReorderableList), T2-3 (dynamic forms), T2-5 (CommandRegistry), T3-3
+(autocomplete), T4-5 (KeyLabel audit), the `--gallery` example mode, and the closing audits._
+
+**Deviation note (T1-1):** the `DialogModal` base shipped and is used by the new `MultiSelectModal<T>`,
+which proves it. The optional behavior-preserving migration of the three existing modals
+(`MessageModal`/`PromptModal`/`SelectModal`) onto the base was deferred to avoid destabilizing their
+passing snapshot tests for low functional gain; those files are unchanged.
 
 ---
 
