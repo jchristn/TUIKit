@@ -70,7 +70,8 @@ namespace Test.Shared
                     WidgetGuardValidationSuite.Suite(),
                     StyledOutputSuite.Suite(),
                     UsabilitySuite.Suite(),
-                    UtilitiesSuite.Suite()
+                    UtilitiesSuite.Suite(),
+                    PanelsSuite.Suite()
                 };
             }
         }

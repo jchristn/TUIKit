@@ -577,6 +577,30 @@ namespace TUIKit.Example
                     "  .BackgroundRole(Theme.SidebarRole);"
                 }));
 
+            DefinitionList status = new DefinitionList();
+            status.AddSection("Session");
+            status.Set("Status", "running");
+            status.Set("Turns", "3");
+            status.Set("Effort", "high");
+            status.AddSection("This turn");
+            status.Set("TTFT", "420 ms");
+            status.Set("Tokens", "1,204");
+            pages.Add(new TourPage(
+                "Status panel & activity",
+                "DefinitionList shows labeled values (updated in place); ActivityIndicator animates a working line.",
+                status,
+                new[]
+                {
+                    "DefinitionList d = new();",
+                    "d.AddSection(\"Session\");",
+                    "d.Set(\"Status\", \"running\");",
+                    "d.Set(\"Turns\", \"3\");",
+                    "",
+                    "ActivityIndicator a = new();",
+                    "a.Phrases = new[]{ \"Thinking\" };",
+                    "a.Tick(); // once per frame"
+                }));
+
             Pane utilities = new Pane("utilities");
             List<IReadOnlyList<string>> reference = new List<IReadOnlyList<string>>
             {

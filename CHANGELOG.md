@@ -33,6 +33,11 @@ consumers had to build by hand, plus per-region background colors.
   cell; the `Rule` widget draws a horizontal or vertical divider with an optional centered caption;
   and `SubmitKeyResolver` resolves a key to submit / insert-newline / ignore, encoding the
   cross-terminal Enter-vs-Ctrl+J-vs-Shift+Enter reality so multi-line editors stop reinventing it.
+- **`DefinitionList` widget.** A thread-safe list of labeled values with optional section headers for
+  status panels and telemetry sidebars; setting the same label updates its value in place, and values
+  truncate (never the label) when space is tight.
+- **`ActivityIndicator` widget.** A spinner-plus-rotating-phrase "working…" line advanced by explicit
+  ticks (deterministic and testable), exposing its current line so it can also be pushed into a pane.
 
 ### Changed
 
