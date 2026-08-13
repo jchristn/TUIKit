@@ -46,7 +46,7 @@ namespace TUIKit.Example
                 .Add("header", r => r.FillWidth().TopAnchored(0, 1))
                 .Add("desc", r => r.FillWidth().TopAnchored(1, 1).WithPadding(0))
                 .Add("demo", r => r.ProportionalWidth(0.0, 0.5).Vertical(AxisConstraint.Stretch(2, 13)).WithBorder(BorderStyle.Rounded, "Live demo"))
-                .Add("code", r => r.ProportionalWidth(0.5, 0.5).Vertical(AxisConstraint.Stretch(2, 13)).WithBorder(BorderStyle.Rounded, "Code"))
+                .Add("code", r => r.ProportionalWidth(0.5, 0.5).Vertical(AxisConstraint.Stretch(2, 13)).WithBorder(BorderStyle.Rounded, "Code").BackgroundRole(Theme.SidebarRole))
                 .Add("interactive", r => r.FillWidth().BottomAnchored(8, 5).WithBorder(BorderStyle.Rounded, "Interactive").WithPadding(1, 0, 1, 0))
                 .Add("actions", r => r.FillWidth().BottomAnchored(1, 7).WithBorder(BorderStyle.Rounded, "Actions"))
                 .Add("footer", r => r.FillWidth().BottomAnchored(0, 1))
@@ -59,6 +59,7 @@ namespace TUIKit.Example
             _App.Commands.Register(KeyChord.Parse("ctrl+g"), "settings");
             _App.Commands.Register(KeyChord.Parse("ctrl+t"), "theme");
             _App.Commands.Register(KeyChord.Parse("ctrl+k"), "confirm");
+            _App.Commands.Register(KeyChord.Parse("ctrl+l"), "multiselect");
             _App.Commands.Register(KeyChord.Parse("ctrl+n"), "notify");
             _App.Commands.Register(KeyChord.Parse("f12"), "mouse");
 
@@ -67,6 +68,7 @@ namespace TUIKit.Example
             _App.RegisterCommand("settings", OpenSettings);
             _App.RegisterCommand("theme", CycleTheme);
             _App.RegisterCommand("confirm", ConfirmDemo);
+            _App.RegisterCommand("multiselect", MultiSelectDemo);
             _App.RegisterCommand("notify", () => { _App.Notify("This is a TUIKit notification toast.", NotificationSeverity.Info, 2500); Log("Ctrl+N was pressed, showing a notification toast"); });
             _App.RegisterCommand("mouse", ToggleMouse);
 
@@ -150,6 +152,24 @@ namespace TUIKit.Example
         {
             bool ok = await _App.ConfirmAsync("Enable experimental sixel image output?", "Enable", "Cancel").ConfigureAwait(false);
             _App.Notify(ok ? "Sixel output enabled." : "Left disabled.", ok ? NotificationSeverity.Success : NotificationSeverity.Warning, 2500);
+        }
+
+        private async void MultiSelectDemo()
+        {
+            MultiSelectModal<string> modal = new MultiSelectModal<string>(
+                "Select build targets",
+                new[] { "netstandard2.0", "net8.0", "net10.0", "net48" });
+            modal.List.SetChecked(1, true);
+            modal.List.SetChecked(2, true);
+
+            IReadOnlyList<int>? chosen = await _App.ShowAsync<IReadOnlyList<int>>(modal).ConfigureAwait(false);
+            if (chosen == null)
+            {
+                _App.Notify("Selection cancelled.", NotificationSeverity.Warning, 2000);
+                return;
+            }
+
+            _App.Notify(chosen.Count + " target(s) selected.", NotificationSeverity.Success, 2500);
         }
 
         internal void Start()
@@ -534,6 +554,80 @@ namespace TUIKit.Example
                     "app.Theme = Theme.Light;"
                 }));
 
+            Pane backgrounds = new Pane("backgrounds");
+            backgrounds.WriteMarkup("[bold]Regions can carry a background.[/]");
+            backgrounds.WriteLine(string.Empty);
+            backgrounds.WriteMarkup("The [green]Code[/] panel on the right is tinted with the");
+            backgrounds.WriteMarkup("theme's [yellow]sidebar[/] role — press [yellow]Ctrl+T[/] and watch it");
+            backgrounds.WriteMarkup("restyle with the theme. Or set an explicit color.");
+            pages.Add(new TourPage(
+                "Region backgrounds",
+                "Give a region a solid color or bind it to a theme role so themes restyle it for you.",
+                backgrounds,
+                new[]
+                {
+                    "// Explicit color:",
+                    "Region.Define(\"sidebar\")",
+                    "  .RightAnchored(0, 24).FillHeight()",
+                    "  .Background(Color.FromRgb(30, 30, 30));",
+                    "",
+                    "// Or a theme role (restyles",
+                    "// when the theme changes):",
+                    "Region.Define(\"code\")",
+                    "  .BackgroundRole(Theme.SidebarRole);"
+                }));
+
+            DefinitionList status = new DefinitionList();
+            status.AddSection("Session");
+            status.Set("Status", "running");
+            status.Set("Turns", "3");
+            status.Set("Effort", "high");
+            status.AddSection("This turn");
+            status.Set("TTFT", "420 ms");
+            status.Set("Tokens", "1,204");
+            pages.Add(new TourPage(
+                "Status panel & activity",
+                "DefinitionList shows labeled values (updated in place); ActivityIndicator animates a working line.",
+                status,
+                new[]
+                {
+                    "DefinitionList d = new();",
+                    "d.AddSection(\"Session\");",
+                    "d.Set(\"Status\", \"running\");",
+                    "d.Set(\"Turns\", \"3\");",
+                    "",
+                    "ActivityIndicator a = new();",
+                    "a.Phrases = new[]{ \"Thinking\" };",
+                    "a.Tick(); // once per frame"
+                }));
+
+            Pane utilities = new Pane("utilities");
+            List<IReadOnlyList<string>> reference = new List<IReadOnlyList<string>>
+            {
+                new List<string> { "Open", "Ctrl+O", "/open" },
+                new List<string> { "Save", "Ctrl+S", "/save" },
+                new List<string> { "Quit", "Ctrl+Q", "/quit" }
+            };
+            foreach (string line in TUIKit.Content.ColumnFormatter.Format(reference))
+                utilities.WriteLine(line);
+            utilities.WriteLine(string.Empty);
+            foreach (string line in TUIKit.Content.HintText.Wrap("Tab: next · Space: toggle · Enter: ok · Esc: back", 40))
+                utilities.WriteMarkup("[dim]" + line + "[/]");
+            pages.Add(new TourPage(
+                "Utilities — columns, hints, rules, keys",
+                "Small helpers: aligned columns, wrapping hint footers, section rules, and submit-key handling.",
+                utilities,
+                new[]
+                {
+                    "ColumnFormatter.Format(rows);",
+                    "HintText.Wrap(hint, width);",
+                    "new Rule { Caption = \"Section\" };",
+                    "",
+                    "SubmitKeyResolver keys = new();",
+                    "// Enter submits, Ctrl+J newline:",
+                    "keys.Resolve(keyEvent);"
+                }));
+
             Pane markup = new Pane("markup");
             markup.WriteMarkup("[bold]Bold[/], [red]red[/], [green]green[/], [blue on white] on white [/]");
             markup.WriteLine(string.Empty);
@@ -672,10 +766,10 @@ namespace TUIKit.Example
             pages.Add(new TourPage(
                 "Fuzzy finder",
                 "[bold]FuzzyList[/] filters as you type. Type letters; [bold]Backspace[/] edits.",
-                new FuzzyList(new[] { "apple", "apricot", "banana", "grape", "grapefruit", "mango" }),
+                new FuzzyList<string>(new[] { "apple", "apricot", "banana", "grape", "grapefruit", "mango" }),
                 new[]
                 {
-                    "FuzzyList list = new FuzzyList(items);",
+                    "FuzzyList<string> list = new(items);",
                     "// typing filters:",
                     "list.Query = \"ap\";",
                     "string? pick = list.SelectedItem;"

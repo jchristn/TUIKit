@@ -17,6 +17,8 @@ namespace TUIKit.Layout
         private Padding _Padding = Padding.Uniform(1);
         private BorderStyle _Border = BorderStyle.None;
         private string? _BorderTitle;
+        private Color? _Background;
+        private string? _BackgroundRole;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RegionBuilder"/> class.
@@ -216,6 +218,53 @@ namespace TUIKit.Layout
         }
 
         /// <summary>
+        /// Paints an explicit background color across the region's whole resolved rectangle (behind the
+        /// border and any bound widget), for example a dark panel behind a sidebar. An explicit color
+        /// takes precedence over any <see cref="BackgroundRole"/>. Clears any previously set role.
+        /// </summary>
+        /// <param name="color">The background color.</param>
+        /// <returns>This builder.</returns>
+        public RegionBuilder Background(Color color)
+        {
+            _Background = color;
+            _BackgroundRole = null;
+            return this;
+        }
+
+        /// <summary>
+        /// Binds the region's background to a named theme style so a theme switch restyles it without a
+        /// code change. Applies only when no explicit <see cref="Background"/> color is set. The host
+        /// resolves the role against the active theme at render time; an unknown role falls back to the
+        /// theme text background. Clears any previously set explicit color.
+        /// </summary>
+        /// <param name="role">The theme style name. Must not be null, empty, or whitespace.</param>
+        /// <returns>This builder.</returns>
+        /// <exception cref="ArgumentException">
+        /// Thrown when <paramref name="role"/> is null, empty, or whitespace.
+        /// </exception>
+        public RegionBuilder BackgroundRole(string role)
+        {
+            if (string.IsNullOrWhiteSpace(role))
+                throw new ArgumentException("Background role must not be null, empty, or whitespace.", nameof(role));
+
+            _BackgroundRole = role;
+            _Background = null;
+            return this;
+        }
+
+        /// <summary>
+        /// Removes any background (explicit color or theme role) so the region is transparent and
+        /// inherits the theme text background.
+        /// </summary>
+        /// <returns>This builder.</returns>
+        public RegionBuilder NoBackground()
+        {
+            _Background = null;
+            _BackgroundRole = null;
+            return this;
+        }
+
+        /// <summary>
         /// Builds the region.
         /// </summary>
         /// <returns>The constructed region.</returns>
@@ -229,7 +278,7 @@ namespace TUIKit.Layout
             if (_Vertical == null)
                 throw new InvalidOperationException("Region '" + _Id + "' has no vertical constraint.");
 
-            return new Region(_Id, _Horizontal, _Vertical, _Padding, _Border, _BorderTitle);
+            return new Region(_Id, _Horizontal, _Vertical, _Padding, _Border, _BorderTitle, _Background, _BackgroundRole);
         }
     }
 }

@@ -16,7 +16,7 @@ namespace TUIKit.Example
     internal sealed class ChoiceModal : Modal
     {
         private readonly string _Title;
-        private readonly ListView _List = new ListView();
+        private readonly ListView<string> _List = new ListView<string>();
 
         internal ChoiceModal(string title, IReadOnlyList<string> options)
         {

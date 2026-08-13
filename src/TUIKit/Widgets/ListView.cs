@@ -6,27 +6,55 @@ namespace TUIKit.Widgets
     using TUIKit.Input;
 
     /// <summary>
-    /// A vertical list of selectable items with keyboard navigation and scrolling. The selected item
-    /// is highlighted; the view scrolls to keep it visible.
+    /// A vertical list of selectable items with keyboard navigation and scrolling. The selected item is
+    /// highlighted; the view scrolls to keep it visible. Items are of any type <typeparamref name="T"/>;
+    /// a display selector maps each to its label (the identity when <typeparamref name="T"/> is
+    /// <see cref="string"/>), so the selection can be read back as the original object.
     /// </summary>
-    public sealed class ListView : IWidget, IFocusable, IFocusAware
+    /// <typeparam name="T">The item type.</typeparam>
+    public sealed class ListView<T> : IWidget, IFocusable, IFocusAware
     {
-        private readonly List<string> _Items = new List<string>();
+        private readonly List<T> _Items = new List<T>();
+        private readonly Func<T, string> _Display;
         private int _Selected;
         private int _Top;
 
         /// <summary>
-        /// Gets or sets a value indicating whether the list is focused. When focused the selected item
-        /// is drawn with a solid highlight bar; when not focused it is drawn as bold text only, so the
-        /// selection stays visible without competing with the focused widget. Defaults to true so a
-        /// standalone list looks the same as before. Set automatically by the host focus ring and
-        /// <see cref="FocusManager"/> through <see cref="IFocusAware"/>.
+        /// Initializes a new instance of the <see cref="ListView{T}"/> class.
+        /// </summary>
+        /// <param name="display">
+        /// A selector mapping an item to its display label. May be null only when
+        /// <typeparamref name="T"/> is <see cref="string"/>, in which case the item itself is used.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="display"/> is null and <typeparamref name="T"/> is not <see cref="string"/>.
+        /// </exception>
+        public ListView(Func<T, string>? display = null)
+        {
+            if (display == null)
+            {
+                if (typeof(T) != typeof(string))
+                    throw new ArgumentNullException(nameof(display), "A display selector is required when T is not string.");
+
+                _Display = item => (string)(object)item!;
+            }
+            else
+            {
+                _Display = display;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the list is focused. When focused the selected item is
+        /// drawn with a solid highlight bar; when not focused it is drawn as bold text only, so the
+        /// selection stays visible without competing with the focused widget. Defaults to true. Set
+        /// automatically by the host focus ring and <see cref="FocusManager"/> through <see cref="IFocusAware"/>.
         /// </summary>
         public bool IsFocused { get; set; } = true;
 
         /// <summary>
-        /// Updates the focused state so the selection highlight reflects focus on the next frame. Part
-        /// of <see cref="IFocusAware"/>.
+        /// Updates the focused state so the selection highlight reflects focus on the next frame. Part of
+        /// <see cref="IFocusAware"/>.
         /// </summary>
         /// <param name="focused"><c>true</c> when the list has gained focus; otherwise <c>false</c>.</param>
         public void OnFocusChanged(bool focused)
@@ -37,7 +65,7 @@ namespace TUIKit.Widgets
         /// <summary>
         /// Gets the items. Never null.
         /// </summary>
-        public IReadOnlyList<string> Items
+        public IReadOnlyList<T> Items
         {
             get { return _Items; }
         }
@@ -51,11 +79,11 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Gets the selected item text, or null when the list is empty.
+        /// Gets the selected item, or the type default when the list is empty.
         /// </summary>
-        public string? SelectedItem
+        public T? SelectedItem
         {
-            get { return _Items.Count == 0 ? null : _Items[_Selected]; }
+            get { return _Items.Count == 0 ? default : _Items[_Selected]; }
         }
 
         /// <summary>
@@ -68,7 +96,7 @@ namespace TUIKit.Widgets
         /// </summary>
         /// <param name="items">The items. Must not be null.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="items"/> is null.</exception>
-        public void SetItems(IEnumerable<string> items)
+        public void SetItems(IEnumerable<T> items)
         {
             if (items == null)
                 throw new ArgumentNullException(nameof(items));
@@ -166,7 +194,7 @@ namespace TUIKit.Widgets
                     style = CellStyle.Default;
                 }
 
-                surface.DrawText(0, row, _Items[index], style);
+                surface.DrawText(0, row, _Display(_Items[index]), style);
             }
         }
     }

@@ -14,7 +14,7 @@ namespace TUIKit.Modals
     public sealed class SelectModal : Modal
     {
         private readonly string _Title;
-        private readonly ListView _List = new ListView();
+        private readonly ListView<string> _List = new ListView<string>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectModal"/> class.

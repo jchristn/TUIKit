@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-13
+
+Horizontal component expansion: a set of general-purpose components, drawn from patterns downstream
+consumers had to build by hand, plus per-region background colors.
+
+### Added
+- **Per-region background colors.** A layout `Region` can now carry a background painted across its
+  whole resolved rectangle, behind the border and any bound widget. Set an explicit color with
+  `RegionBuilder.Background(Color)`, or bind to a named theme style with
+  `RegionBuilder.BackgroundRole(string)` so a theme switch restyles the region without a code change;
+  `NoBackground()` clears it. Regions with no background stay transparent and inherit the theme text
+  background, so the change is backward compatible. The built-in themes register conventional
+  `Theme.SidebarRole` and `Theme.StatusBarRole` styles for panels and status strips.
+- **`DialogModal` base class.** A reusable base for centered, bordered dialogs that owns box
+  measurement, min/max content clamping, centering, background fill, border, an optional title and a
+  dim footer hint, and hands subclasses a clipped inner surface through `RenderContent`. Subclasses
+  report their natural content size and draw content; they no longer compute box geometry by hand.
+- **`CheckList<T>` widget and `MultiSelectModal<T>` dialog.** A vertical list whose items can each be
+  checked independently (Space toggles, a configurable key toggles all), of any item type with a
+  display selector, plus a dialog wrapper that completes with the checked indices (Enter) or null
+  (Escape).
+- **`DefinitionList` widget.** A thread-safe list of labeled values with optional section headers for
+  status panels and telemetry sidebars; setting the same label updates its value in place, and values
+  truncate (never the label) when space is tight.
+- **`ActivityIndicator` widget.** A spinner-plus-rotating-phrase "working…" line advanced by explicit
+  ticks (deterministic and testable), exposing its current line so it can also be pushed into a pane.
+- **`StreamingTranscript` helper.** Projects a stream of text and keyed status lines onto a `Pane`:
+  buffer streaming text into a block shown on a live line, re-render the finished block as Markdown,
+  and update named lines in place (for example flipping a task line from "running…" to "done").
+- **`ActionListView<T>` widget.** A list whose rows expose keyboard actions (Enter to activate, plus
+  consumer-registered chords like "e"/Delete) with an optional per-row enabled predicate; firing an
+  action raises a typed `ListAction<T>` carrying the row index, item, and action id.
+- **`ReorderableList<T>` widget.** A list that moves the selected item up/down (Alt+Up/Down or "["/"]")
+  and removes it (Delete/"d"), exposing the current order and raising `Reordered`/`Removed` events.
+- **`Command` and `CommandRegistry`.** One command descriptor (id, title, category, optional chord,
+  slash aliases, handler, enabled predicate) projected onto every surface: `ApplyTo` binds chords and
+  handlers into the host, `BuildMenuBar` groups enabled commands by category, `BuildPalette` returns a
+  `FuzzyList<Command>` for a command palette, and `ResolveSlash` routes `/name args` input.
+- **Autocomplete / typeahead.** An `ISuggestionProvider` contract (with a built-in
+  `PrefixSuggestionProvider`) and an `AutocompleteOverlay` that shows ranked, caret-anchored
+  suggestions for a text input — Up/Down to move, Tab/Enter to accept, Escape to dismiss — flipping
+  above the caret when there is no room below. This is the one capability the original build plan had
+  deliberately excluded.
+- **Text and input utilities.** `HintText.Wrap` wraps a separator-delimited hint footer to a width
+  without splitting a segment; `ColumnFormatter.Format` aligns rows into columns sized to the widest
+  cell; the `Rule` widget draws a horizontal or vertical divider with an optional centered caption;
+  and `SubmitKeyResolver` resolves a key to submit / insert-newline / ignore, encoding the
+  cross-terminal Enter-vs-Ctrl+J-vs-Shift+Enter reality so multi-line editors stop reinventing it.
+
+### Changed
+- **`ScrollView` follows focus.** When its child implements the new `IScrollExtent` contract,
+  `ScrollView` scrolls the child's focused region into view automatically (`AutoScrollToFocus`, on by
+  default), with a public `EnsureVisible(top, height)` that clamps rather than throwing. `Form`
+  implements `IScrollExtent`, so a form taller than its viewport keeps the focused field visible.
+- **`Form` field sets can be rebuilt at runtime.** `Form.Clear()` empties the fields and resets the
+  focus ring (paired with `FocusManager.Clear()`), and `Form.SetFocusedField(index)` restores focus
+  after a rebuild — the basis for dependent forms that swap fields when a selection changes.
+- **`KeyLabel` audit.** Confirmed OS-adaptive modifier labels are complete: `KeyChord.ToLabel` renders
+  `⌃/⌥/⇧/⌘` in symbol style and `Ctrl+/Alt+/Shift+/Super+` in ASCII, and `KeyLabel.Recommended`
+  follows the platform. No code change was needed; existing coverage stands.
+
+### Breaking
+- **Generic list widgets.** `ListView`, `FuzzyList`, and (internally) the list picker are now generic
+  over the item type: `ListView<T>` and `FuzzyList<T>` take an optional `Func<T,string>` display
+  selector (the identity when `T` is `string`) and expose `SelectedItem` as `T`, so the selection is
+  the original object rather than a string that had to be mapped back. Migration: `new ListView()`
+  becomes `new ListView<string>()` and `new FuzzyList(items)` becomes `new FuzzyList<string>(items)`;
+  a non-string type supplies a selector, e.g. `new ListView<FileInfo>(f => f.Name)`. `SelectModal`
+  keeps its string+index API (it is backed by `ListView<string>`), so its call sites are unchanged.
+
 ## [0.5.1] - 2026-08-04
 
 Documentation fixes. No code changes from 0.5.0.

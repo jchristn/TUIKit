@@ -31,12 +31,15 @@ namespace Test.Shared
                     TerminalSuite.Suite(),
                     RenderSuite.Suite(),
                     LayoutSuite.Suite(),
+                    RegionBackgroundSuite.Suite(),
                     ContentSuite.Suite(),
                     MarkdownSuite.Suite(),
                     InputSuite.Suite(),
                     MouseLinkSuite.Suite(),
                     SelectionSuite.Suite(),
                     ModalSuite.Suite(),
+                    DialogModalSuite.Suite(),
+                    MultiSelectSuite.Suite(),
                     WidgetSuite.Suite(),
                     HostingSuite.Suite(),
                     DiagnosticsSuite.Suite(),
@@ -66,7 +69,15 @@ namespace Test.Shared
                     DiagnosticsValidationSuite.Suite(),
                     WidgetGuardValidationSuite.Suite(),
                     StyledOutputSuite.Suite(),
-                    UsabilitySuite.Suite()
+                    UsabilitySuite.Suite(),
+                    UtilitiesSuite.Suite(),
+                    PanelsSuite.Suite(),
+                    StreamingTranscriptSuite.Suite(),
+                    GenericListSuite.Suite(),
+                    ListEditingSuite.Suite(),
+                    CommandRegistrySuite.Suite(),
+                    AutocompleteSuite.Suite(),
+                    ScrollFormSuite.Suite()
                 };
             }
         }

@@ -10,8 +10,33 @@ namespace TUIKit.Theming
     /// <see cref="UseAsciiBorders"/> flag lets a theme fall back to ASCII glyphs on terminals without
     /// box-drawing support.
     /// </summary>
+    /// <remarks>
+    /// Named styles registered with <see cref="SetStyle"/> double as background roles for layout
+    /// regions: a region built with <c>BackgroundRole("name")</c> paints the background of the style
+    /// registered under that name, so a theme switch can restyle panels without any code change. The
+    /// built-in presets register the conventional roles named by <see cref="SidebarRole"/> and
+    /// <see cref="StatusBarRole"/>.
+    /// </remarks>
     public sealed class Theme
     {
+        /// <summary>
+        /// Gets the conventional theme-style name for a sidebar panel background. The built-in presets
+        /// register a style under this name; regions can bind to it with <c>BackgroundRole</c>.
+        /// </summary>
+        public static string SidebarRole
+        {
+            get { return "sidebar"; }
+        }
+
+        /// <summary>
+        /// Gets the conventional theme-style name for a status-bar or footer background. The built-in
+        /// presets register a style under this name; regions can bind to it with <c>BackgroundRole</c>.
+        /// </summary>
+        public static string StatusBarRole
+        {
+            get { return "statusbar"; }
+        }
+
         private readonly Dictionary<string, CellStyle> _Named = new Dictionary<string, CellStyle>(StringComparer.Ordinal);
 
         /// <summary>
@@ -138,12 +163,13 @@ namespace TUIKit.Theming
             get
             {
                 Color background = Color.FromRgb(0x1E, 0x1E, 0x1E);
-                return new Theme(
+                Theme theme = new Theme(
                     "Dark",
                     Styled(Color.FromRgb(0xD0, 0xD0, 0xD0), background),
                     Styled(Color.FromRgb(0x4F, 0xC1, 0xE9), background),
                     Styled(Color.FromRgb(0x5A, 0x5A, 0x6A), background),
                     Styled(Color.FromRgb(0x8A, 0x8A, 0x9A), background));
+                return WithConventionalRoles(theme, Color.FromRgb(0x18, 0x18, 0x1B), Color.FromRgb(0x2D, 0x2D, 0x30));
             }
         }
 
@@ -155,12 +181,13 @@ namespace TUIKit.Theming
             get
             {
                 Color background = Color.FromRgb(0xE8, 0xE8, 0xE8);
-                return new Theme(
+                Theme theme = new Theme(
                     "Light",
                     Styled(Color.FromRgb(0x20, 0x20, 0x20), background),
                     Styled(Color.FromRgb(0x0A, 0x5C, 0xA0), background),
                     Styled(Color.FromRgb(0x90, 0x90, 0x90), background),
                     Styled(Color.FromRgb(0x55, 0x55, 0x55), background));
+                return WithConventionalRoles(theme, Color.FromRgb(0xD8, 0xD8, 0xD8), Color.FromRgb(0xCE, 0xCE, 0xCE));
             }
         }
 
@@ -172,19 +199,27 @@ namespace TUIKit.Theming
             get
             {
                 Color background = Color.FromRgb(0x00, 0x00, 0x00);
-                return new Theme(
+                Theme theme = new Theme(
                     "HighContrast",
                     Styled(Color.FromRgb(0xFF, 0xFF, 0xFF), background),
                     Styled(Color.FromRgb(0xFF, 0xFF, 0x00), background),
                     Styled(Color.FromRgb(0xFF, 0xFF, 0xFF), background),
                     Styled(Color.FromRgb(0xC0, 0xC0, 0xC0), background),
                     true);
+                return WithConventionalRoles(theme, Color.FromRgb(0x00, 0x00, 0x00), Color.FromRgb(0x00, 0x00, 0x00));
             }
         }
 
         private static CellStyle Styled(Color foreground, Color background)
         {
             return CellStyle.Default.WithForeground(foreground).WithBackground(background);
+        }
+
+        private static Theme WithConventionalRoles(Theme theme, Color sidebar, Color statusBar)
+        {
+            theme.SetStyle(SidebarRole, theme.Text.WithBackground(sidebar));
+            theme.SetStyle(StatusBarRole, theme.Text.WithBackground(statusBar));
+            return theme;
         }
 
         /// <summary>

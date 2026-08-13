@@ -8,12 +8,17 @@ namespace TUIKit.Widgets
     /// <summary>
     /// A list that filters its items as the user types, using fuzzy subsequence matching with the
     /// matched characters highlighted. The most-reused TUI interaction — command palettes, file jumps,
-    /// pickers. Type to filter, Up/Down to move, and read <see cref="SelectedItem"/> on accept.
+    /// pickers. Type to filter, Up/Down to move, and read <see cref="SelectedItem"/> on accept. Items
+    /// are of any type <typeparamref name="T"/>; a display selector maps each to the text matched and
+    /// shown (the identity when <typeparamref name="T"/> is <see cref="string"/>).
     /// </summary>
-    public sealed class FuzzyList : IWidget, IFocusable
+    /// <typeparam name="T">The item type.</typeparam>
+    public sealed class FuzzyList<T> : IWidget, IFocusable
     {
-        private readonly List<string> _Items = new List<string>();
+        private readonly List<T> _Items = new List<T>();
+        private readonly List<string> _Labels = new List<string>();
         private readonly List<int> _Filtered = new List<int>();
+        private readonly Func<T, string> _Display;
         private string _Query = string.Empty;
         private int _Selected;
         private int _Top;
@@ -51,24 +56,48 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Gets the selected item, or null when nothing matches.
+        /// Gets the selected item, or the type default when nothing matches.
         /// </summary>
-        public string? SelectedItem
+        public T? SelectedItem
         {
-            get { return _Filtered.Count == 0 ? null : _Items[_Filtered[_Selected]]; }
+            get { return _Filtered.Count == 0 ? default : _Items[_Filtered[_Selected]]; }
         }
 
         /// <summary>
-        /// Replaces the source items and re-filters.
+        /// Initializes a new instance of the <see cref="FuzzyList{T}"/> class.
         /// </summary>
         /// <param name="items">The items. Must not be null.</param>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="items"/> is null.</exception>
-        public FuzzyList(IEnumerable<string> items)
+        /// <param name="display">
+        /// A selector mapping an item to the text matched and shown. May be null only when
+        /// <typeparamref name="T"/> is <see cref="string"/>, in which case the item itself is used.
+        /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="items"/> is null, or when <paramref name="display"/> is null and
+        /// <typeparamref name="T"/> is not <see cref="string"/>.
+        /// </exception>
+        public FuzzyList(IEnumerable<T> items, Func<T, string>? display = null)
         {
             if (items == null)
                 throw new ArgumentNullException(nameof(items));
 
-            _Items.AddRange(items);
+            if (display == null)
+            {
+                if (typeof(T) != typeof(string))
+                    throw new ArgumentNullException(nameof(display), "A display selector is required when T is not string.");
+
+                _Display = item => (string)(object)item!;
+            }
+            else
+            {
+                _Display = display;
+            }
+
+            foreach (T item in items)
+            {
+                _Items.Add(item);
+                _Labels.Add(_Display(item));
+            }
+
             Refilter();
         }
 
@@ -132,7 +161,7 @@ namespace TUIKit.Widgets
             for (int row = 0; row < listHeight && _Top + row < _Filtered.Count; row++)
             {
                 int filteredIndex = _Top + row;
-                string item = _Items[_Filtered[filteredIndex]];
+                string item = _Labels[_Filtered[filteredIndex]];
                 bool selected = filteredIndex == _Selected;
                 int y = row + 1;
 
@@ -159,7 +188,7 @@ namespace TUIKit.Widgets
             for (int i = 0; i < _Items.Count; i++)
             {
                 positions.Clear();
-                if (Matches(_Items[i], _Query, positions))
+                if (Matches(_Labels[i], _Query, positions))
                 {
                     _Filtered.Add(i);
                     scores.Add(Score(positions));

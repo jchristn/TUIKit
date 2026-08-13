@@ -150,7 +150,7 @@ namespace Test.Shared.Suites
                     new TestCaseDescriptor("NewWidgets", "FuzzyList", "Fuzzy list filters and highlights",
                         _ =>
                         {
-                            FuzzyList list = new FuzzyList(new[] { "apple", "banana", "grape" });
+                            FuzzyList<string> list = new FuzzyList<string>(new[] { "apple", "banana", "grape" });
                             list.Query = "ap";
                             Check.Equal(2, list.MatchCount, "apple and grape match 'ap'");
 
@@ -163,14 +163,14 @@ namespace Test.Shared.Suites
                     new TestCaseDescriptor("NewWidgets", "FuzzyTyping", "Typing edits the fuzzy query",
                         _ =>
                         {
-                            FuzzyList list = new FuzzyList(new[] { "alpha", "beta" });
+                            FuzzyList<string> list = new FuzzyList<string>(new[] { "alpha", "beta" });
                             list.HandleKey(KeyEvent.Char('a'));
                             list.HandleKey(KeyEvent.Char('l'));
                             Check.Equal("al", list.Query, "Query built from typing");
                             list.HandleKey(KeyEvent.Special(KeyCode.Backspace));
                             Check.Equal("a", list.Query, "Backspace edits the query");
 
-                            Check.Throws<ArgumentNullException>(() => new FuzzyList(null!), "Null items");
+                            Check.Throws<ArgumentNullException>(() => new FuzzyList<string>(null!), "Null items");
                             return Task.CompletedTask;
                         })
                 });

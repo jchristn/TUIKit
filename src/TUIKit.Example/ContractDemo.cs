@@ -31,7 +31,7 @@ namespace TUIKit.Example
 
         private readonly TuiApplication _App;
         private readonly Label _Header = new Label(Text.From("TUIKit — v0.4.0 interaction contract"));
-        private readonly ListView _Files = new ListView();
+        private readonly ListView<string> _Files = new ListView<string>();
         private readonly TextEditor _Editor = new TextEditor();
         private readonly StatusBar _Status = new StatusBar();
         private bool _Dark = true;

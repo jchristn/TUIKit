@@ -17,6 +17,13 @@ namespace TUIKit.Widgets
         private int _ContentHeight;
         private int _ScrollX;
         private int _ScrollY;
+        private int _LastViewportHeight;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the view scrolls to keep the child's focused region
+        /// visible when the child implements <see cref="IScrollExtent"/>. Defaults to true.
+        /// </summary>
+        public bool AutoScrollToFocus { get; set; } = true;
 
         /// <summary>
         /// Gets or sets a value indicating whether a vertical scrollbar is drawn when content
@@ -110,6 +117,28 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
+        /// Scrolls the minimum amount so the vertical range [<paramref name="top"/>,
+        /// <paramref name="top"/> + <paramref name="height"/>) is visible, based on the most recent
+        /// viewport height. Out-of-range values are clamped rather than throwing; the call is a no-op
+        /// until the view has been rendered at least once.
+        /// </summary>
+        /// <param name="top">The top of the range in content coordinates.</param>
+        /// <param name="height">The height of the range in cells.</param>
+        public void EnsureVisible(int top, int height)
+        {
+            if (_LastViewportHeight <= 0)
+                return;
+
+            int clampedTop = Math.Max(0, top);
+            int clampedHeight = Math.Max(0, height);
+
+            if (clampedTop < _ScrollY)
+                _ScrollY = clampedTop;
+            else if (clampedTop + clampedHeight > _ScrollY + _LastViewportHeight)
+                _ScrollY = Math.Max(0, clampedTop + clampedHeight - _LastViewportHeight);
+        }
+
+        /// <summary>
         /// Handles arrow and page keys to scroll.
         /// </summary>
         /// <param name="key">The key event.</param>
@@ -187,6 +216,13 @@ namespace TUIKit.Widgets
             bool needHorizontal = ShowHorizontalScrollbar && _ContentWidth > viewWidth;
             int innerWidth = Math.Max(1, viewWidth - (needVertical ? 1 : 0));
             int innerHeight = Math.Max(1, viewHeight - (needHorizontal ? 1 : 0));
+            _LastViewportHeight = innerHeight;
+
+            CellBuffer content = new CellBuffer(_ContentWidth, _ContentHeight);
+            _Child.Render(new BufferSurface(content));
+
+            if (AutoScrollToFocus && _Child is IScrollExtent extent && extent.TryGetFocusRect(out Rect focus))
+                EnsureVisible(focus.Y, focus.Height);
 
             int maxX = Math.Max(0, _ContentWidth - innerWidth);
             int maxY = Math.Max(0, _ContentHeight - innerHeight);
@@ -194,9 +230,6 @@ namespace TUIKit.Widgets
                 _ScrollX = maxX;
             if (_ScrollY > maxY)
                 _ScrollY = maxY;
-
-            CellBuffer content = new CellBuffer(_ContentWidth, _ContentHeight);
-            _Child.Render(new BufferSurface(content));
 
             for (int y = 0; y < innerHeight; y++)
             {
