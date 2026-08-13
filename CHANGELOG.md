@@ -28,11 +28,6 @@ consumers had to build by hand, plus per-region background colors.
   checked independently (Space toggles, a configurable key toggles all), of any item type with a
   display selector, plus a dialog wrapper that completes with the checked indices (Enter) or null
   (Escape).
-- **Text and input utilities.** `HintText.Wrap` wraps a separator-delimited hint footer to a width
-  without splitting a segment; `ColumnFormatter.Format` aligns rows into columns sized to the widest
-  cell; the `Rule` widget draws a horizontal or vertical divider with an optional centered caption;
-  and `SubmitKeyResolver` resolves a key to submit / insert-newline / ignore, encoding the
-  cross-terminal Enter-vs-Ctrl+J-vs-Shift+Enter reality so multi-line editors stop reinventing it.
 - **`DefinitionList` widget.** A thread-safe list of labeled values with optional section headers for
   status panels and telemetry sidebars; setting the same label updates its value in place, and values
   truncate (never the label) when space is tight.
@@ -55,6 +50,11 @@ consumers had to build by hand, plus per-region background colors.
   suggestions for a text input — Up/Down to move, Tab/Enter to accept, Escape to dismiss — flipping
   above the caret when there is no room below. This is the one capability the original build plan had
   deliberately excluded.
+- **Text and input utilities.** `HintText.Wrap` wraps a separator-delimited hint footer to a width
+  without splitting a segment; `ColumnFormatter.Format` aligns rows into columns sized to the widest
+  cell; the `Rule` widget draws a horizontal or vertical divider with an optional centered caption;
+  and `SubmitKeyResolver` resolves a key to submit / insert-newline / ignore, encoding the
+  cross-terminal Enter-vs-Ctrl+J-vs-Shift+Enter reality so multi-line editors stop reinventing it.
 
 ### Changed
 - **`ScrollView` follows focus.** When its child implements the new `IScrollExtent` contract,
