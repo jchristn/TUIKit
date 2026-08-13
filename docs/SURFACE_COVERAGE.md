@@ -4,6 +4,26 @@
 
 This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
+## 0.6.0 additions (feature/v0.6.0)
+
+The 0.6.0 horizontal-components work (see `IMPROVEMENTS_FOR_MUX.md`) added the public surface below, each covered by a dedicated Touchstone suite with positive and negative cases and run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0. The total stands at **363 console cases** (364 through the xUnit/NUnit wrappers).
+
+| New/changed public surface | Test suite |
+|---|---|
+| `Region.Background` / `BackgroundRole`, `RegionBuilder.Background`/`BackgroundRole`/`NoBackground`, `Theme.SidebarRole`/`StatusBarRole` | `RegionBackground` |
+| `DialogModal` base | `DialogModal` |
+| `CheckList<T>`, `MultiSelectModal<T>` | `MultiSelect` |
+| `ListView<T>`, `FuzzyList<T>` (generic) | `GenericList` (+ existing widget/modal suites updated) |
+| `ActionListView<T>`, `ListAction<T>`, `ReorderableList<T>` | `ListEditing` |
+| `DefinitionList`, `DefinitionRow`, `ActivityIndicator` | `Panels` |
+| `StreamingTranscript` | `StreamingTranscript` |
+| `Command`, `CommandRegistry` | `CommandRegistry` |
+| `ISuggestionProvider`, `PrefixSuggestionProvider`, `AutocompleteOverlay` | `Autocomplete` |
+| `IScrollExtent`, `ScrollView.AutoScrollToFocus`/`EnsureVisible`, `Form` scroll-focus + `Clear`/`SetFocusedField`, `FocusManager.Clear` | `ScrollForm` |
+| `HintText`, `ColumnFormatter`, `Rule`, `SubmitKeyResolver`/`SubmitDecision` | `Utilities` |
+
+Not separately covered: `KeyLabel`/`KeyChord.ToLabel` OS-adaptive labels were audited (T4-5) and were already complete with coverage in the `Input` suite. The dedicated `--gallery` example mode remains a documentation/demo enhancement (the guided tour demonstrates the new widgets); it does not affect library coverage.
+
 ## Coverage snapshot
 
 Measured with coverlet (`dotnet test src/Test.Xunit --collect:"XPlat Code Coverage"`) on net10.0:

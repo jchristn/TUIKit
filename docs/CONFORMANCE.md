@@ -17,6 +17,10 @@ Every requirement file was checked. The repository conforms, with the Docker/Doc
 
 `CLAUDE.md` exists at the repo root capturing the full code-style rule set, as `CODE_STYLE.md` requires.
 
+## 0.6.0 conformance (feature/v0.6.0)
+
+The 0.6.0 horizontal components were built to the same bar. Every new file follows `CODE_STYLE.md`: `namespace`-first with usings inside; one public type per file (`DialogModal`, `CheckList<T>`, `MultiSelectModal<T>`, `DefinitionList`, `DefinitionRow`, `ActivityIndicator`, `StreamingTranscript`, `ActionListView<T>`, `ListAction<T>`, `ReorderableList<T>`, `Command`, `CommandRegistry`, `ISuggestionProvider`, `PrefixSuggestionProvider`, `AutocompleteOverlay`, `IScrollExtent`, `Rule`, `HintText`, `ColumnFormatter`, `SubmitKeyResolver`, `SubmitDecision`, and the generic `ListView<T>`/`FuzzyList<T>`); XML docs on every public member with `<exception>` tags; `_PascalCase` fields with no docs; no `var`, no tuples, no `Console.Write*`; guard clauses throwing specific exceptions; and the async suggestion path takes a `CancellationToken` and uses `ConfigureAwait`. The whole solution builds clean (0 warnings, `TreatWarningsAsErrors=true`) across `netstandard2.0;net8.0;net10.0`, and **363 Touchstone cases pass in the console, xUnit, and NUnit runners on net8.0 and net10.0**. The one breaking change (generic list widgets) is recorded in the CHANGELOG `Breaking` section with a migration note, consistent with the project's alpha `0.x` policy.
+
 The rest of this document is the running record maintained during the build.
 
 ## Repository requirements (`REPOSITORY_REQUIREMENTS.md`)
