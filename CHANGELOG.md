@@ -57,6 +57,16 @@ consumers had to build by hand, plus per-region background colors.
   deliberately excluded.
 
 ### Changed
+- **`ScrollView` follows focus.** When its child implements the new `IScrollExtent` contract,
+  `ScrollView` scrolls the child's focused region into view automatically (`AutoScrollToFocus`, on by
+  default), with a public `EnsureVisible(top, height)` that clamps rather than throwing. `Form`
+  implements `IScrollExtent`, so a form taller than its viewport keeps the focused field visible.
+- **`Form` field sets can be rebuilt at runtime.** `Form.Clear()` empties the fields and resets the
+  focus ring (paired with `FocusManager.Clear()`), and `Form.SetFocusedField(index)` restores focus
+  after a rebuild — the basis for dependent forms that swap fields when a selection changes.
+- **`KeyLabel` audit.** Confirmed OS-adaptive modifier labels are complete: `KeyChord.ToLabel` renders
+  `⌃/⌥/⇧/⌘` in symbol style and `Ctrl+/Alt+/Shift+/Super+` in ASCII, and `KeyLabel.Recommended`
+  follows the platform. No code change was needed; existing coverage stands.
 
 ### Breaking
 - **Generic list widgets.** `ListView`, `FuzzyList`, and (internally) the list picker are now generic

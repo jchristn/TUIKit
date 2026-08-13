@@ -7,12 +7,20 @@ namespace TUIKit.Widgets
 
     /// <summary>
     /// Composes labeled input widgets into a form with a shared tab order and optional per-field
-    /// validation. Tab and Shift+Tab move between fields; other keys go to the focused field.
+    /// validation. Tab and Shift+Tab move between fields; other keys go to the focused field. The field
+    /// set can be rebuilt at runtime with <see cref="Clear"/> and <see cref="Add{TWidget}"/>, which is
+    /// how a dependent form swaps its fields when a selection changes. The form implements
+    /// <see cref="IScrollExtent"/>, so placing it inside a <see cref="ScrollView"/> scrolls the focused
+    /// field into view automatically when the form is taller than the viewport.
     /// </summary>
-    public sealed class Form : IWidget, IFocusable
+    public sealed class Form : IWidget, IFocusable, IScrollExtent
     {
         private readonly List<FormField> _Fields = new List<FormField>();
         private readonly FocusManager _Focus = new FocusManager();
+        private readonly List<int> _FieldTops = new List<int>();
+        private readonly List<int> _FieldHeights = new List<int>();
+        private int _ContentHeight;
+        private int _ContentWidth;
 
         /// <summary>
         /// Gets the number of fields.
@@ -50,6 +58,53 @@ namespace TUIKit.Widgets
             _Fields.Add(new FormField(label, widget, widget, validator));
             _Focus.Register(widget);
             return widget;
+        }
+
+        /// <summary>
+        /// Removes every field and resets the focus ring, so the form can be rebuilt with a different
+        /// field set at runtime (for example when a dependent selection changes which fields apply).
+        /// </summary>
+        public void Clear()
+        {
+            _Fields.Clear();
+            _Focus.Clear();
+            _FieldTops.Clear();
+            _FieldHeights.Clear();
+            _ContentHeight = 0;
+        }
+
+        /// <summary>
+        /// Moves focus to the field at the supplied index. Use it to restore a sensible focus after a
+        /// rebuild.
+        /// </summary>
+        /// <param name="index">The zero-based field index. Must be within [0, FieldCount).</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="index"/> is out of range.</exception>
+        public void SetFocusedField(int index)
+        {
+            if (index < 0 || index >= _Fields.Count)
+                throw new ArgumentOutOfRangeException(nameof(index), index, "Index must be within [0, FieldCount).");
+
+            _Focus.SetFocus(index);
+        }
+
+        /// <inheritdoc/>
+        public int ContentHeight
+        {
+            get { return _ContentHeight > 0 ? _ContentHeight : _Fields.Count * 3; }
+        }
+
+        /// <inheritdoc/>
+        public bool TryGetFocusRect(out Rect rect)
+        {
+            int index = _Focus.FocusedIndex;
+            if (index < 0 || index >= _FieldTops.Count)
+            {
+                rect = default;
+                return false;
+            }
+
+            rect = new Rect(0, _FieldTops[index], Math.Max(1, _ContentWidth), _FieldHeights[index]);
+            return true;
         }
 
         /// <summary>
@@ -96,11 +151,15 @@ namespace TUIKit.Widgets
                 return;
 
             BufferSurface? buffer = surface as BufferSurface;
+            _FieldTops.Clear();
+            _FieldHeights.Clear();
+            _ContentWidth = width;
             int y = 0;
             for (int i = 0; i < _Fields.Count && y < height; i++)
             {
                 FormField field = _Fields[i];
                 bool focused = _Focus.FocusedIndex == i;
+                int blockTop = y;
                 CellStyle labelStyle = CellStyle.Default.WithForeground(Color.FromPalette((byte)(focused ? 6 : 8)));
                 surface.DrawText(0, y, (focused ? "> " : "  ") + field.Label, labelStyle);
                 y++;
@@ -110,7 +169,11 @@ namespace TUIKit.Widgets
                     field.Widget.Render(buffer.CreateView(new Rect(2, y, width - 2, Math.Min(fieldHeight, height - y))));
 
                 y += fieldHeight + 1;
+                _FieldTops.Add(blockTop);
+                _FieldHeights.Add(Math.Max(1, y - blockTop));
             }
+
+            _ContentHeight = y;
         }
     }
 }

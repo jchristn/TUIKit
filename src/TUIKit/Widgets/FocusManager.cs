@@ -67,6 +67,16 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
+        /// Removes every registered widget and resets focus, so a screen can rebuild its focus ring at
+        /// runtime (for example when a form swaps its field set).
+        /// </summary>
+        public void Clear()
+        {
+            _Widgets.Clear();
+            _Index = 0;
+        }
+
+        /// <summary>
         /// Moves focus to the next widget, wrapping around.
         /// </summary>
         public void Next()

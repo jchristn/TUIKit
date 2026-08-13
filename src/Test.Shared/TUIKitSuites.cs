@@ -76,7 +76,8 @@ namespace Test.Shared
                     GenericListSuite.Suite(),
                     ListEditingSuite.Suite(),
                     CommandRegistrySuite.Suite(),
-                    AutocompleteSuite.Suite()
+                    AutocompleteSuite.Suite(),
+                    ScrollFormSuite.Suite()
                 };
             }
         }
