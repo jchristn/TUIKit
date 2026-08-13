@@ -50,6 +50,11 @@ consumers had to build by hand, plus per-region background colors.
   slash aliases, handler, enabled predicate) projected onto every surface: `ApplyTo` binds chords and
   handlers into the host, `BuildMenuBar` groups enabled commands by category, `BuildPalette` returns a
   `FuzzyList<Command>` for a command palette, and `ResolveSlash` routes `/name args` input.
+- **Autocomplete / typeahead.** An `ISuggestionProvider` contract (with a built-in
+  `PrefixSuggestionProvider`) and an `AutocompleteOverlay` that shows ranked, caret-anchored
+  suggestions for a text input — Up/Down to move, Tab/Enter to accept, Escape to dismiss — flipping
+  above the caret when there is no room below. This is the one capability the original build plan had
+  deliberately excluded.
 
 ### Changed
 

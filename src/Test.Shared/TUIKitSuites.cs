@@ -75,7 +75,8 @@ namespace Test.Shared
                     StreamingTranscriptSuite.Suite(),
                     GenericListSuite.Suite(),
                     ListEditingSuite.Suite(),
-                    CommandRegistrySuite.Suite()
+                    CommandRegistrySuite.Suite(),
+                    AutocompleteSuite.Suite()
                 };
             }
         }
