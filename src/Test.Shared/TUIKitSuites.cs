@@ -71,7 +71,8 @@ namespace Test.Shared
                     StyledOutputSuite.Suite(),
                     UsabilitySuite.Suite(),
                     UtilitiesSuite.Suite(),
-                    PanelsSuite.Suite()
+                    PanelsSuite.Suite(),
+                    StreamingTranscriptSuite.Suite()
                 };
             }
         }

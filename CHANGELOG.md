@@ -38,6 +38,9 @@ consumers had to build by hand, plus per-region background colors.
   truncate (never the label) when space is tight.
 - **`ActivityIndicator` widget.** A spinner-plus-rotating-phrase "working…" line advanced by explicit
   ticks (deterministic and testable), exposing its current line so it can also be pushed into a pane.
+- **`StreamingTranscript` helper.** Projects a stream of text and keyed status lines onto a `Pane`:
+  buffer streaming text into a block shown on a live line, re-render the finished block as Markdown,
+  and update named lines in place (for example flipping a task line from "running…" to "done").
 
 ### Changed
 
