@@ -46,7 +46,7 @@ namespace TUIKit.Example
                 .Add("header", r => r.FillWidth().TopAnchored(0, 1))
                 .Add("desc", r => r.FillWidth().TopAnchored(1, 1).WithPadding(0))
                 .Add("demo", r => r.ProportionalWidth(0.0, 0.5).Vertical(AxisConstraint.Stretch(2, 13)).WithBorder(BorderStyle.Rounded, "Live demo"))
-                .Add("code", r => r.ProportionalWidth(0.5, 0.5).Vertical(AxisConstraint.Stretch(2, 13)).WithBorder(BorderStyle.Rounded, "Code"))
+                .Add("code", r => r.ProportionalWidth(0.5, 0.5).Vertical(AxisConstraint.Stretch(2, 13)).WithBorder(BorderStyle.Rounded, "Code").BackgroundRole(Theme.SidebarRole))
                 .Add("interactive", r => r.FillWidth().BottomAnchored(8, 5).WithBorder(BorderStyle.Rounded, "Interactive").WithPadding(1, 0, 1, 0))
                 .Add("actions", r => r.FillWidth().BottomAnchored(1, 7).WithBorder(BorderStyle.Rounded, "Actions"))
                 .Add("footer", r => r.FillWidth().BottomAnchored(0, 1))
@@ -532,6 +532,29 @@ namespace TUIKit.Example
                     "app.Notify(\"Saved\",",
                     "  NotificationSeverity.Success);",
                     "app.Theme = Theme.Light;"
+                }));
+
+            Pane backgrounds = new Pane("backgrounds");
+            backgrounds.WriteMarkup("[bold]Regions can carry a background.[/]");
+            backgrounds.WriteLine(string.Empty);
+            backgrounds.WriteMarkup("The [green]Code[/] panel on the right is tinted with the");
+            backgrounds.WriteMarkup("theme's [yellow]sidebar[/] role — press [yellow]Ctrl+T[/] and watch it");
+            backgrounds.WriteMarkup("restyle with the theme. Or set an explicit color.");
+            pages.Add(new TourPage(
+                "Region backgrounds",
+                "Give a region a solid color or bind it to a theme role so themes restyle it for you.",
+                backgrounds,
+                new[]
+                {
+                    "// Explicit color:",
+                    "Region.Define(\"sidebar\")",
+                    "  .RightAnchored(0, 24).FillHeight()",
+                    "  .Background(Color.FromRgb(30, 30, 30));",
+                    "",
+                    "// Or a theme role (restyles",
+                    "// when the theme changes):",
+                    "Region.Define(\"code\")",
+                    "  .BackgroundRole(Theme.SidebarRole);"
                 }));
 
             Pane markup = new Pane("markup");

@@ -46,11 +46,38 @@ namespace TUIKit.Layout
         public string? BorderTitle { get; }
 
         /// <summary>
+        /// Gets the explicit background color painted across the region's whole resolved rectangle
+        /// (behind the border and any bound widget), or null when the region has no explicit
+        /// background. An explicit background takes precedence over <see cref="BackgroundRole"/>. When
+        /// both this and <see cref="BackgroundRole"/> are null the region is transparent and inherits
+        /// the theme's text background, exactly as regions did before backgrounds existed.
+        /// </summary>
+        public Color? Background { get; }
+
+        /// <summary>
+        /// Gets the name of the theme style whose background is painted across the region when
+        /// <see cref="Background"/> is null, or null for none. The host resolves the role against the
+        /// active theme at render time (an unknown role falls back to the theme text background), so a
+        /// theme switch restyles the region without any code change. Never an empty or whitespace
+        /// string; the builder and constructor reject those.
+        /// </summary>
+        public string? BackgroundRole { get; }
+
+        /// <summary>
         /// Gets a value indicating whether the region draws a border.
         /// </summary>
         public bool HasBorder
         {
             get { return Border != BorderStyle.None; }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the region carries any background (explicit color or theme
+        /// role). When false the region is transparent and inherits the theme text background.
+        /// </summary>
+        public bool HasBackground
+        {
+            get { return Background.HasValue || BackgroundRole != null; }
         }
 
         /// <summary>
@@ -77,12 +104,25 @@ namespace TUIKit.Layout
         /// <param name="padding">The interior padding. Defaults to <see cref="Padding.Empty"/>.</param>
         /// <param name="border">The border style. Defaults to <see cref="BorderStyle.None"/>.</param>
         /// <param name="borderTitle">The optional border title. Defaults to null.</param>
-        /// <exception cref="ArgumentException">Thrown when <paramref name="id"/> is null or empty.</exception>
+        /// <param name="background">
+        /// The explicit background color, or null for none. Takes precedence over
+        /// <paramref name="backgroundRole"/>. Defaults to null.
+        /// </param>
+        /// <param name="backgroundRole">
+        /// The theme style name whose background paints the region when <paramref name="background"/>
+        /// is null, or null for none. Defaults to null.
+        /// </param>
+        /// <exception cref="ArgumentException">
+        /// Thrown when <paramref name="id"/> is null or empty, or when <paramref name="backgroundRole"/>
+        /// is a non-null empty or whitespace string.
+        /// </exception>
         /// <exception cref="ArgumentNullException">Thrown when a constraint is null.</exception>
-        public Region(string id, AxisConstraint horizontal, AxisConstraint vertical, Padding padding = default, BorderStyle border = BorderStyle.None, string? borderTitle = null)
+        public Region(string id, AxisConstraint horizontal, AxisConstraint vertical, Padding padding = default, BorderStyle border = BorderStyle.None, string? borderTitle = null, Color? background = null, string? backgroundRole = null)
         {
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Region id must not be null or empty.", nameof(id));
+            if (backgroundRole != null && string.IsNullOrWhiteSpace(backgroundRole))
+                throw new ArgumentException("Background role must not be empty or whitespace.", nameof(backgroundRole));
 
             Id = id;
             Horizontal = horizontal ?? throw new ArgumentNullException(nameof(horizontal));
@@ -90,6 +130,8 @@ namespace TUIKit.Layout
             Padding = padding;
             Border = border;
             BorderTitle = borderTitle;
+            Background = background;
+            BackgroundRole = backgroundRole;
         }
 
         /// <summary>

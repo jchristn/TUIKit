@@ -31,6 +31,7 @@ namespace Test.Shared
                     TerminalSuite.Suite(),
                     RenderSuite.Suite(),
                     LayoutSuite.Suite(),
+                    RegionBackgroundSuite.Suite(),
                     ContentSuite.Suite(),
                     MarkdownSuite.Suite(),
                     InputSuite.Suite(),

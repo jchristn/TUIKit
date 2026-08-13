@@ -821,6 +821,14 @@ namespace TUIKit.Hosting
                 for (int i = 0; i < _Layout.Regions.Count; i++)
                 {
                     Region region = _Layout.Regions[i];
+                    CellStyle regionBackground = ResolveRegionBackground(region);
+
+                    if (region.HasBackground)
+                    {
+                        Rect fill = region.Resolve(size).Intersect(new Rect(0, 0, size.Width, size.Height));
+                        if (!fill.IsEmpty)
+                            root.Fill(fill, Cell.Blank(regionBackground));
+                    }
 
                     if (region.HasBorder)
                     {
@@ -841,11 +849,11 @@ namespace TUIKit.Hosting
                     ISurface view = bufferSurface != null ? bufferSurface.CreateView(rect) : root;
                     if (widget is Pane pane)
                     {
-                        pane.Render(view, _Theme.Text);
+                        pane.Render(view, regionBackground);
                     }
                     else
                     {
-                        view.Fill(new Rect(0, 0, rect.Width, rect.Height), Cell.Blank(_Theme.Text));
+                        view.Fill(new Rect(0, 0, rect.Width, rect.Height), Cell.Blank(regionBackground));
                         widget.Render(view);
                     }
                 }
@@ -858,6 +866,17 @@ namespace TUIKit.Hosting
 
             if (_AutoRenderNotifications)
                 _Notifications.Render(root, NowMilliseconds);
+        }
+
+        private CellStyle ResolveRegionBackground(Region region)
+        {
+            if (region.Background.HasValue)
+                return _Theme.Text.WithBackground(region.Background.Value);
+
+            if (region.BackgroundRole != null)
+                return _Theme.Text.WithBackground(_Theme.GetStyle(region.BackgroundRole).Background);
+
+            return _Theme.Text;
         }
 
         private void RenderLineMode()

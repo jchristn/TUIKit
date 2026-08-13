@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-13
+
+Horizontal component expansion: a set of general-purpose components, drawn from patterns downstream
+consumers had to build by hand, plus per-region background colors.
+
+### Added
+- **Per-region background colors.** A layout `Region` can now carry a background painted across its
+  whole resolved rectangle, behind the border and any bound widget. Set an explicit color with
+  `RegionBuilder.Background(Color)`, or bind to a named theme style with
+  `RegionBuilder.BackgroundRole(string)` so a theme switch restyles the region without a code change;
+  `NoBackground()` clears it. Regions with no background stay transparent and inherit the theme text
+  background, so the change is backward compatible. The built-in themes register conventional
+  `Theme.SidebarRole` and `Theme.StatusBarRole` styles for panels and status strips.
+
+### Changed
+
+### Breaking
+
 ## [0.5.1] - 2026-08-04
 
 Documentation fixes. No code changes from 0.5.0.
