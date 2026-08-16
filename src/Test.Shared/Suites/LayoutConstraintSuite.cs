@@ -71,9 +71,40 @@ namespace Test.Shared.Suites
                             Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Fixed(-1, 3), "negative offset");
                             Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Fixed(0, 0), "zero length");
                             Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.FromEnd(0, -2), "negative end length");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.FromEnd(-1, 3), "negative end offset");
                             Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Stretch(min: 0), "zero min");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Stretch(startPad: -1), "negative start pad");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Stretch(endPad: -1), "negative end pad");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Stretch(min: 5, max: 2), "max below min");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Proportional(0.0, 0.0), "zero length fraction");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Proportional(0.0, 1.5), "length fraction above one");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Proportional(0.0, 0.5, min: 5, max: 2), "proportional max below min");
                             Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Partition(0, 0, 3, 3), "index equals count");
                             Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Partition(0, 0, 0, 0), "zero count");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Partition(-1, 0, 0, 2), "negative before");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Partition(0, -1, 0, 2), "negative after");
+                            Check.Throws<ArgumentOutOfRangeException>(() => AxisConstraint.Partition(0, 0, 0, 2, min: 0), "partition zero min");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("LayoutConstraint", "ConstraintResolve", "Axis constraints resolve to the expected offset and length",
+                        _ =>
+                        {
+                            AxisConstraint.Stretch(startPad: 2, endPad: 1).Resolve(10, out int sOffset, out int sLength);
+                            Check.Equal(2, sOffset, "stretch offset is the start pad");
+                            Check.Equal(7, sLength, "stretch fills between the pads");
+
+                            AxisConstraint.FromEnd(1, 3).Resolve(10, out int eOffset, out int eLength);
+                            Check.Equal(3, eLength, "from-end keeps its fixed length");
+                            Check.Equal(6, eOffset, "from-end anchors against the end edge");
+
+                            AxisConstraint.Proportional(0.0, 0.5).Resolve(10, out int pOffset, out int pLength);
+                            Check.Equal(0, pOffset, "proportional offset at origin");
+                            Check.Equal(5, pLength, "proportional length is half the surface");
+
+                            AxisConstraint.Partition(0, 0, 1, 2).Resolve(10, out int partOffset, out int partLength);
+                            Check.Equal(5, partOffset, "second partition starts at the midpoint");
+                            Check.Equal(5, partLength, "second partition takes its share");
                             return Task.CompletedTask;
                         }),
 

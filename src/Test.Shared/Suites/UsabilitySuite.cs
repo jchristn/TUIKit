@@ -83,6 +83,8 @@ namespace Test.Shared.Suites
                                 Check.Equal("a", app.FocusedRegion, "Focus(id) moves focus back");
 
                                 Check.Throws<InvalidOperationException>(() => app.Focus("missing"), "Focus rejects non-focusable region");
+                                Check.Throws<ArgumentException>(() => app.Focus(""), "Focus rejects an empty region id");
+                                Check.Throws<ArgumentException>(() => app.Focus(null!), "Focus rejects a null region id");
                             }
 
                             return Task.CompletedTask;

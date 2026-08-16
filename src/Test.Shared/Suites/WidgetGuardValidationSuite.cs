@@ -64,6 +64,34 @@ namespace Test.Shared.Suites
 
                             Check.Throws<ArgumentNullException>(() => new FocusManager().Register((IFocusable[])null!), "null focus registration");
                             return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("WidgetGuardValidation", "FocusManagerSetFocus", "FocusManager.SetFocus moves focus and guards the index",
+                        _ =>
+                        {
+                            FocusManager empty = new FocusManager();
+                            Check.Equal(-1, empty.FocusedIndex, "no widgets means no focus");
+                            Check.Throws<ArgumentOutOfRangeException>(() => empty.SetFocus(0), "set focus with no widgets");
+
+                            TextField first = new TextField();
+                            TextField second = new TextField();
+                            FocusManager manager = new FocusManager();
+                            manager.Register(first, second);
+                            Check.Equal(0, manager.FocusedIndex, "registration focuses the first widget");
+                            Check.True(first.IsFocused, "first widget notified of focus");
+                            Check.False(second.IsFocused, "second widget not focused yet");
+
+                            manager.SetFocus(1);
+                            Check.Equal(1, manager.FocusedIndex, "focus moved to the second widget");
+                            Check.False(first.IsFocused, "first widget blurred");
+                            Check.True(second.IsFocused, "second widget focused");
+
+                            manager.SetFocus(1); // no-op, must not throw or blur
+                            Check.True(second.IsFocused, "re-focusing the current widget is a no-op");
+
+                            Check.Throws<ArgumentOutOfRangeException>(() => manager.SetFocus(2), "index at count");
+                            Check.Throws<ArgumentOutOfRangeException>(() => manager.SetFocus(-1), "negative index");
+                            return Task.CompletedTask;
                         })
                 });
         }

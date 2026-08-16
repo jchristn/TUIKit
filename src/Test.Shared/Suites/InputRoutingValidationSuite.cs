@@ -44,6 +44,18 @@ namespace Test.Shared.Suites
                             Check.Throws<ArgumentException>(() => table.Register(chord, "cmd", CommandScope.FocusContext, null), "focus scope needs a context");
                             Check.Throws<ArgumentException>(() => table.RegisterSequence(KeyChord.Parse("ctrl+k"), KeyChord.Parse("ctrl+t"), ""), "empty sequence command id");
                             Check.Throws<ArgumentNullException>(() => new CommandRouter(null!), "null routing table");
+
+                            table.RegisterSequence(KeyChord.Parse("ctrl+k"), KeyChord.Parse("ctrl+t"), "theme.cycle");
+                            Check.Throws<InvalidOperationException>(
+                                () => table.RegisterSequence(KeyChord.Parse("ctrl+k"), KeyChord.Parse("ctrl+t"), "other"),
+                                "duplicate sequence under the throw policy");
+
+                            CommandRoutingTable lastWins = new CommandRoutingTable();
+                            lastWins.ConflictPolicy = ConflictPolicy.LastWins;
+                            lastWins.RegisterSequence(KeyChord.Parse("ctrl+k"), KeyChord.Parse("ctrl+t"), "first");
+                            lastWins.RegisterSequence(KeyChord.Parse("ctrl+k"), KeyChord.Parse("ctrl+t"), "second"); // overwrites, no throw
+                            lastWins.Register(KeyChord.Parse("ctrl+a"), "one");
+                            lastWins.Register(KeyChord.Parse("ctrl+a"), "two"); // single-chord overwrite, no throw
                             return Task.CompletedTask;
                         }),
 

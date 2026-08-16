@@ -117,6 +117,13 @@ namespace Test.Shared.Suites
                             Check.Throws<ArgumentNullException>(() => console.Markup(null!), "null markup");
                             Check.Throws<ArgumentNullException>(() => console.Write((StyledText)null!), "null styled text");
                             Check.Throws<ArgumentNullException>(() => console.Write((IWidget)null!), "null widget");
+                            Check.Throws<ArgumentOutOfRangeException>(() => console.Write(new Label(Text.From("x")), 0), "per-call width min 1");
+                            Check.Throws<ArgumentOutOfRangeException>(() => console.WriteLine(new Label(Text.From("x")), -1), "per-call width negative");
+
+                            StringWriter widthWriter = new StringWriter();
+                            StyledConsole widthConsole = new StyledConsole(widthWriter, TerminalColorDepth.None);
+                            widthConsole.Write(new Label(Text.From("hi")), 5); // explicit valid width renders without throwing
+                            Check.Equal("hi", widthWriter.ToString().TrimEnd(), "explicit width renders the widget");
                             return Task.CompletedTask;
                         }),
 

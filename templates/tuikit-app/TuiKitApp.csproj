@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="TUIKit" Version="0.1.*" />
+    <PackageReference Include="TUIKit" Version="0.6.*" />
   </ItemGroup>
 
 </Project>

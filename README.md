@@ -93,7 +93,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="0.6.0" />
+<PackageReference Include="TUIKit" Version="0.6.1" />
 ```
 
 ## Quick start

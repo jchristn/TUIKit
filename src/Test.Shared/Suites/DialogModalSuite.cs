@@ -103,6 +103,11 @@ namespace Test.Shared.Suites
                             Check.Throws<ArgumentOutOfRangeException>(() => dialog.MinContentWidth = 25, "min above max");
                             dialog.MinContentWidth = 10;
                             Check.Throws<ArgumentOutOfRangeException>(() => dialog.MaxContentWidth = 3, "max below min");
+
+                            dialog.MaxContentHeight = 8;
+                            Check.Throws<ArgumentOutOfRangeException>(() => dialog.MinContentHeight = 12, "min height above max");
+                            dialog.MinContentHeight = 4;
+                            Check.Throws<ArgumentOutOfRangeException>(() => dialog.MaxContentHeight = 2, "max height below min");
                             return Task.CompletedTask;
                         })
                 });
