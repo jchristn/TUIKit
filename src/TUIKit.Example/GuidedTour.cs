@@ -658,6 +658,19 @@ namespace TUIKit.Example
                     "// Measures 5 cells tall."
                 }));
 
+            pages.Add(new TourPage(
+                "ASCII art fonts",
+                "[bold]AsciiArtText[/] renders any registered FIGlet font. Use [bold]Left/Right[/] to scroll the whole font library.",
+                new FontGallery(TUIKit.Ascii.AsciiFontLibrary.Default, "TUIKit"),
+                new[]
+                {
+                    "IAsciiFont font =",
+                    "  AsciiFontLibrary.Default.Get(\"Slant\");",
+                    "AsciiArtText art =",
+                    "  new AsciiArtText(\"TUIKit\") { Font = font };",
+                    "// Left/Right here step through every font."
+                }));
+
             double[] waveA = new double[48];
             double[] waveB = new double[48];
             for (int i = 0; i < waveA.Length; i++)

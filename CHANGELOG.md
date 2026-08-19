@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-19
+
+A reusable text-to-ASCII-art component: turn a string and a named font into large, multi-row banner
+art, managed through a font library so applications can offer many fonts without hand-rolling glyph
+tables.
+
+### Added
+- **ASCII-art font engine (`TUIKit.Ascii`).** `AsciiArt.Render(text, font, options)` composes text
+  into multi-row art using any `IAsciiFont`, implementing the FIGlet layout model: full-width,
+  kerning (fitting), and smushing with all six horizontal rules (equal-character, underscore,
+  hierarchy, opposite-pair, big-X, and hardblank) plus universal smushing. `AsciiArtOptions` controls
+  the layout mode, alignment within a target width, blank-column trimming, and an optional max width.
+- **`IAsciiFont` contract and `AsciiFontBase`.** A small font contract (name, metrics, per-character
+  glyph lookup, and an async supported-characters companion) with a base class that stores glyph data
+  so a concrete font supplies only data. The engine works against the interface, so third-party fonts
+  are first-class.
+- **`FigletFontLoader`.** Parses FIGlet `.flf` and TOIlet `.tlf` fonts (from a stream or string) into
+  an `IAsciiFont`, so consumers can register their own fonts. Malformed and truncated fonts throw
+  `AsciiFontException` with context.
+- **`AsciiFontLibrary` manager.** A thread-safe (`ReaderWriterLockSlim`), case-insensitive font
+  registry with register/try-register/unregister/get/contains/enumerate (and an async enumerate). The
+  shared `Default` instance is lazily pre-populated with 83 built-in fonts, each exposed as a discrete
+  class over an embedded resource — Standard, Slant, the full Small family, Doom, Colossal, Big Money
+  (all four), ANSI Compact/Regular/Shadow, Sub-Zero, Varsity, and many more.
+- **`AsciiArtText` widget.** A font-aware `IWidget` (the successor to `BannerText`) with a settable
+  `Font`, color, and alignment; measures as tall as the font and as wide as the composed art.
+- **Guided-tour demo.** A new "ASCII art fonts" tour page in `TUIKit.Example` with an interactive
+  `FontGallery` that scrolls the whole font library with the Left/Right arrow keys.
+
+### Licensing
+- Fonts with restrictive or unclear licensing are **not** bundled. The requested set was scanned for
+  restrictive license terms; the one withheld font (Graffiti) is recorded in
+  `Ascii/Fonts/Data/REMOVED.txt`, and per-font attribution for the bundled set ships in
+  `Ascii/Fonts/Data/LICENSE.figlet.txt` (packed into the NuGet package).
+
+### Unchanged
+- `Banner`, `BannerFont`, and `BannerText` are untouched; the new engine is additive.
+
 ## [0.6.0] - 2026-08-13
 
 Horizontal component expansion: a set of general-purpose components, drawn from patterns downstream

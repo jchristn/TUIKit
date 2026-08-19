@@ -455,7 +455,32 @@ var bars = new BarChart().Add("cpu", 82).Add("mem", 47);
 var img  = new HalfBlockImage(pixels);                       // works on any terminal
 string sixel = SixelEncoder.Encode(pixels);                 // capable terminals
 var banner = new BannerText("READY");                       // big block letters
+
+// Text-to-ASCII-art in any of 83 built-in fonts (TUIKit.Ascii).
+using TUIKit.Ascii;
+IAsciiFont slant = AsciiFontLibrary.Default.Get("Slant");   // case-insensitive lookup
+var art = new AsciiArtText("TUIKit") { Font = slant };      // font-aware IWidget
+IReadOnlyList<string> rows = AsciiArt.Render("hello", slant); // or compose rows yourself
 ```
+
+Fonts come from a thread-safe manager. `AsciiFontLibrary.Default` is pre-populated with the built-in
+set; register your own with `FigletFontLoader`:
+
+```csharp
+// Bring your own FIGlet (.flf) or TOIlet (.tlf) font.
+using (FileStream fs = File.OpenRead("myfont.flf"))
+    AsciiFontLibrary.Default.Register(FigletFontLoader.Load(fs, "MyFont"));
+
+// Enumerate what's available (e.g. to build a font picker).
+foreach (string name in AsciiFontLibrary.Default.Names)
+    Console.WriteLine(name);
+```
+
+The composition engine implements the FIGlet layout model — full-width, kerning, and the six
+horizontal smushing rules — so `Slant` and friends overlap correctly rather than sitting in a
+monospace grid. `AsciiArtOptions` controls the layout mode, alignment, and width. Restrictively- or
+unclearly-licensed fonts are not bundled; bring those in yourself with the loader if you hold the
+rights.
 
 Two non-widget helpers that pair well with the toolkit:
 
@@ -480,6 +505,7 @@ double at = tween.ValueAt(elapsedMs);                        // drive from your 
 | `LineChart` / `BarChart` / `BrailleCanvas` | High-resolution charts via a 2×4 braille dot grid. |
 | `HalfBlockImage` / `SixelEncoder` / `KittyImageEncoder` | Truecolor images — half-block anywhere, sixel/kitty where supported. |
 | `BannerText` / `MultiProgress` | FIGlet-style banners; concurrent progress bars. |
+| `AsciiArtText` / `AsciiFontLibrary` | Text-to-ASCII-art in 83 built-in FIGlet fonts, plus bring-your-own `.flf`/`.tlf`. |
 | `Markup` / `MarkdownRenderer` | Inline `[bold red]…[/]` markup; Markdown with tables and task lists. |
 
 ### Styled one-shot output (without a full-screen app)
@@ -748,6 +774,7 @@ The table below tracks which capabilities from the original improvement roadmap 
 | 10.34 | OSC 8 emission + clipboard read + link hints (`Ansi.OpenHyperlink`, `SystemClipboard`, `LinkHints`) | **Implemented** |
 | 10.35 | File browser / open dialog widget (`FileBrowser`) | **Implemented** |
 | 10.36 | FIGlet / banner text (`Banner`/`BannerText`) | **Implemented** |
+| 10.36a | Multi-font text-to-ASCII-art engine (`TUIKit.Ascii`: `AsciiArt`/`AsciiFontLibrary`/`FigletFontLoader`/`AsciiArtText`, 83 built-in fonts) | **Implemented** |
 | 10.37 | Color picker widget (`ColorPicker`) | **Implemented** |
 | 10.38 | Box shadows / modal drop shadows (`ISurface.DrawShadow`) | **Implemented** |
 | 10.39 | Backdrop dimming behind modals (`Backdrop.Dim`) | **Implemented** |
