@@ -54,6 +54,7 @@ namespace Test.Shared
                     ReactiveAnimationSuite.Suite(),
                     SplitMenuFileSuite.Suite(),
                     VisualEffectsSuite.Suite(),
+                    AsciiArtSuite.Suite(),
                     ModalLinkLifecycleSuite.Suite(),
                     KeyBindingSuite.Suite(),
                     ValueValidationSuite.Suite(),
