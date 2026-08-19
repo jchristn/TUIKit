@@ -91,6 +91,7 @@ namespace TUIKit.Ascii
             yield return new CricketAsciiFont();
             yield return new BrightAsciiFont();
             yield return new JazmineAsciiFont();
+            yield return new GraffitiAsciiFont();
         }
     }
 }

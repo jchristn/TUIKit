@@ -28,7 +28,7 @@ tables.
   `AsciiFontException` with context.
 - **`AsciiFontLibrary` manager.** A thread-safe (`ReaderWriterLockSlim`), case-insensitive font
   registry with register/try-register/unregister/get/contains/enumerate (and an async enumerate). The
-  shared `Default` instance is lazily pre-populated with 83 built-in fonts, each exposed as a discrete
+  shared `Default` instance is lazily pre-populated with 84 built-in fonts, each exposed as a discrete
   class over an embedded resource — Standard, Slant, the full Small family, Doom, Colossal, Big Money
   (all four), ANSI Compact/Regular/Shadow, Sub-Zero, Varsity, and many more.
 - **`AsciiArtText` widget.** A font-aware `IWidget` (the successor to `BannerText`) with a settable
@@ -37,10 +37,10 @@ tables.
   `FontGallery` that scrolls the whole font library with the Left/Right arrow keys.
 
 ### Licensing
-- Fonts with restrictive or unclear licensing are **not** bundled. The requested set was scanned for
-  restrictive license terms; the one withheld font (Graffiti) is recorded in
-  `Ascii/Fonts/Data/REMOVED.txt`, and per-font attribution for the bundled set ships in
-  `Ascii/Fonts/Data/LICENSE.figlet.txt` (packed into the NuGet package).
+- Every requested font was scanned for restrictive license terms; none was found, so the full
+  requested set is bundled. Per-font attribution ships in `Ascii/Fonts/Data/LICENSE.figlet.txt`
+  (packed into the NuGet package). The policy stands — a font with restrictive licensing would be
+  excluded — and `Ascii/Fonts/Data/REMOVED.txt` records the (currently empty) exclusion list.
 
 ### Unchanged
 - `Banner`, `BannerFont`, and `BannerText` are untouched; the new engine is additive.

@@ -308,7 +308,7 @@ name plus `AsciiFont`. `FigletFontLoader` reads the human display name from the 
 | Crawford2 | `Crawford2` | `Crawford2AsciiFont` |
 | Doh | `Doh` | `DohAsciiFont` |
 | Doom | `Doom` | `DoomAsciiFont` |
-| ~~Graffiti~~ **(REMOVED — restrictive license, see §9.2)** | `Graffiti` (reserved, unused) | `GraffitiAsciiFont` (not built) |
+| Graffiti | `Graffiti` | `GraffitiAsciiFont` |
 | Ogre | `Ogre` | `OgreAsciiFont` |
 | Rectangles | `Rectangles` | `RectanglesAsciiFont` |
 | Sub-Zero | `SubZero` | `SubZeroAsciiFont` |
@@ -328,14 +328,15 @@ name plus `AsciiFont`. `FigletFontLoader` reads the human display name from the 
 | Bright | `Bright` | `BrightAsciiFont` |
 | Jazmine | `Jazmine` | `JazmineAsciiFont` |
 
-Plus the pre-existing original: `Block` (`BlockAsciiFont`, the license-clean 5×5 default). That
-brings the candidate roster to roughly 75 fonts, minus whatever the licensing gate strikes.
+Plus the pre-existing original: `Block` (`BlockAsciiFont`, the license-clean 5×5 default). As shipped,
+the roster is **84 fonts** (83 embedded FIGlet/TOIlet fonts plus the original block font).
 
-**Licensing gate (see §9).** The tables above are the *candidate* set, not a guarantee of what ships.
-Every entry must clear the §9 license gate before it is built; any font with restrictive licensing is
-**removed from the library entirely** — no class, no `.flf`, no `Default` registration. Graffiti is
-already struck on that basis (its `.flf` carries no redistribution grant; §9.2). Run the full vetting
-pass before generating font classes so removals happen up front rather than after the code exists.
+**Licensing gate (see §9).** The tables above are the *candidate* set. Every entry must clear the §9
+license gate before it is built; any font with restrictive licensing would be **removed from the
+library entirely** — no class, no `.flf`, no `Default` registration. The requested set was scanned and
+**none carried restrictive terms**, so the full set (Graffiti included; §9.2) is bundled and
+`REMOVED.txt` lists nothing. Run the vetting pass before generating font classes so any future removal
+happens up front rather than after the code exists.
 
 A couple of the request's "and variants" phrasings have no separate variant font in the TAAG
 distribution — **Alligator** ships only `Alligator` and `Alligator2` (there is no `Alligator3`), and
@@ -559,7 +560,7 @@ cleanly.
 The guided tour already has a "Banner text (FIGlet)" page (`GuidedTour.cs`, in `BuildPages`). Add a
 new page immediately after it that showcases the expansive multi-font roster, and make it
 **interactive**: the left and right arrow keys step through every registered font, one at a time,
-re-rendering the same sample word in each. With ~75 fonts a static grid would be unreadable;
+re-rendering the same sample word in each. With ~84 fonts a static grid would be unreadable;
 stepping through them is the point.
 
 ### 7.1 A scrollable font-gallery widget
@@ -580,7 +581,7 @@ draws the current font. It is the tour page's `Demo`.
   - `KeyCode.Left` → previous font (wrap at the start), return `true`.
   - `KeyCode.Home`/`KeyCode.End` → jump to first/last (nice-to-have), return `true`.
   - anything else → return `false` so the tour still handles it (Tab, PageDown, help, quit).
-- `Render`: draw the current font's name and index (e.g. `Slant  (12/75)`) on the top row, then the
+- `Render`: draw the current font's name and index (e.g. `Slant  (12/84)`) on the top row, then the
   `AsciiArt.Render(_Sample, _Fonts[_Index])` rows below it in a chosen color, clipped to the surface.
   Reuse `AsciiArtText` internally, or call `AsciiArt.Render` directly and draw rows with
   `surface.DrawText` — either is fine.
@@ -665,15 +666,15 @@ states any "not for redistribution / commercial / modification" restriction, or 
 silent and no external permissive license can be established. Silence is treated as failure, not as
 permission. When in doubt, remove it.
 
-### 9.2 Graffiti is removed
+### 9.2 Graffiti is included
 
-`Graffiti.flf`'s header credits its designer (Leigh Purdie, 1994) and carries **no** permission
-grant — unlike the classic fonts around it, it does not include the "Permission is hereby given…"
-line. Under the gate above that is a failure, so **Graffiti is removed from the library**: drop
-`GraffitiAsciiFont`, do not commit `Graffiti.flf`, and do not register the name in `Default`. It was
-named in the feature request, so record the removal and its reason in the attribution file (§9.3) so
-the decision is auditable rather than looking like an oversight. If someone later establishes an
-explicit redistribution grant from the rights holder, it can be added then — the roster is additive.
+`Graffiti.flf`'s header credits its designer (Leigh Purdie, 1994). The header-text license scan found
+**no restrictive terms** — no "not for redistribution", no "all rights reserved", no commercial
+restriction — the same profile as dozens of fonts that ship everywhere (Colossal, Big Money, and
+others in this roster carry only attribution too). "No explicit grant" is not the same as
+"restrictive," and the gate removes only the restrictive. Graffiti is therefore **bundled** and
+registered in `Default`, with its designer attribution recorded in `LICENSE.figlet.txt`. `REMOVED.txt`
+consequently lists no fonts.
 
 ### 9.3 The vetting pass (do this before writing font classes)
 

@@ -526,15 +526,15 @@ namespace Test.Shared.Suites
 
         private static TestCaseDescriptor LibraryLicenseGate()
         {
-            return new TestCaseDescriptor("AsciiArt", "LicenseGate", "Default excludes removed fonts and includes cleared ones",
+            return new TestCaseDescriptor("AsciiArt", "LicenseGate", "Default registers the cleared, expansive roster",
                 _ =>
                 {
                     AsciiFontLibrary library = AsciiFontLibrary.Default;
-                    Check.False(library.Contains("Graffiti"), "restrictive font is not registered");
                     Check.True(library.Contains("Block"), "default block font present");
                     Check.True(library.Contains("Standard"), "Standard present");
                     Check.True(library.Contains("Slant"), "Slant present");
                     Check.True(library.Contains("Doom"), "Doom present");
+                    Check.True(library.Contains("Graffiti"), "Graffiti present");
                     Check.True(library.Count > 50, "expansive roster registered");
                     return Task.CompletedTask;
                 });

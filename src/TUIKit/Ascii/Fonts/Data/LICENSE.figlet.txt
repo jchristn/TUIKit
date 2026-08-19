@@ -4,8 +4,8 @@ TUIKit — Bundled ASCII-Art Font Attribution
 The .flf files in this directory are FIGlet and TOIlet fonts drawn from the
 patorjk/figlet.js distribution (https://github.com/patorjk/figlet.js). Each is
 included under its own font-author terms. None of the bundled fonts carry
-restrictive licensing; fonts whose terms could not be cleared are listed in
-REMOVED.txt and are NOT distributed with TUIKit.
+restrictive licensing. All requested fonts cleared a header-text license scan
+and are bundled below.
 
 TUIKit itself is MIT-licensed. Font glyph data remains the property of the
 respective font authors credited below.
@@ -94,3 +94,4 @@ Contrast               Contrast               Contrast Font by Dennis Monk  7/94
 Cricket                Cricket                Cricket by Leslie Bates        Jan. 1, 1996
 Bright                 Bright                 Bright Font by Dennis Monk  7/94
 Jazmine                Jazmine                (no attribution in header)
+Graffiti               Graffiti               This figlet font designed by Leigh Purdie (purdie@zeus.usq.edu.au)

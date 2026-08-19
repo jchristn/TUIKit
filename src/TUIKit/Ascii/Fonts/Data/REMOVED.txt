@@ -1,17 +1,9 @@
 TUIKit — ASCII-Art Fonts Excluded From the Library
 ==================================================
 
-The following font(s) were requested but are NOT bundled with TUIKit and are NOT
-registered in AsciiFontLibrary.Default. See ASCII_ART_FONTS.md section 9.
+No fonts are currently excluded. Every requested font was scanned for
+restrictive license text; none was found, so the full set is bundled and
+registered in AsciiFontLibrary.Default (see ASCII_ART_FONTS.md section 9).
 
-  Graffiti  — Excluded out of caution. Its .flf header (designed by Leigh Purdie,
-              1994) carries only an author credit and no explicit redistribution
-              grant. A header-text license scan of the requested font set found no
-              explicit restrictive terms in Graffiti, but it is the one font in the
-              set with a historically debated status, so it is withheld pending an
-              affirmative redistribution grant from the rights holder. Consumers who
-              hold the rights can still load Graffiti.flf themselves via
-              FigletFontLoader.
-
-All other requested fonts were scanned for restrictive license text; none was found,
-so the remainder are bundled.
+Consumers can still load any additional font they hold the rights to at
+runtime via FigletFontLoader.

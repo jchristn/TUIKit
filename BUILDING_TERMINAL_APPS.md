@@ -456,7 +456,7 @@ var img  = new HalfBlockImage(pixels);                       // works on any ter
 string sixel = SixelEncoder.Encode(pixels);                 // capable terminals
 var banner = new BannerText("READY");                       // big block letters
 
-// Text-to-ASCII-art in any of 83 built-in fonts (TUIKit.Ascii).
+// Text-to-ASCII-art in any of 84 built-in fonts (TUIKit.Ascii).
 using TUIKit.Ascii;
 IAsciiFont slant = AsciiFontLibrary.Default.Get("Slant");   // case-insensitive lookup
 var art = new AsciiArtText("TUIKit") { Font = slant };      // font-aware IWidget
@@ -505,7 +505,7 @@ double at = tween.ValueAt(elapsedMs);                        // drive from your 
 | `LineChart` / `BarChart` / `BrailleCanvas` | High-resolution charts via a 2×4 braille dot grid. |
 | `HalfBlockImage` / `SixelEncoder` / `KittyImageEncoder` | Truecolor images — half-block anywhere, sixel/kitty where supported. |
 | `BannerText` / `MultiProgress` | FIGlet-style banners; concurrent progress bars. |
-| `AsciiArtText` / `AsciiFontLibrary` | Text-to-ASCII-art in 83 built-in FIGlet fonts, plus bring-your-own `.flf`/`.tlf`. |
+| `AsciiArtText` / `AsciiFontLibrary` | Text-to-ASCII-art in 84 built-in FIGlet fonts, plus bring-your-own `.flf`/`.tlf`. |
 | `Markup` / `MarkdownRenderer` | Inline `[bold red]…[/]` markup; Markdown with tables and task lists. |
 
 ### Styled one-shot output (without a full-screen app)
@@ -774,7 +774,7 @@ The table below tracks which capabilities from the original improvement roadmap 
 | 10.34 | OSC 8 emission + clipboard read + link hints (`Ansi.OpenHyperlink`, `SystemClipboard`, `LinkHints`) | **Implemented** |
 | 10.35 | File browser / open dialog widget (`FileBrowser`) | **Implemented** |
 | 10.36 | FIGlet / banner text (`Banner`/`BannerText`) | **Implemented** |
-| 10.36a | Multi-font text-to-ASCII-art engine (`TUIKit.Ascii`: `AsciiArt`/`AsciiFontLibrary`/`FigletFontLoader`/`AsciiArtText`, 83 built-in fonts) | **Implemented** |
+| 10.36a | Multi-font text-to-ASCII-art engine (`TUIKit.Ascii`: `AsciiArt`/`AsciiFontLibrary`/`FigletFontLoader`/`AsciiArtText`, 84 built-in fonts) | **Implemented** |
 | 10.37 | Color picker widget (`ColorPicker`) | **Implemented** |
 | 10.38 | Box shadows / modal drop shadows (`ISurface.DrawShadow`) | **Implemented** |
 | 10.39 | Backdrop dimming behind modals (`Backdrop.Dim`) | **Implemented** |
