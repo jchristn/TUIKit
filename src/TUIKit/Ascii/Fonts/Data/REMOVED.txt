@@ -1,0 +1,9 @@
+TUIKit — ASCII-Art Fonts Excluded From the Library
+==================================================
+
+No fonts are currently excluded. Every requested font was scanned for
+restrictive license text; none was found, so the full set is bundled and
+registered in AsciiFontLibrary.Default (see ASCII_ART_FONTS.md section 9).
+
+Consumers can still load any additional font they hold the rights to at
+runtime via FigletFontLoader.

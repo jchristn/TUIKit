@@ -1,0 +1,97 @@
+TUIKit — Bundled ASCII-Art Font Attribution
+===========================================
+
+The .flf files in this directory are FIGlet and TOIlet fonts drawn from the
+patorjk/figlet.js distribution (https://github.com/patorjk/figlet.js). Each is
+included under its own font-author terms. None of the bundled fonts carry
+restrictive licensing. All requested fonts cleared a header-text license scan
+and are bundled below.
+
+TUIKit itself is MIT-licensed. Font glyph data remains the property of the
+respective font authors credited below.
+
+Registered name        TAAG name              Author / attribution (from font header)
+---------------        ---------              ----------------------------------------
+BigMoneyNe             Big Money-ne           (no attribution in header)
+BigMoneyNw             Big Money-nw           (no attribution in header)
+BigMoneySe             Big Money-se           (no attribution in header)
+BigMoneySw             Big Money-sw           (no attribution in header)
+Big                    Big                    Big by Glenn Chappell 4/93 -- based on Standard
+Standard               Standard               Standard by Glenn Chappell & Ian Chai 3/93 -- based on Frank's .sig
+Slant                  Slant                  Slant by Glenn Chappell 3/93 -- based on Standard
+SlantRelief            Slant Relief           Mega-relief by Nick Bryant 12/9, dmc1@st-and.ac.uk for the moment.
+Relief                 Relief                 Relief by Nick Miners N.M.Miners@durham.ac.uk
+Relief2                Relief2                Relief2 by Merlin Greywolf merlin@brahms.udel.edu
+Soft                   Soft                   Author : myflix
+Small                  Small                  Small by Glenn Chappell 4/93 -- based on Standard
+SmallSlant             Small Slant            SmSlant by Glenn Chappell 6/93 - based on Small & Slant
+SmallCaps              Small Caps             Author : LG Beard
+SmallScript            Small Script           SmScript by Glenn Chappell 4/93 -- based on Script
+SmallShadow            Small Shadow           SmShadow by Glenn Chappell 4/93 -- based on Small
+SmallPoison            Small Poison           smpoison.flf figletized by Vinney Thai <ssfiit@eris.cc.umb.edu>
+SmallKeyboard          Small Keyboard         (no attribution in header)
+SmallIsometric1        Small Isometric1       smisome1.flf
+SmallBlock             Small Block            (no attribution in header)
+SmallTengwar           Small Tengwar          Tiny Tengwar 1.0 by Belinda Asbell <mba@ccd.harris.com>
+SmallBraille           Small Braille          (no attribution in header)
+SmallAscii9            Small ASCII 9          (no attribution in header)
+SmallAscii12           Small ASCII 12         (no attribution in header)
+SmallMono9             Small Mono 9           (no attribution in header)
+SmallMono12            Small Mono 12          (no attribution in header)
+Mono9                  Mono 9                 (no attribution in header)
+Mono12                 Mono 12                (no attribution in header)
+BigMono9               Big Mono 9             (no attribution in header)
+BigMono12              Big Mono 12            (no attribution in header)
+Ascii9                 ASCII 9                (no attribution in header)
+Ascii12                ASCII 12               (no attribution in header)
+Future                 Future                 (no attribution in header)
+FutureSmooth           Future Smooth          (no attribution in header)
+FutureThin             Future Thin            (no attribution in header)
+AnsiCompact            ANSI Compact           Font Author: Loic Cressot
+AnsiRegular            ANSI Regular           Font Author: ?
+AnsiShadow             ANSI Shadow            Font Author: ?
+Bloody                 Bloody                 (no attribution in header)
+Banner3                Banner3                banner3 by Merlin Greywolf merlin@brahms.udel.edu
+Banner3D               Banner3-D              banner3-D by Merlin Greywolf merlin@brahms.udel.edu
+Banner4                Banner4                banner4 by Merlin Greywolf merlin@brahms.udel.edu
+BlockFiglet            Block                  Block by Glenn Chappell 4/93 -- straight version of Lean
+Blocks                 Blocks                 Author : myflix
+ShadedBlocky           Shaded Blocky          Font Author: Jäger
+Alligator              Alligator              Alligator by Simon Bradley <syb3@aber.ac.uk>
+Alligator2             Alligator2             Alligator2 by Daniel Wiz. AKA Merlin Greywolf <merlin@brahms.udel.edu>
+Cyberlarge             Cyberlarge             Cyberfont - large
+Cybermedium            Cybermedium            Cyberfont - medium
+Cybersmall             Cybersmall             Cyberfont - small
+Caligraphy             Caligraphy             caligraphy.flf composed  by Vinney Thai <ssfiit@eris.cc.umb.edu>
+Caligraphy2            Caligraphy2            Modified by Paul Burton September 96 from caligraphy.flf as a demonstr
+Cosmike                Cosmike                cosmic.flf by Mike Rosulek <mjr@netins.net>, 7/11/95. Check out my
+Cosmike2               Cosmike2               Font Author: half Cosmike, half Darth ObiKy
+FireFontK              Fire Font-k            Font   : Fire Font-k
+FireFontS              Fire Font-s            Font   : Fire Font-s
+Rebel                  Rebel                  Rebel by Valerie Mates (popcorn@cyberspace.org), based on a font by Ro
+DosRebel               DOS Rebel              Rebel by Valerie Mates (popcorn@cyberspace.org), based on a font by Ro
+BlurVisionAscii        BlurVision ASCII       Font Author: Aiden Neuding
+Chiseled               Chiseled               Author : LG Beard
+Crawford               Crawford               crawford.flf (FIGlet font)
+Crawford2              Crawford2              crawford2.flf (FIGlet font)
+Doh                    Doh                    doh.flf by Curtis Wanner (cwanner@acs.bu.edu)
+Doom                   Doom                   DOOM by Frans P. de Vries <fpv@xymph.iaf.nl>  18 Jun 1996
+Ogre                   Ogre                   Standard by Glenn Chappell & Ian Chai 3/93 -- based on .sig of Frank S
+Rectangles             Rectangles             rectangles.flf by David Villegas <mnementh@netcom.com> 12/94
+SubZero                Sub-Zero               (no attribution in header)
+Terrace                Terrace                - T E R R A C E -
+Tmplr                  Tmplr                  Font Name: tmplr
+Train                  Train                  Author :myflix
+Varsity                Varsity                Author : myflix
+CalvinS                Calvin S               Font Author: ?
+Classy                 Classy                 Font Author: Loic Cressot
+CoderMini              Coder Mini             Font Author: Loic Cressot
+DeltaCorpsPriest1      Delta Corps Priest 1   Font Author: CoSMiC cHiLD
+Pagga                  Pagga                  (no attribution in header)
+Chunky                 Chunky                 Square by Chris Gill, 30-JUN-94 -- based on .sig of Jeb Hagan.
+Colossal               Colossal               Colossal.flf (Jonathon - jon@mq.edu.au)
+Contrast               Contrast               Contrast Font by Dennis Monk  7/94
+Cricket                Cricket                Cricket by Leslie Bates        Jan. 1, 1996
+Bright                 Bright                 Bright Font by Dennis Monk  7/94
+Jazmine                Jazmine                (no attribution in header)
+Graffiti               Graffiti               This figlet font designed by Leigh Purdie (purdie@zeus.usq.edu.au)
