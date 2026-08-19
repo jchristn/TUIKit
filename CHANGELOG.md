@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.7.0] - 2026-08-19
+## [0.8.0] - 2026-08-19
 
 A reusable text-to-ASCII-art component: turn a string and a named font into large, multi-row banner
 art, managed through a font library so applications can offer many fonts without hand-rolling glyph

@@ -631,8 +631,8 @@ keeping any existing README accurate.
 - **`BUILDING_TERMINAL_APPS.md`** — add a short section: get a font from `AsciiFontLibrary.Default`,
   render with `AsciiArt.Render` or drop in `AsciiArtText`, register a custom `.flf`.
 - **`CHANGELOG.md`** — new entry under the next version.
-- **`src/TUIKit/TUIKit.csproj`** — bump `<Version>`/`<AssemblyVersion>`/`<FileVersion>` to `0.7.0`
-  (additive feature = minor), and add a `<PackageReleaseNotes>` paragraph for v0.7.0 describing the
+- **`src/TUIKit/TUIKit.csproj`** — bump `<Version>`/`<AssemblyVersion>`/`<FileVersion>` to `0.8.0`
+  (additive feature = minor), and add a `<PackageReleaseNotes>` paragraph for v0.8.0 describing the
   ASCII art font engine, the font library manager, bundled fonts, and the `.flf` loader. Update
   `<PackageTags>` (add `figlet`, `ascii-art`) and, if bundling fonts, ensure the `.flf` license file
   is packed.
@@ -743,6 +743,6 @@ Note explicitly that `Banner`/`BannerText` are untouched.
 3. **`Banner` reuse** — reimplement `Banner.Render` over the new engine (single code path) only if
    output equivalence is trivially provable, else leave it fully alone. Confirm the conservative
    default is fine.
-4. **Version** — `0.7.0` as the additive minor. Confirm.
+4. **Version** — `0.8.0` as the additive minor. Confirm.
 
 Answer these and step 1 (branch) can begin immediately.
