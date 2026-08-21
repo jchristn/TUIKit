@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-21
+
+Terminal-restore hardening. A TUIKit app that exited via Ctrl+C — or an unhandled exception — could
+leave the shell wedged: the scroll wheel emitted raw SGR mouse reports (for example
+`^[[<64;64;15M`) because mouse tracking was never turned off, and on Windows the arrow keys echoed
+their raw escapes (`^[[A`) because the console was still in raw/VT input mode. The teardown that
+undoes all of this lived only in `TuiApplication.Stop()`, which the runtime's default Ctrl+C
+handling skipped.
+
+### Fixed
+- **Terminal is restored on every exit path.** `TuiApplication.Start()` now installs a cross-platform
+  safety net: a `Console.CancelKeyPress` handler that cancels the runtime's abrupt process kill and
+  routes Ctrl+C into a graceful stop, and an `AppDomain.ProcessExit` handler as a last-ditch restore
+  for exits that bypass `Stop()` (including an unhandled exception or the graceful shutdown the
+  runtime runs after Ctrl+C). Mouse reporting, bracketed paste, the enhanced-keyboard flags, the
+  cursor, and the alternate screen are all restored.
+- **Restore is idempotent and thread-safe.** `Stop()`, `Dispose()`, and the safety-net callbacks share
+  a single guarded teardown that runs at most once per session and races safely between the run loop
+  and a `ProcessExit` callback on another thread. The output writes during teardown tolerate a
+  closing stream.
+- **`ConsoleBackend` process-exit net now covers Windows** (previously Unix-only) and additionally
+  emits `DisableMouse` and `DisableBracketedPaste` before restoring the console/termios mode, so a
+  backend used without the host is protected too.
+
+### Tests
+- 3 new Touchstone cases asserting that stop disables mouse reporting and restores the cursor and
+  screen, that the restore is idempotent, and that it still runs when mouse capture was disabled
+  (398 total across console/xUnit/NUnit on net8.0/net10.0).
+
 ## [0.8.0] - 2026-08-19
 
 A reusable text-to-ASCII-art component: turn a string and a named font into large, multi-row banner

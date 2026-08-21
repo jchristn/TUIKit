@@ -213,6 +213,63 @@
                             }
 
                             return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Hosting", "StopRestoresTerminalState", "Stop disables mouse reporting and restores the cursor and screen",
+                        _ =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(20, 5);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                app.Start();
+                                backend.TakeOutput(); // discard the enable escapes emitted on start
+                                app.Stop();
+
+                                string afterStop = backend.TakeOutput();
+                                Check.True(afterStop.Contains(Ansi.DisableMouse), "Mouse reporting disabled on stop");
+                                Check.True(afterStop.Contains(Ansi.DisableBracketedPaste), "Bracketed paste disabled on stop");
+                                Check.True(afterStop.Contains(Ansi.ShowCursor), "Cursor shown on stop");
+                                Check.True(afterStop.Contains(Ansi.ExitAltScreen), "Alternate screen exited on stop");
+                                Check.True(backend.IsStopped, "Backend stopped");
+                            }
+
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Hosting", "StopIsIdempotent", "The terminal restore runs at most once per session",
+                        _ =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(20, 5);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                app.Start();
+                                app.Stop();
+                                backend.TakeOutput(); // discard the first restore
+
+                                app.Stop(); // second stop must emit nothing further
+                                Check.Equal(string.Empty, backend.TakeOutput(), "Second stop is a no-op");
+                            }
+
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Hosting", "MouseCaptureOffStillRestores", "Stop restores the terminal even when mouse capture was disabled",
+                        _ =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(20, 5);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                app.MouseCaptureEnabled = false;
+                                app.Start();
+                                backend.TakeOutput();
+                                app.Stop();
+
+                                string afterStop = backend.TakeOutput();
+                                Check.True(afterStop.Contains(Ansi.ShowCursor), "Cursor shown on stop");
+                                Check.True(afterStop.Contains(Ansi.ExitAltScreen), "Alternate screen exited on stop");
+                            }
+
+                            return Task.CompletedTask;
                         })
                 });
         }

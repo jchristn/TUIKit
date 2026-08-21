@@ -39,6 +39,7 @@ namespace TUIKit.Terminal
         private bool _RestoredWindowsMode = true;
         private byte[]? _SavedTermios;
         private EventHandler? _ProcessExitHandler;
+        private int _ExitHandled;
         private bool _Disposed;
 
         /// <inheritdoc/>
@@ -131,18 +132,16 @@ namespace TUIKit.Terminal
                 return;
 
             if (_IsWindows)
-            {
                 EnableWindowsRawMode();
-            }
             else
-            {
                 _SavedTermios = PosixTerminal.EnterRawMode();
 
-                // Best-effort net so an abnormal exit (an unhandled exception that bypasses Stop)
-                // does not leave the terminal in raw mode with the cursor hidden.
-                _ProcessExitHandler = OnProcessExit;
-                AppDomain.CurrentDomain.ProcessExit += _ProcessExitHandler;
-            }
+            // Best-effort net so an abnormal exit (an unhandled exception, or a Ctrl+C the runtime turns
+            // into an abrupt process kill) that bypasses Stop does not leave the terminal in raw mode
+            // with the cursor hidden and mouse reporting on. Installed on every interactive platform.
+            Interlocked.Exchange(ref _ExitHandled, 0);
+            _ProcessExitHandler = OnProcessExit;
+            AppDomain.CurrentDomain.ProcessExit += _ProcessExitHandler;
 
             _ReaderThread = new Thread(ReaderLoop)
             {
@@ -229,6 +228,15 @@ namespace TUIKit.Terminal
 
             if (_Interactive)
             {
+                // Suppress the process-exit net: a clean Stop has taken responsibility for the restore.
+                Interlocked.Exchange(ref _ExitHandled, 1);
+
+                if (_ProcessExitHandler != null)
+                {
+                    AppDomain.CurrentDomain.ProcessExit -= _ProcessExitHandler;
+                    _ProcessExitHandler = null;
+                }
+
                 if (_IsWindows)
                 {
                     RestoreWindowsMode();
@@ -237,12 +245,6 @@ namespace TUIKit.Terminal
                 {
                     PosixTerminal.RestoreMode(_SavedTermios);
                     _SavedTermios = null;
-
-                    if (_ProcessExitHandler != null)
-                    {
-                        AppDomain.CurrentDomain.ProcessExit -= _ProcessExitHandler;
-                        _ProcessExitHandler = null;
-                    }
                 }
             }
         }
@@ -283,23 +285,49 @@ namespace TUIKit.Terminal
 
         private void OnProcessExit(object? sender, EventArgs e)
         {
-            if (_SavedTermios == null)
+            if (Interlocked.Exchange(ref _ExitHandled, 1) != 0)
                 return;
 
-            // Restore cooked mode and undo the visual state a running session leaves behind, so a
-            // process that exits without calling Stop still hands back a usable terminal.
-            PosixTerminal.RestoreMode(_SavedTermios);
-            _SavedTermios = null;
-
+            // Undo the visual state a running session leaves behind — mouse reporting and bracketed
+            // paste first, then the cursor and the alternate screen — so a process that exits without
+            // calling Stop still hands back a usable terminal. Written before the mode restore so the
+            // escapes go out while the output path is still in its running configuration.
             try
             {
                 byte[] reset = Encoding.UTF8.GetBytes(
-                    Ansi.ShowCursor + Ansi.ExitAltScreen + Ansi.ResetAttributes);
-                PosixTerminal.WriteStdout(reset, reset.Length);
+                    Ansi.DisableMouse + Ansi.DisableBracketedPaste
+                    + Ansi.ShowCursor + Ansi.ExitAltScreen + Ansi.ResetAttributes);
+                WriteReset(reset);
             }
             catch (IOException)
             {
-                // Best effort during teardown; the terminal mode has already been restored.
+                // Best effort during teardown; the mode restore below still runs.
+            }
+
+            if (_IsWindows)
+            {
+                RestoreWindowsMode();
+            }
+            else
+            {
+                PosixTerminal.RestoreMode(_SavedTermios);
+                _SavedTermios = null;
+            }
+        }
+
+        private void WriteReset(byte[] bytes)
+        {
+            if (_IsWindows)
+            {
+                if (_OutputStream == null)
+                    return;
+
+                _OutputStream.Write(bytes, 0, bytes.Length);
+                _OutputStream.Flush();
+            }
+            else
+            {
+                PosixTerminal.WriteStdout(bytes, bytes.Length);
             }
         }
 

@@ -4,6 +4,7 @@ namespace TUIKit.Hosting
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
     using TUIKit;
@@ -65,6 +66,9 @@ namespace TUIKit.Hosting
         private bool _Started;
         private bool _Disposed;
         private bool _MouseCaptureEnabled = true;
+        private int _TornDown;
+        private ConsoleCancelEventHandler? _CancelKeyHandler;
+        private EventHandler? _ProcessExitHandler;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TuiApplication"/> class.
@@ -674,6 +678,7 @@ namespace TUIKit.Hosting
             }
 
             _Started = true;
+            Interlocked.Exchange(ref _TornDown, 0);
             _Clock.Start();
             _Backend.Start();
 
@@ -692,28 +697,96 @@ namespace TUIKit.Hosting
                 if (_Backend.Capabilities.EnhancedKeyboard)
                     _Backend.Write(Ansi.PushKittyKeyboard);
                 _Backend.Flush();
+
+                InstallSafetyNet();
             }
         }
 
+        // Guarantees the terminal is handed back in a usable state on every exit path — a graceful
+        // Quit, an unhandled exception, or a Ctrl+C the runtime would otherwise turn into an abrupt
+        // process kill before Stop runs. Without this, the enable escapes emitted above (mouse
+        // tracking, bracketed paste, the alternate screen) and the backend's raw console mode leak into
+        // the shell: the scroll wheel spews SGR mouse reports and arrow keys echo their raw escapes.
+        private void InstallSafetyNet()
+        {
+            // Cancel the runtime's default "kill the process" reaction to Ctrl+C and route it into the
+            // ordinary stop request, so the run loop tears down through Stop like any other exit.
+            _CancelKeyHandler = OnCancelKeyPress;
+            Console.CancelKeyPress += _CancelKeyHandler;
+
+            // Last-ditch restore for any exit that bypasses Stop (including the graceful shutdown the
+            // runtime runs after an uncancelled Ctrl+C, which still raises ProcessExit).
+            _ProcessExitHandler = OnProcessExit;
+            AppDomain.CurrentDomain.ProcessExit += _ProcessExitHandler;
+        }
+
+        private void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
+        {
+            // Ctrl+Break cannot be cancelled; leave it to the ProcessExit net. For Ctrl+C, suppress the
+            // runtime's termination and let the loop exit cleanly through Stop.
+            if (e.SpecialKey == ConsoleSpecialKey.ControlC)
+            {
+                e.Cancel = true;
+                RequestStop();
+            }
+        }
+
+        private void OnProcessExit(object? sender, EventArgs e)
+        {
+            Teardown();
+        }
+
         /// <summary>
-        /// Stops the session and restores the terminal to its original state.
+        /// Stops the session and restores the terminal to its original state. Safe to call multiple
+        /// times and safe to race with the Ctrl+C and process-exit safety net installed by
+        /// <see cref="Start"/>; the restore runs at most once per session.
         /// </summary>
         public void Stop()
         {
+            Teardown();
+        }
+
+        // The single teardown path shared by Stop, Dispose, and the Ctrl+C/process-exit safety net.
+        // Guarded so it runs exactly once per Start even when the run loop and a ProcessExit callback
+        // race for it on different threads.
+        private void Teardown()
+        {
             if (!_Started)
+                return;
+            if (Interlocked.CompareExchange(ref _TornDown, 1, 0) != 0)
                 return;
 
             _Running = false;
 
+            if (_CancelKeyHandler != null)
+            {
+                Console.CancelKeyPress -= _CancelKeyHandler;
+                _CancelKeyHandler = null;
+            }
+
+            if (_ProcessExitHandler != null)
+            {
+                AppDomain.CurrentDomain.ProcessExit -= _ProcessExitHandler;
+                _ProcessExitHandler = null;
+            }
+
             if (_Backend.IsInteractive)
             {
-                if (_Backend.Capabilities.EnhancedKeyboard)
-                    _Backend.Write(Ansi.PopKittyKeyboard);
-                _Backend.Write(Ansi.DisableBracketedPaste);
-                _Backend.Write(Ansi.DisableMouse);
-                _Backend.Write(Ansi.ShowCursor);
-                _Backend.Write(Ansi.ExitAltScreen);
-                _Backend.Flush();
+                try
+                {
+                    if (_Backend.Capabilities.EnhancedKeyboard)
+                        _Backend.Write(Ansi.PopKittyKeyboard);
+                    _Backend.Write(Ansi.DisableBracketedPaste);
+                    _Backend.Write(Ansi.DisableMouse);
+                    _Backend.Write(Ansi.ShowCursor);
+                    _Backend.Write(Ansi.ExitAltScreen);
+                    _Backend.Flush();
+                }
+                catch (IOException)
+                {
+                    // Best effort during teardown: the stream may already be closing on process exit.
+                    // The backend still restores its console mode below.
+                }
             }
 
             _Backend.Stop();
