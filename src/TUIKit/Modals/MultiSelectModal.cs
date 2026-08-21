@@ -8,9 +8,10 @@ namespace TUIKit.Modals
 
     /// <summary>
     /// A dialog that presents a list of options, each of which can be checked independently. Up/Down
-    /// move the cursor, Space toggles the option under it, and the check-all key (default 'a') toggles
-    /// every option. Enter completes with the checked indices as an
-    /// <see cref="IReadOnlyList{Int32}"/> (possibly empty); Escape cancels and completes with null.
+    /// move the cursor, PageUp/PageDown move by a page, Home/End jump to the first and last option,
+    /// Space toggles the option under the cursor, and the check-all key (default 'a') toggles every
+    /// option. Enter completes with the checked indices as an <see cref="IReadOnlyList{Int32}"/>
+    /// (possibly empty); Escape cancels and completes with null.
     /// </summary>
     /// <typeparam name="T">The option type.</typeparam>
     public sealed class MultiSelectModal<T> : DialogModal

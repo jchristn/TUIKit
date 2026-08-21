@@ -22,6 +22,7 @@ namespace TUIKit.Widgets
         private readonly List<int> _VisibleDepths = new List<int>();
         private int _Selected;
         private int _Top;
+        private int _LastViewportHeight = 1;
 
         /// <summary>
         /// Gets or sets the highlight style for the selected node. Defaults to reversed cyan.
@@ -110,6 +111,18 @@ namespace TUIKit.Widgets
                 case KeyCode.Down:
                     _Selected = Math.Min(_VisibleNodes.Count - 1, _Selected + 1);
                     return true;
+                case KeyCode.PageUp:
+                    _Selected = Math.Max(0, _Selected - Math.Max(1, _LastViewportHeight));
+                    return true;
+                case KeyCode.PageDown:
+                    _Selected = Math.Min(_VisibleNodes.Count - 1, _Selected + Math.Max(1, _LastViewportHeight));
+                    return true;
+                case KeyCode.Home:
+                    _Selected = 0;
+                    return true;
+                case KeyCode.End:
+                    _Selected = Math.Max(0, _VisibleNodes.Count - 1);
+                    return true;
                 case KeyCode.Right:
                 case KeyCode.Enter:
                     if (_Selected >= 0 && _Selected < _VisibleNodes.Count)
@@ -142,6 +155,8 @@ namespace TUIKit.Widgets
             int height = surface.Size.Height;
             if (width <= 0 || height <= 0)
                 return;
+
+            _LastViewportHeight = height;
 
             if (_Selected < _Top)
                 _Top = _Selected;

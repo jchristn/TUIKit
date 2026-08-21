@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-08-21
+
+Page and jump navigation across the list and scroll widgets. Long lists could only be walked one
+row at a time — PageUp/PageDown and Home/End were missing from most selection widgets, and the two
+scroll widgets that paged had no jump-to-top/bottom.
+
+### Added
+- **`ListView` pages and jumps.** PageUp/PageDown move the selection by the last-rendered viewport
+  height; Home/End select the first and last item, via new `SelectFirst`, `SelectLast`, `PageUp`, and
+  `PageDown` methods. Because `SelectModal` (and therefore `TuiApplication.SelectAsync`),
+  `ActionListView`, and `ReorderableList` delegate their key handling to `ListView`, all three gain
+  the same keys.
+- **`CheckList` paging.** PageUp/PageDown complement the existing Home/End, so `MultiSelectModal` pages
+  too.
+- **All four keys on the remaining selection widgets.** `FuzzyList`, `DataTable`, `Tree`,
+  `FileBrowser`, and `KeyBindingEditor` now handle PageUp/PageDown (by their visible-row count) and
+  Home/End (first/last item).
+- **Home/End on the scroll widgets.** `ScrollView` and `DiffView` already paged; they now jump to the
+  top and bottom of their content with Home and End.
+
+### Notes
+- Paging steps by the widget's viewport height as of its most recent render (at least one row), and
+  every move clamps at the ends. All changes are additive and backward compatible.
+
+### Tests
+- 16 new Touchstone cases (positive and negative) covering paging and jump keys for each widget, the
+  `SelectAsync`/`SelectModal` and `MultiSelectModal` routing, empty-list safety, and the
+  `ReorderableList` delegation (414 total across console/xUnit/NUnit on net8.0/net10.0).
+
 ## [0.8.1] - 2026-08-21
 
 Terminal-restore hardening. A TUIKit app that exited via Ctrl+C — or an unhandled exception — could

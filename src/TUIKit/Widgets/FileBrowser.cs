@@ -20,6 +20,7 @@ namespace TUIKit.Widgets
         private string _CurrentDirectory = string.Empty;
         private int _Selected;
         private int _Top;
+        private int _LastViewportHeight = 1;
 
         /// <summary>
         /// Raised when a file (not a directory) is activated with Enter. The argument is its full path.
@@ -143,6 +144,18 @@ namespace TUIKit.Widgets
                 case KeyCode.Down:
                     _Selected = Math.Min(Math.Max(0, _Entries.Count - 1), _Selected + 1);
                     return true;
+                case KeyCode.PageUp:
+                    _Selected = Math.Max(0, _Selected - Math.Max(1, _LastViewportHeight));
+                    return true;
+                case KeyCode.PageDown:
+                    _Selected = Math.Min(Math.Max(0, _Entries.Count - 1), _Selected + Math.Max(1, _LastViewportHeight));
+                    return true;
+                case KeyCode.Home:
+                    _Selected = 0;
+                    return true;
+                case KeyCode.End:
+                    _Selected = Math.Max(0, _Entries.Count - 1);
+                    return true;
                 case KeyCode.Enter:
                     ActivateSelected();
                     return true;
@@ -179,6 +192,8 @@ namespace TUIKit.Widgets
             int listHeight = height - 1;
             if (listHeight <= 0)
                 return;
+
+            _LastViewportHeight = listHeight;
 
             if (_Selected < _Top)
                 _Top = _Selected;

@@ -65,7 +65,8 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Scrolls the diff with Up/Down and PageUp/PageDown.
+        /// Scrolls the diff with Up/Down (one line), PageUp/PageDown (ten lines), and Home/End (jump to
+        /// the first or last line).
         /// </summary>
         /// <param name="key">The key event.</param>
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
@@ -84,6 +85,12 @@ namespace TUIKit.Widgets
                     return true;
                 case KeyCode.PageDown:
                     _Top = Math.Min(Math.Max(0, _Lines.Count - 1), _Top + 10);
+                    return true;
+                case KeyCode.Home:
+                    _Top = 0;
+                    return true;
+                case KeyCode.End:
+                    _Top = Math.Max(0, _Lines.Count - 1);
                     return true;
                 default:
                     return false;

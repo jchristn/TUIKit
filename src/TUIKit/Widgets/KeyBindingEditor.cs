@@ -16,6 +16,7 @@ namespace TUIKit.Widgets
         private readonly KeyBindingSet _Set;
         private int _Selected;
         private int _Top;
+        private int _LastViewportHeight = 1;
         private bool _Capturing;
 
         /// <summary>
@@ -57,6 +58,18 @@ namespace TUIKit.Widgets
                 case KeyCode.Down:
                     _Selected = Math.Min(Math.Max(0, _Set.Bindings.Count - 1), _Selected + 1);
                     return true;
+                case KeyCode.PageUp:
+                    _Selected = Math.Max(0, _Selected - Math.Max(1, _LastViewportHeight));
+                    return true;
+                case KeyCode.PageDown:
+                    _Selected = Math.Min(Math.Max(0, _Set.Bindings.Count - 1), _Selected + Math.Max(1, _LastViewportHeight));
+                    return true;
+                case KeyCode.Home:
+                    _Selected = 0;
+                    return true;
+                case KeyCode.End:
+                    _Selected = Math.Max(0, _Set.Bindings.Count - 1);
+                    return true;
                 case KeyCode.Enter:
                     if (_Set.Bindings.Count > 0)
                     {
@@ -93,6 +106,8 @@ namespace TUIKit.Widgets
             int listHeight = height - 1;
             if (listHeight <= 0)
                 return;
+
+            _LastViewportHeight = listHeight;
 
             if (_Selected < _Top)
                 _Top = _Selected;

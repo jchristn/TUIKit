@@ -139,7 +139,8 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Handles arrow and page keys to scroll.
+        /// Handles arrow keys (one cell), PageUp/PageDown (ten rows), and Home/End (jump to the top or
+        /// bottom of the content) to scroll vertically, and Left/Right to scroll horizontally.
         /// </summary>
         /// <param name="key">The key event.</param>
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
@@ -164,6 +165,14 @@ namespace TUIKit.Widgets
                     return true;
                 case KeyCode.PageDown:
                     ScrollBy(0, 10);
+                    return true;
+                case KeyCode.Home:
+                    // Jump to the top of the content. The horizontal offset is left unchanged.
+                    ScrollTo(_ScrollX, 0);
+                    return true;
+                case KeyCode.End:
+                    // Jump to the bottom; Render clamps the offset to the last full viewport.
+                    ScrollTo(_ScrollX, _ContentHeight);
                     return true;
                 default:
                     return false;

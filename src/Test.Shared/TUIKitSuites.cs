@@ -78,7 +78,8 @@ namespace Test.Shared
                     ListEditingSuite.Suite(),
                     CommandRegistrySuite.Suite(),
                     AutocompleteSuite.Suite(),
-                    ScrollFormSuite.Suite()
+                    ScrollFormSuite.Suite(),
+                    NavigationKeysSuite.Suite()
                 };
             }
         }

@@ -17,6 +17,7 @@ namespace TUIKit.Widgets
         private readonly List<T> _Rows = new List<T>();
         private int _Selected;
         private int _Top;
+        private int _LastViewportHeight = 1;
         private int _SortColumn = -1;
         private bool _SortAscending = true;
 
@@ -108,25 +109,37 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Moves the selection with Up/Down.
+        /// Moves the selection with Up/Down (single row), PageUp/PageDown (by the visible row count),
+        /// and Home/End (first and last row).
         /// </summary>
         /// <param name="key">The key event.</param>
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
         public bool HandleKey(KeyEvent key)
         {
-            if (key.Code == KeyCode.Up)
+            int last = Math.Max(0, _Rows.Count - 1);
+            switch (key.Code)
             {
-                _Selected = Math.Max(0, _Selected - 1);
-                return true;
+                case KeyCode.Up:
+                    _Selected = Math.Max(0, _Selected - 1);
+                    return true;
+                case KeyCode.Down:
+                    _Selected = Math.Min(last, _Selected + 1);
+                    return true;
+                case KeyCode.PageUp:
+                    _Selected = Math.Max(0, _Selected - Math.Max(1, _LastViewportHeight));
+                    return true;
+                case KeyCode.PageDown:
+                    _Selected = Math.Min(last, _Selected + Math.Max(1, _LastViewportHeight));
+                    return true;
+                case KeyCode.Home:
+                    _Selected = 0;
+                    return true;
+                case KeyCode.End:
+                    _Selected = last;
+                    return true;
+                default:
+                    return false;
             }
-
-            if (key.Code == KeyCode.Down)
-            {
-                _Selected = Math.Min(Math.Max(0, _Rows.Count - 1), _Selected + 1);
-                return true;
-            }
-
-            return false;
         }
 
         /// <inheritdoc/>
@@ -152,6 +165,7 @@ namespace TUIKit.Widgets
                 surface.DrawText(c * columnWidth, 0, Fit(_Columns[c].Name, columnWidth), header);
 
             int listHeight = height - 1;
+            _LastViewportHeight = Math.Max(1, listHeight);
             if (_Selected < _Top)
                 _Top = _Selected;
             else if (_Selected >= _Top + listHeight)

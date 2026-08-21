@@ -18,6 +18,7 @@ namespace TUIKit.Widgets
         private readonly Func<T, string> _Display;
         private int _Selected;
         private int _Top;
+        private int _LastViewportHeight = 1;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ListView{T}"/> class.
@@ -130,25 +131,82 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Handles Up/Down navigation keys.
+        /// Moves the selection to the first item. A no-op when the list is empty.
+        /// </summary>
+        public void SelectFirst()
+        {
+            if (_Items.Count == 0)
+                return;
+
+            _Selected = 0;
+        }
+
+        /// <summary>
+        /// Moves the selection to the last item. A no-op when the list is empty.
+        /// </summary>
+        public void SelectLast()
+        {
+            if (_Items.Count == 0)
+                return;
+
+            _Selected = _Items.Count - 1;
+        }
+
+        /// <summary>
+        /// Moves the selection down by one page — the height of the list's viewport as of the most
+        /// recent render (at least one row) — clamped to the last item.
+        /// </summary>
+        public void PageDown()
+        {
+            if (_Items.Count == 0)
+                return;
+
+            _Selected = Math.Min(_Items.Count - 1, _Selected + Math.Max(1, _LastViewportHeight));
+        }
+
+        /// <summary>
+        /// Moves the selection up by one page — the height of the list's viewport as of the most recent
+        /// render (at least one row) — clamped to the first item.
+        /// </summary>
+        public void PageUp()
+        {
+            if (_Items.Count == 0)
+                return;
+
+            _Selected = Math.Max(0, _Selected - Math.Max(1, _LastViewportHeight));
+        }
+
+        /// <summary>
+        /// Handles Up/Down (single step), PageUp/PageDown (by the viewport height), and Home/End (first
+        /// and last item) navigation keys.
         /// </summary>
         /// <param name="key">The key event.</param>
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
         public bool HandleKey(KeyEvent key)
         {
-            if (key.Code == KeyCode.Up)
+            switch (key.Code)
             {
-                SelectPrevious();
-                return true;
+                case KeyCode.Up:
+                    SelectPrevious();
+                    return true;
+                case KeyCode.Down:
+                    SelectNext();
+                    return true;
+                case KeyCode.PageUp:
+                    PageUp();
+                    return true;
+                case KeyCode.PageDown:
+                    PageDown();
+                    return true;
+                case KeyCode.Home:
+                    SelectFirst();
+                    return true;
+                case KeyCode.End:
+                    SelectLast();
+                    return true;
+                default:
+                    return false;
             }
-
-            if (key.Code == KeyCode.Down)
-            {
-                SelectNext();
-                return true;
-            }
-
-            return false;
         }
 
         /// <inheritdoc/>
@@ -167,6 +225,8 @@ namespace TUIKit.Widgets
             int width = surface.Size.Width;
             if (height <= 0 || width <= 0)
                 return;
+
+            _LastViewportHeight = height;
 
             if (_Selected < _Top)
                 _Top = _Selected;

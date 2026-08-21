@@ -8,8 +8,9 @@ namespace TUIKit.Modals
     using TUIKit.Widgets;
 
     /// <summary>
-    /// A modal that presents a list of options. Up/Down move, Enter chooses (returning the zero-based
-    /// index), and Escape cancels (returning -1).
+    /// A modal that presents a list of options. Up/Down move by one, PageUp/PageDown move by a page,
+    /// Home/End jump to the first and last option, Enter chooses (returning the zero-based index), and
+    /// Escape cancels (returning -1).
     /// </summary>
     public sealed class SelectModal : Modal
     {
