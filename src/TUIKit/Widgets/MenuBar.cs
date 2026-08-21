@@ -7,9 +7,10 @@ namespace TUIKit.Widgets
 
     /// <summary>
     /// A horizontal menu bar with drop-down menus. Left/Right move between menus; Down or Enter opens
-    /// the active menu; Up/Down move the highlight; Enter activates the highlighted item and runs its
-    /// action; Escape closes. While a menu is open, Left/Right switch menus and keep the drop-down
-    /// open, matching common desktop behavior. The bar traps navigation keys only while it has focus.
+    /// the active menu; Up/Down move the highlight; Home/End jump to the first and last item; Enter
+    /// activates the highlighted item and runs its action; Escape closes. While a menu is open,
+    /// Left/Right switch menus and keep the drop-down open, matching common desktop behavior. The bar
+    /// traps navigation keys only while it has focus.
     /// </summary>
     public sealed class MenuBar : IWidget, IFocusable
     {
@@ -164,6 +165,13 @@ namespace TUIKit.Widgets
                 case KeyCode.Down:
                     if (items.Count > 0)
                         _Highlight = (_Highlight + 1) % items.Count;
+                    return true;
+                case KeyCode.Home:
+                    _Highlight = 0;
+                    return true;
+                case KeyCode.End:
+                    if (items.Count > 0)
+                        _Highlight = items.Count - 1;
                     return true;
                 case KeyCode.Left:
                     _Active = (_Active - 1 + _Menus.Count) % _Menus.Count;

@@ -5,7 +5,8 @@ namespace TUIKit.Widgets
     using TUIKit.Input;
 
     /// <summary>
-    /// A vertical group of mutually exclusive options. Up/Down change the selection.
+    /// A vertical group of mutually exclusive options. Up/Down change the selection and Home/End jump
+    /// to the first and last option.
     /// </summary>
     public sealed class RadioGroup : IWidget, IFocusable
     {
@@ -45,25 +46,29 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Changes the selection with Up/Down.
+        /// Changes the selection with Up/Down (one option) and Home/End (first and last option).
         /// </summary>
         /// <param name="key">The key event.</param>
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
         public bool HandleKey(KeyEvent key)
         {
-            if (key.Code == KeyCode.Up)
+            switch (key.Code)
             {
-                _Selected = Math.Max(0, _Selected - 1);
-                return true;
+                case KeyCode.Up:
+                    _Selected = Math.Max(0, _Selected - 1);
+                    return true;
+                case KeyCode.Down:
+                    _Selected = Math.Min(_Options.Length - 1, _Selected + 1);
+                    return true;
+                case KeyCode.Home:
+                    _Selected = 0;
+                    return true;
+                case KeyCode.End:
+                    _Selected = _Options.Length - 1;
+                    return true;
+                default:
+                    return false;
             }
-
-            if (key.Code == KeyCode.Down)
-            {
-                _Selected = Math.Min(_Options.Length - 1, _Selected + 1);
-                return true;
-            }
-
-            return false;
         }
 
         /// <inheritdoc/>

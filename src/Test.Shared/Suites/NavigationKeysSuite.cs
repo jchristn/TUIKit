@@ -299,6 +299,62 @@ namespace Test.Shared.Suites
                             }
 
                             return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("NavigationKeys", "RadioGroupHomeEnd", "RadioGroup jumps to the first and last option",
+                        _ =>
+                        {
+                            RadioGroup group = new RadioGroup(new[] { "a", "b", "c", "d" });
+                            group.HandleKey(KeyEvent.Special(KeyCode.End));
+                            Check.Equal(3, group.SelectedIndex, "End selects the last option");
+                            group.HandleKey(KeyEvent.Special(KeyCode.Home));
+                            Check.Equal(0, group.SelectedIndex, "Home selects the first option");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("NavigationKeys", "AutocompleteOverlayPaging", "AutocompleteOverlay pages by MaxRows and jumps with Home/End",
+                        _ =>
+                        {
+                            List<string> items = new List<string>();
+                            for (int i = 0; i < 10; i++)
+                                items.Add("opt" + i);
+                            AutocompleteOverlay overlay = new AutocompleteOverlay(new PrefixSuggestionProvider(items));
+                            overlay.MaxRows = 3;
+                            overlay.SetInput(string.Empty);
+                            IReadOnlyList<string> shown = overlay.Suggestions;
+                            Check.Equal(10, shown.Count, "all suggestions visible");
+
+                            overlay.HandleKey(KeyEvent.Special(KeyCode.End));
+                            Check.Equal(shown[shown.Count - 1], overlay.SelectedSuggestion, "End highlights the last suggestion");
+                            overlay.HandleKey(KeyEvent.Special(KeyCode.Home));
+                            Check.Equal(shown[0], overlay.SelectedSuggestion, "Home highlights the first suggestion");
+                            overlay.HandleKey(KeyEvent.Special(KeyCode.PageDown));
+                            Check.Equal(shown[3], overlay.SelectedSuggestion, "PageDown advances by MaxRows");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("NavigationKeys", "AutocompleteHiddenIgnores", "AutocompleteOverlay ignores navigation while hidden",
+                        _ =>
+                        {
+                            AutocompleteOverlay overlay = new AutocompleteOverlay(new PrefixSuggestionProvider(new[] { "one" }));
+                            Check.False(overlay.IsVisible, "not visible before input");
+                            Check.False(overlay.HandleKey(KeyEvent.Special(KeyCode.End)), "End not consumed while hidden");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("NavigationKeys", "MenuBarHomeEnd", "MenuBar jumps the highlight to the first and last item",
+                        _ =>
+                        {
+                            MenuBar bar = new MenuBar();
+                            bar.AddMenu("File").Add("a").Add("b").Add("c").Add("d");
+                            bar.HandleKey(KeyEvent.Special(KeyCode.Down)); // open the menu
+                            Check.True(bar.IsOpen, "menu open");
+
+                            bar.HandleKey(KeyEvent.Special(KeyCode.End));
+                            Check.Equal(3, bar.HighlightedItem, "End highlights the last item");
+                            bar.HandleKey(KeyEvent.Special(KeyCode.Home));
+                            Check.Equal(0, bar.HighlightedItem, "Home highlights the first item");
+                            return Task.CompletedTask;
                         })
                 });
         }

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-08-21
+
+Finishes the navigation-uniformity work from 0.8.2 by extending page/jump keys to the three small
+widgets that were left out, so every navigable list and scroll widget now responds to the same keys.
+
+### Added
+- **`RadioGroup`** — Home/End jump to the first and last option.
+- **`MenuBar`** — Home/End jump the highlight to the first and last item of the open drop-down.
+- **`AutocompleteOverlay`** — Home/End jump to the first and last suggestion, and PageUp/PageDown move
+  by a page (`MaxRows`); Up/Down keep their existing wrapping behavior.
+
+### Tests
+- 4 new Touchstone cases: RadioGroup Home/End, AutocompleteOverlay paging and Home/End, the hidden
+  overlay ignoring navigation, and MenuBar Home/End (418 total across console/xUnit/NUnit on
+  net8.0/net10.0).
+
 ## [0.8.2] - 2026-08-21
 
 Page and jump navigation across the list and scroll widgets. Long lists could only be walked one

@@ -8,8 +8,9 @@ namespace TUIKit.Widgets
     /// <summary>
     /// A caret-anchored suggestion popup for a text input. Feed it the current input with
     /// <see cref="SetInput"/>; it asks an <see cref="ISuggestionProvider"/> for candidates and, when any
-    /// exist, becomes visible. Up/Down move the highlight, Tab or Enter accept the highlighted
-    /// suggestion (raising <see cref="Accepted"/>), and Escape dismisses it. Draw it over existing
+    /// exist, becomes visible. Up/Down move the highlight (wrapping), PageUp/PageDown move by a page
+    /// (<see cref="MaxRows"/>), Home/End jump to the first and last suggestion, Tab or Enter accept the
+    /// highlighted suggestion (raising <see cref="Accepted"/>), and Escape dismisses it. Draw it over existing
     /// content with <see cref="RenderAt"/>, which flips the list above the caret when there is no room
     /// below.
     /// </summary>
@@ -124,7 +125,8 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Handles a key while the overlay is visible: Up/Down move, Tab/Enter accept, Escape dismisses.
+        /// Handles a key while the overlay is visible: Up/Down move (wrapping), PageUp/PageDown move by a
+        /// page, Home/End jump to the first and last suggestion, Tab/Enter accept, Escape dismisses.
         /// </summary>
         /// <param name="key">The key event.</param>
         /// <returns><c>true</c> when the overlay consumed the key; otherwise <c>false</c> (let the input handle it).</returns>
@@ -140,6 +142,18 @@ namespace TUIKit.Widgets
                     return true;
                 case KeyCode.Down:
                     _Selected = (_Selected + 1) % _Suggestions.Count;
+                    return true;
+                case KeyCode.PageUp:
+                    _Selected = Math.Max(0, _Selected - _MaxRows);
+                    return true;
+                case KeyCode.PageDown:
+                    _Selected = Math.Min(_Suggestions.Count - 1, _Selected + _MaxRows);
+                    return true;
+                case KeyCode.Home:
+                    _Selected = 0;
+                    return true;
+                case KeyCode.End:
+                    _Selected = _Suggestions.Count - 1;
                     return true;
                 case KeyCode.Tab:
                 case KeyCode.Enter:
