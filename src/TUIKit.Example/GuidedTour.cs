@@ -760,6 +760,32 @@ namespace TUIKit.Example
                     "  label: s => s);"
                 }));
 
+            Dictionary<string, string[]> checkForest = new Dictionary<string, string[]>
+            {
+                { "root", new[] { "docs", "src", "bin" } },
+                { "src", new[] { "a", "b" } }
+            };
+            CheckTree<string> checkTree = new CheckTree<string>(
+                new[] { "root" },
+                s => checkForest.TryGetValue(s, out string[]? kids) ? kids : Array.Empty<string>(),
+                s => s,
+                s => checkForest.ContainsKey(s));
+            checkTree.Expand("root");
+            pages.Add(new TourPage(
+                "CheckTree (cascading selection)",
+                "[bold]CheckTree<T>[/] cascades tri-state checks. [bold]Space[/] toggles; checking a folder pulls in its subtree, unchecking a child carves a hole.",
+                checkTree,
+                new[]
+                {
+                    "new CheckTree<string>(",
+                    "  roots: new[]{ \"root\" },",
+                    "  children: s => ChildrenOf(s),",
+                    "  label: s => s,",
+                    "  hasChildren: s => IsDir(s));",
+                    "// Space toggles; read IncludedRoots()",
+                    "// and ExcludedHoles() for the result."
+                }));
+
             TabView tabs = new TabView()
                 .Add("Overview", new Label(Text.From("Tab one content")))
                 .Add("Details", new Label(Text.From("Tab two content")))

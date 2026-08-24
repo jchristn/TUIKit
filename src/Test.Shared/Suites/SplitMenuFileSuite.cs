@@ -164,6 +164,113 @@ namespace Test.Shared.Suites
                             }
 
                             return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("SplitMenuFile", "SelectionModeMultiple", "Multiple mode checks several paths and confirms on Enter",
+                        _ =>
+                        {
+                            string root = Path.Combine(Path.GetTempPath(), "tuikit-fbsel-" + Guid.NewGuid().ToString("N"));
+                            Directory.CreateDirectory(root);
+                            try
+                            {
+                                File.WriteAllText(Path.Combine(root, "a.txt"), "x");
+                                File.WriteAllText(Path.Combine(root, "b.txt"), "y");
+
+                                FileBrowser browser = new FileBrowser(root);
+                                browser.SelectionMode = FileSelectionMode.Multiple;
+
+                                IReadOnlyList<string>? confirmed = null;
+                                browser.Confirmed += paths => confirmed = paths;
+
+                                browser.HandleKey(KeyEvent.Special(KeyCode.Down));  // a.txt (no parent link at drive-free temp dir? parent exists)
+                                browser.HandleKey(KeyEvent.Char(' '));
+                                browser.HandleKey(KeyEvent.Special(KeyCode.Down));  // b.txt
+                                browser.HandleKey(KeyEvent.Char(' '));
+                                Check.Equal(2, browser.SelectedPaths.Count, "two paths checked");
+
+                                browser.HandleKey(KeyEvent.Special(KeyCode.Enter));
+                                Check.True(confirmed != null, "Confirmed fired on Enter");
+                                Check.Equal(2, confirmed!.Count, "confirmed both checked paths");
+                            }
+                            finally
+                            {
+                                try
+                                {
+                                    Directory.Delete(root, true);
+                                }
+                                catch (IOException)
+                                {
+                                }
+                            }
+
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("SplitMenuFile", "SelectionModeSingle", "Single mode keeps at most one checked path",
+                        _ =>
+                        {
+                            string root = Path.Combine(Path.GetTempPath(), "tuikit-fbsel-" + Guid.NewGuid().ToString("N"));
+                            Directory.CreateDirectory(root);
+                            try
+                            {
+                                File.WriteAllText(Path.Combine(root, "a.txt"), "x");
+                                File.WriteAllText(Path.Combine(root, "b.txt"), "y");
+
+                                FileBrowser browser = new FileBrowser(root);
+                                browser.SelectionMode = FileSelectionMode.Single;
+
+                                browser.HandleKey(KeyEvent.Special(KeyCode.Down));  // a.txt
+                                browser.HandleKey(KeyEvent.Char(' '));
+                                browser.HandleKey(KeyEvent.Special(KeyCode.Down));  // b.txt
+                                browser.HandleKey(KeyEvent.Char(' '));
+                                Check.Equal(1, browser.SelectedPaths.Count, "single mode replaced the check");
+                                Check.Equal(Path.Combine(root, "b.txt"), browser.SelectedPaths[0], "latest check wins");
+                            }
+                            finally
+                            {
+                                try
+                                {
+                                    Directory.Delete(root, true);
+                                }
+                                catch (IOException)
+                                {
+                                }
+                            }
+
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("SplitMenuFile", "SelectionModeNoneKeepsActivate", "Default None mode still activates on Enter",
+                        _ =>
+                        {
+                            string root = Path.Combine(Path.GetTempPath(), "tuikit-fbsel-" + Guid.NewGuid().ToString("N"));
+                            Directory.CreateDirectory(root);
+                            try
+                            {
+                                File.WriteAllText(Path.Combine(root, "a.txt"), "x");
+
+                                FileBrowser browser = new FileBrowser(root);
+                                string? activated = null;
+                                browser.FileActivated += p => activated = p;
+
+                                browser.HandleKey(KeyEvent.Special(KeyCode.Down)); // a.txt
+                                browser.HandleKey(KeyEvent.Char(' '));             // no-op in None mode
+                                Check.Equal(0, browser.SelectedPaths.Count, "None mode has no checked paths");
+                                browser.HandleKey(KeyEvent.Special(KeyCode.Enter));
+                                Check.Equal(Path.Combine(root, "a.txt"), activated, "Enter still activates the file");
+                            }
+                            finally
+                            {
+                                try
+                                {
+                                    Directory.Delete(root, true);
+                                }
+                                catch (IOException)
+                                {
+                                }
+                            }
+
+                            return Task.CompletedTask;
                         })
                 });
         }

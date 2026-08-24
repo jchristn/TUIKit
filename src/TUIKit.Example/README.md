@@ -12,7 +12,9 @@ finding, menus, nested splits, the color picker, diffs, the key-binding editor, 
 Global keys open live UI on top of the tour:
 
 - **F1** — help overlay
-- **Ctrl+G** — settings & actions menu (cycle theme, cycle icon mode, notification, confirmation dialog)
+- **Ctrl+G** — settings & actions menu, including **Edit tags** (a `ListEditorModal<string>` tag editor
+  with a legend and validating parser, [`ListEditorExample.cs`](ListEditorExample.cs)) and **Select
+  files** (a `FileSelectModal` cascading folder/file selector, [`FileSelectExample.cs`](FileSelectExample.cs))
 - **Ctrl+T** — cycle theme (dark / light / high-contrast)
 - **Ctrl+K** — confirmation dialog
 - **Ctrl+N** — notification toast

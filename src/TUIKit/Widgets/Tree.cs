@@ -10,6 +10,15 @@ namespace TUIKit.Widgets
     /// Up/Down move the selection, Right expands or steps into a node, Left collapses or steps out,
     /// and Enter toggles. Nodes are supplied through selector delegates so any object graph works.
     /// </summary>
+    /// <remarks>
+    /// The children selector is invoked at most once per node and the result is cached until
+    /// <see cref="Refresh"/> or <see cref="Invalidate"/> is called, so no user delegate runs work
+    /// proportional to the tree on every render. The disclosure glyph uses the optional
+    /// <c>hasChildren</c> probe (an O(1) "can expand?" test such as "is a directory") and never
+    /// enumerates children; when the probe is null the children selector is consulted once and the
+    /// boolean cached. All keyed state (expansion, caches) goes through the supplied comparer, so
+    /// regenerated nodes that compare equal keep their expansion. Not thread-safe.
+    /// </remarks>
     /// <typeparam name="T">The node type.</typeparam>
     public sealed class Tree<T> : IWidget, IFocusable
         where T : notnull
@@ -17,7 +26,11 @@ namespace TUIKit.Widgets
         private readonly T _Root;
         private readonly Func<T, IEnumerable<T>> _Children;
         private readonly Func<T, string> _Label;
-        private readonly HashSet<T> _Expanded = new HashSet<T>();
+        private readonly Func<T, bool>? _HasChildren;
+        private readonly IEqualityComparer<T> _Comparer;
+        private readonly HashSet<T> _Expanded;
+        private readonly Dictionary<T, List<T>> _ChildCache;
+        private readonly Dictionary<T, bool> _HasChildrenCache;
         private readonly List<T> _VisibleNodes = new List<T>();
         private readonly List<int> _VisibleDepths = new List<int>();
         private int _Selected;
@@ -33,14 +46,29 @@ namespace TUIKit.Widgets
         /// Initializes a new instance of the <see cref="Tree{T}"/> class with the root expanded.
         /// </summary>
         /// <param name="root">The root node. Must not be null.</param>
-        /// <param name="children">A selector returning a node's children. Must not be null.</param>
+        /// <param name="children">A selector returning a node's children. Invoked at most once per node and cached. Must not be null.</param>
         /// <param name="label">A selector returning a node's display text. Must not be null.</param>
-        /// <exception cref="ArgumentNullException">Thrown when an argument is null.</exception>
-        public Tree(T root, Func<T, IEnumerable<T>> children, Func<T, string> label)
+        /// <param name="hasChildren">
+        /// An optional cheap "can expand?" test used for the disclosure glyph, avoiding child enumeration
+        /// on every render. When null, the children selector is probed once per node and the boolean cached.
+        /// </param>
+        /// <param name="comparer">Equality used for all keyed state. Defaults to <see cref="EqualityComparer{T}.Default"/> when null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="root"/>, <paramref name="children"/>, or <paramref name="label"/> is null.</exception>
+        public Tree(
+            T root,
+            Func<T, IEnumerable<T>> children,
+            Func<T, string> label,
+            Func<T, bool>? hasChildren = null,
+            IEqualityComparer<T>? comparer = null)
         {
             _Root = root ?? throw new ArgumentNullException(nameof(root));
             _Children = children ?? throw new ArgumentNullException(nameof(children));
             _Label = label ?? throw new ArgumentNullException(nameof(label));
+            _HasChildren = hasChildren;
+            _Comparer = comparer ?? EqualityComparer<T>.Default;
+            _Expanded = new HashSet<T>(_Comparer);
+            _ChildCache = new Dictionary<T, List<T>>(_Comparer);
+            _HasChildrenCache = new Dictionary<T, bool>(_Comparer);
             _Expanded.Add(root);
         }
 
@@ -93,6 +121,31 @@ namespace TUIKit.Widgets
         public bool IsExpanded(T node)
         {
             return node != null && _Expanded.Contains(node);
+        }
+
+        /// <summary>
+        /// Drops the cached children of a single node so the children selector is re-invoked on the next
+        /// build. Use it when a node's children change (for example a directory gains files).
+        /// </summary>
+        /// <param name="node">The node whose cache to drop. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="node"/> is null.</exception>
+        public void Invalidate(T node)
+        {
+            if (node == null)
+                throw new ArgumentNullException(nameof(node));
+
+            _ChildCache.Remove(node);
+            _HasChildrenCache.Remove(node);
+        }
+
+        /// <summary>
+        /// Drops every cached child set so the children selector is re-invoked for all nodes on the next
+        /// build. Expansion state is preserved.
+        /// </summary>
+        public void Refresh()
+        {
+            _ChildCache.Clear();
+            _HasChildrenCache.Clear();
         }
 
         /// <summary>
@@ -197,16 +250,39 @@ namespace TUIKit.Widgets
             if (!_Expanded.Contains(node))
                 return;
 
-            foreach (T child in _Children(node))
-                Walk(child, depth + 1);
+            List<T> children = GetChildren(node);
+            for (int i = 0; i < children.Count; i++)
+                Walk(children[i], depth + 1);
+        }
+
+        private List<T> GetChildren(T node)
+        {
+            if (_ChildCache.TryGetValue(node, out List<T>? cached))
+                return cached;
+
+            List<T> resolved = new List<T>();
+            IEnumerable<T> source = _Children(node);
+            if (source != null)
+            {
+                foreach (T child in source)
+                    resolved.Add(child);
+            }
+
+            _ChildCache[node] = resolved;
+            return resolved;
         }
 
         private bool HasChildren(T node)
         {
-            foreach (T unused in _Children(node))
-                return true;
+            if (_HasChildren != null)
+                return _HasChildren(node);
 
-            return false;
+            if (_HasChildrenCache.TryGetValue(node, out bool cached))
+                return cached;
+
+            bool result = GetChildren(node).Count > 0;
+            _HasChildrenCache[node] = result;
+            return result;
         }
     }
 }

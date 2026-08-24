@@ -147,6 +147,53 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("NewWidgets", "HasChildrenUsesCheapProbe", "The children delegate is not called per render once a cheap probe is supplied",
+                        _ =>
+                        {
+                            Dictionary<string, string[]> children = new Dictionary<string, string[]>
+                            {
+                                { "root", new[] { "a", "b" } }
+                            };
+                            int childCalls = 0;
+                            Tree<string> tree = new Tree<string>(
+                                "root",
+                                s =>
+                                {
+                                    childCalls++;
+                                    return children.TryGetValue(s, out string[]? kids) ? kids : Array.Empty<string>();
+                                },
+                                s => s,
+                                s => children.ContainsKey(s));
+
+                            for (int i = 0; i < 5; i++)
+                            {
+                                CellBuffer buffer = new CellBuffer(20, 6);
+                                tree.Render(new BufferSurface(buffer));
+                            }
+
+                            Check.Equal(1, childCalls, "root children resolved once and cached across renders");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("NewWidgets", "ExpansionStateByComparer", "Expansion is keyed by the comparer, not identity",
+                        _ =>
+                        {
+                            Dictionary<string, string[]> children = new Dictionary<string, string[]>
+                            {
+                                { "root", new[] { "child" } }
+                            };
+                            Tree<string> tree = new Tree<string>(
+                                "root",
+                                s => children.TryGetValue(s, out string[]? kids) ? kids : Array.Empty<string>(),
+                                s => s,
+                                null,
+                                StringComparer.Ordinal);
+
+                            tree.Expand(string.Concat("chi", "ld"));
+                            Check.True(tree.IsExpanded(string.Concat("ch", "ild")), "a value-equal node reports expanded");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("NewWidgets", "FuzzyList", "Fuzzy list filters and highlights",
                         _ =>
                         {

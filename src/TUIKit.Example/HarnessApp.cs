@@ -228,7 +228,7 @@ namespace TUIKit.Example
 
         private void OpenPalette()
         {
-            ChoiceModal palette = new ChoiceModal("Command Palette", new List<string> { "Help", "Settings", "Cycle theme", "Toggle debug", "Quit" });
+            ChoiceModal palette = new ChoiceModal("Command Palette", new List<string> { "Help", "Settings", "Edit tags", "Select files", "Cycle theme", "Toggle debug", "Quit" });
             _App.Modals.Push(palette);
             palette.Completion.ContinueWith(task =>
             {
@@ -242,12 +242,18 @@ namespace TUIKit.Example
                         OpenSettings();
                         break;
                     case 2:
-                        CycleTheme();
+                        OpenTagEditor();
                         break;
                     case 3:
-                        _ShowDebug = !_ShowDebug;
+                        OpenFileSelect();
                         break;
                     case 4:
+                        CycleTheme();
+                        break;
+                    case 5:
+                        _ShowDebug = !_ShowDebug;
+                        break;
+                    case 6:
                         _App.RequestStop();
                         break;
                     default:
@@ -273,6 +279,36 @@ namespace TUIKit.Example
 
                     _App.Notifications.Add("Settings applied", NotificationSeverity.Success, _App.NowMilliseconds, 2000);
                 }
+            }, System.Threading.Tasks.TaskScheduler.Default);
+        }
+
+        private void OpenTagEditor()
+        {
+            ListEditorModal<string> editor = ListEditorExample.Create();
+            _App.Modals.Push(editor);
+            editor.Completion.ContinueWith(task =>
+            {
+                if (task.Result is IReadOnlyList<string> tags)
+                    _App.Notifications.Add("Tags: " + string.Join(", ", tags), NotificationSeverity.Success, _App.NowMilliseconds, 3000);
+                else
+                    _App.Notifications.Add("Tag edit cancelled", NotificationSeverity.Info, _App.NowMilliseconds, 2000);
+            }, System.Threading.Tasks.TaskScheduler.Default);
+        }
+
+        private void OpenFileSelect()
+        {
+            FileSelectModal selector = FileSelectExample.Create();
+            _App.Modals.Push(selector);
+            selector.Completion.ContinueWith(task =>
+            {
+                if (task.Result is FileSelection selection)
+                    _App.Notifications.Add(
+                        "Selected " + selection.Includes.Count + " include(s), " + selection.Excludes.Count + " hole(s)",
+                        NotificationSeverity.Success,
+                        _App.NowMilliseconds,
+                        3000);
+                else
+                    _App.Notifications.Add("File selection cancelled", NotificationSeverity.Info, _App.NowMilliseconds, 2000);
             }, System.Threading.Tasks.TaskScheduler.Default);
         }
 

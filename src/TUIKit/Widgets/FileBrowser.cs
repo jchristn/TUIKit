@@ -17,6 +17,7 @@ namespace TUIKit.Widgets
     public sealed class FileBrowser : IWidget, IFocusable
     {
         private readonly List<FileEntry> _Entries = new List<FileEntry>();
+        private readonly HashSet<string> _CheckedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private string _CurrentDirectory = string.Empty;
         private int _Selected;
         private int _Top;
@@ -26,6 +27,40 @@ namespace TUIKit.Widgets
         /// Raised when a file (not a directory) is activated with Enter. The argument is its full path.
         /// </summary>
         public event Action<string>? FileActivated;
+
+        /// <summary>
+        /// Raised when the selection is confirmed with Enter while <see cref="SelectionMode"/> is not
+        /// <see cref="FileSelectionMode.None"/>. The argument is the checked paths in listing order.
+        /// </summary>
+        public event Action<IReadOnlyList<string>>? Confirmed;
+
+        /// <summary>
+        /// Gets or sets how the browser selects paths in the current directory. Defaults to
+        /// <see cref="FileSelectionMode.None"/>, which keeps the classic single-activate behavior. In
+        /// <see cref="FileSelectionMode.Single"/> or <see cref="FileSelectionMode.Multiple"/>, Space
+        /// checks the current entry and Enter raises <see cref="Confirmed"/> instead of navigating.
+        /// </summary>
+        public FileSelectionMode SelectionMode { get; set; } = FileSelectionMode.None;
+
+        /// <summary>
+        /// Gets the currently checked paths in listing order: zero or one in
+        /// <see cref="FileSelectionMode.Single"/>, zero or more in <see cref="FileSelectionMode.Multiple"/>,
+        /// and always empty in <see cref="FileSelectionMode.None"/>. Never null.
+        /// </summary>
+        public IReadOnlyList<string> SelectedPaths
+        {
+            get
+            {
+                List<string> result = new List<string>();
+                for (int i = 0; i < _Entries.Count; i++)
+                {
+                    if (!_Entries[i].IsParent && _CheckedPaths.Contains(_Entries[i].FullPath))
+                        result.Add(_Entries[i].FullPath);
+                }
+
+                return result;
+            }
+        }
 
         /// <summary>Gets the current directory being listed.</summary>
         public string CurrentDirectory
@@ -133,6 +168,30 @@ namespace TUIKit.Widgets
             }
         }
 
+        /// <summary>
+        /// Toggles the checked state of the current entry when <see cref="SelectionMode"/> allows it. In
+        /// <see cref="FileSelectionMode.Single"/> the previously checked path is cleared first. The parent
+        /// link is never checkable.
+        /// </summary>
+        public void ToggleChecked()
+        {
+            if (SelectionMode == FileSelectionMode.None || _Entries.Count == 0)
+                return;
+
+            FileEntry entry = _Entries[_Selected];
+            if (entry.IsParent)
+                return;
+
+            bool wasChecked = _CheckedPaths.Contains(entry.FullPath);
+            if (SelectionMode == FileSelectionMode.Single)
+                _CheckedPaths.Clear();
+
+            if (wasChecked)
+                _CheckedPaths.Remove(entry.FullPath);
+            else
+                _CheckedPaths.Add(entry.FullPath);
+        }
+
         /// <inheritdoc/>
         public bool HandleKey(KeyEvent key)
         {
@@ -157,8 +216,22 @@ namespace TUIKit.Widgets
                     _Selected = Math.Max(0, _Entries.Count - 1);
                     return true;
                 case KeyCode.Enter:
+                    if (SelectionMode != FileSelectionMode.None)
+                    {
+                        Confirmed?.Invoke(SelectedPaths);
+                        return true;
+                    }
+
                     ActivateSelected();
                     return true;
+                case KeyCode.Character:
+                    if (key.Rune == ' ' && SelectionMode != FileSelectionMode.None)
+                    {
+                        ToggleChecked();
+                        return true;
+                    }
+
+                    return false;
                 case KeyCode.Left:
                 case KeyCode.Backspace:
                     DirectoryInfo? parent = Directory.GetParent(_CurrentDirectory);
@@ -215,7 +288,11 @@ namespace TUIKit.Widgets
                     surface.Fill(new Rect(0, y, width, 1), Cell.Blank(style));
 
                 string icon = entry.IsDirectory ? Icons.Folder.ToString() : Icons.File.ToString();
-                surface.DrawText(0, y, Fit(icon + " " + entry.Name, width), style);
+                string check = string.Empty;
+                if (SelectionMode != FileSelectionMode.None && !entry.IsParent)
+                    check = _CheckedPaths.Contains(entry.FullPath) ? "[x] " : "[ ] ";
+
+                surface.DrawText(0, y, Fit(check + icon + " " + entry.Name, width), style);
             }
         }
 

@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-08-24
+
+A reusable list editor and hierarchical file selection, plus two `Tree<T>` performance/correctness
+fixes. Each piece is a composition of primitives TUIKit already owned, landed here so applications
+stop re-implementing them per app.
+
+### Added
+- **`ListEditorModal<T>`** — a single-screen editor for an ordered list of `T`. Items are added
+  through an inline text field that is parsed, validated, and previewed live; a rejected commit keeps
+  the buffer so a mistyped value is fixed in place. The selected item can be removed, and — when
+  enabled — items reorder with Alt+Up/Alt+Down. Enter finishes with a fresh `IReadOnlyList<T>`;
+  Escape cancels with `null` (distinct from an empty list). Configured with `ListEditorOptions<T>`
+  (parser, describe, legend, dedupe, reorder, empty policy, key chords); parse outcomes flow through
+  the named `ParseResult<T>` rather than a tuple.
+- **`CheckTree<T>`** (with the `CheckState` enum) — a forest of expandable nodes with cascading
+  tri-state checkboxes. Checking a node makes its subtree effectively checked; unchecking a
+  descendant carves a hole and marks ancestors `Partial`; effective state is inherited from the
+  nearest explicit ancestor. `IncludedRoots()` and `ExcludedHoles()` derive the result; children load
+  lazily and cache once per node; state is keyed through a comparer; `Space` toggles and `Enter` is
+  left for the host.
+- **`FileSelectModal`** (with `FileSelectOptions`, `FileSelection`, `FileExclusion`, the
+  `IFileSystemProvider` seam, and the default disk-backed `FileSystemProvider`) — a bordered dialog
+  wrapping `CheckTree<string>` over absolute paths. Roots default to the machine's ready drives,
+  unreadable directories are tolerated, saved includes and holes are pre-seeded and revealed on open,
+  and the result maps to a `FileSelection` (top-most includes plus excluded holes with a
+  directory/file flag).
+- **`FileBrowser.SelectionMode`** — a `FileSelectionMode` flag (None/Single/Multiple) with
+  `SelectedPaths` and a `Confirmed` event, for flat multi-select within the current directory. The
+  default (None) keeps the classic single-activate behavior unchanged.
+
+### Fixed
+- **`Tree<T>` no longer enumerates per render.** The children delegate is invoked at most once per
+  node and cached (with `Invalidate`/`Refresh` to drop the cache); the disclosure glyph uses an
+  optional cheap `hasChildren` probe instead of enumerating children on every visible row per frame.
+- **`Tree<T>` expansion is keyed by a comparer.** An optional `IEqualityComparer<T>` keys all
+  expansion and cache state, so regenerated nodes that compare equal keep their expansion. Both
+  constructor parameters are optional and additive.
+
+### Tests
+- 38 new Touchstone cases across new `ListEditorModal`, `CheckTree`, and `FileSelectModal` suites plus
+  additions to `NewWidgets`, `SplitMenuFile`, and `BackendModalValidation` — including a disk-free
+  in-memory file-system provider for deterministic selection tests (456 total across console/xUnit/
+  NUnit on net8.0/net10.0).
+
 ## [0.8.3] - 2026-08-21
 
 Finishes the navigation-uniformity work from 0.8.2 by extending page/jump keys to the three small

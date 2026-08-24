@@ -120,6 +120,26 @@ namespace Test.Shared.Suites
                             cancel.HandleKey(KeyEvent.Special(KeyCode.Escape));
                             object? escaped = await cancel.Completion.ConfigureAwait(false);
                             Check.Equal(-1, (int)escaped!, "Escape completes with -1");
+                        }),
+
+                    new TestCaseDescriptor("BackendModalValidation", "ListEditorResult", "ListEditorModal adds an item and finishes with the edited list",
+                        async _ =>
+                        {
+                            ListEditorOptions<string> options = new ListEditorOptions<string>();
+                            options.Parse = text => string.IsNullOrEmpty(text)
+                                ? ParseResult<string>.Failure("empty")
+                                : ParseResult<string>.Success(text);
+                            ListEditorModal<string> editor = new ListEditorModal<string>(Array.Empty<string>(), s => s, options);
+
+                            editor.HandleKey(KeyEvent.Char('a')); // add mode
+                            editor.HandleKey(KeyEvent.Char('h'));
+                            editor.HandleKey(KeyEvent.Char('i'));
+                            editor.HandleKey(KeyEvent.Special(KeyCode.Enter)); // commit
+                            editor.HandleKey(KeyEvent.Special(KeyCode.Enter)); // finish
+
+                            IReadOnlyList<string> result = (IReadOnlyList<string>)(await editor.Completion.ConfigureAwait(false))!;
+                            Check.Equal(1, result.Count, "one item");
+                            Check.Equal("hi", result[0], "the typed value");
                         })
                 });
         }
