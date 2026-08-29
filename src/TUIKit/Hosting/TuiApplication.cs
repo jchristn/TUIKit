@@ -980,7 +980,7 @@ namespace TUIKit.Hosting
                     DispatchKey(inputEvent.Key);
                     break;
                 case InputEventKind.Paste:
-                    PasteReceived?.Invoke(inputEvent.PasteText ?? string.Empty);
+                    DispatchPaste(inputEvent.PasteText ?? string.Empty);
                     break;
                 case InputEventKind.Mouse:
                     if (inputEvent.Mouse != null)
@@ -989,6 +989,21 @@ namespace TUIKit.Hosting
                 default:
                     break;
             }
+        }
+
+        private void DispatchPaste(string text)
+        {
+            // Mirror the key path's "modal trap first" rule: while a modal owns the focus, its text field
+            // receives the paste. Only when no modal is active does the paste surface to the application's
+            // global PasteReceived handler. Without this, a bracketed paste into a prompt was decoded and
+            // then silently dropped, because the modal stack was never offered the event.
+            if (_Modals.IsActive)
+            {
+                _Modals.HandlePaste(text);
+                return;
+            }
+
+            PasteReceived?.Invoke(text);
         }
 
         private void DispatchKey(KeyEvent key)

@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-29
+
+Bracketed paste now reaches the focused input. Pasting into a prompt or an inline add field was
+silently dropped — the paste was decoded correctly but only application-global handlers were offered
+it, while the focus-trapping modal stack that owns the text field during a prompt never saw it. So
+typing worked but pasting an access key, secret key, password, or token did nothing.
+
+### Added
+- **`TextField.Insert(string)`** — inserts literal text at the caret (as produced by a bracketed
+  paste) and advances the caret past the run. Control characters — CR, LF, Tab, and other C0/C1
+  codes — are stripped, so a multi-line or newline-terminated clipboard payload collapses onto the
+  field's single line instead of submitting the prompt or corrupting the value. `null`/empty are
+  no-ops.
+- **`Modal.HandlePaste(string)`** — a virtual paste hook on the modal base, defaulting to a no-op
+  that reports the paste as unconsumed (the prior behavior for any modal). `PromptModal` and
+  `ListEditorModal<T>` override it to insert the pasted text into their field.
+- **`ModalStack.HandlePaste(string)`** — routes a paste to the topmost modal, mirroring
+  `HandleKey`.
+
+### Fixed
+- **Paste into prompts and inline add fields.** `TuiApplication` now dispatches a bracketed-paste
+  event the same way it dispatches keys: the active modal is offered the paste first, and the global
+  `PasteReceived` event fires only when no modal is trapping focus. Previously a `Paste` event fired
+  `PasteReceived` unconditionally and never reached the focused `TextField`, so Ctrl/Cmd+V into a
+  prompt (for example an S3 Access key or Secret key) inserted nothing.
+
+### Notes
+- Additive and backward compatible: the new `Modal.HandlePaste` virtual defaults to the previous
+  drop-the-paste behavior, and applications that subscribe to `PasteReceived` for their own focused
+  widgets still receive pastes whenever no modal is active.
+- 4 new Touchstone cases (the widget insert, the stack routing, the modal-trap-vs-fallback dispatch,
+  and the end-to-end prompt paste) — 460 total across console/xUnit/NUnit on net8.0/net10.0.
+
 ## [0.8.4] - 2026-08-24
 
 A reusable list editor and hierarchical file selection, plus two `Tree<T>` performance/correctness

@@ -80,6 +80,17 @@ namespace TUIKit.Modals
         }
 
         /// <inheritdoc/>
+        public override bool HandlePaste(string text)
+        {
+            if (!_Adding)
+                return false;
+
+            _Field.Insert(text);
+            _Error = null;
+            return true;
+        }
+
+        /// <inheritdoc/>
         protected override int MeasureContentWidth(int availableWidth)
         {
             int width = TextWidth("Items (" + _Items.Count + "):");

@@ -105,6 +105,40 @@ namespace Test.Shared.Suites
                             }
                         }),
 
+                    new TestCaseDescriptor("FocusFormsPrompts", "PromptPaste", "Prompt accepts bracketed paste into the field",
+                        async ct =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(60, 10);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                // The exact scenario a secret/access key entry hits: the whole value arrives
+                                // as one bracketed paste rather than as individual key presses.
+                                Task<string?> prompt = app.PromptAsync("Access key?");
+                                backend.FeedInput(Esc + "[200~AKIAIOSFODNN7EXAMPLE" + Esc + "[201~");
+                                backend.FeedInput(new byte[] { 0x0D });
+                                app.PumpInputOnce();
+                                Check.Equal("AKIAIOSFODNN7EXAMPLE", await prompt.ConfigureAwait(false), "paste landed in the field");
+
+                                // Typing and pasting compose: type a prefix, then paste the remainder.
+                                Task<string?> mixed = app.PromptAsync("Secret?");
+                                backend.FeedInput("sk-");
+                                backend.FeedInput(Esc + "[200~wJalrXUtnFEMI" + Esc + "[201~");
+                                backend.FeedInput(new byte[] { 0x0D });
+                                app.PumpInputOnce();
+                                Check.Equal("sk-wJalrXUtnFEMI", await mixed.ConfigureAwait(false), "typed prefix plus paste");
+
+                                // A newline-terminated clipboard payload does not submit the prompt; the
+                                // newline is stripped and the value stays on one line until Enter.
+                                Task<string?> trailing = app.PromptAsync("Token?");
+                                backend.FeedInput(Esc + "[200~line1\nline2\n" + Esc + "[201~");
+                                app.PumpInputOnce();
+                                Check.False(trailing.IsCompleted, "embedded newline in paste does not submit");
+                                backend.FeedInput(new byte[] { 0x0D });
+                                app.PumpInputOnce();
+                                Check.Equal("line1line2", await trailing.ConfigureAwait(false), "paste newlines stripped to one line");
+                            }
+                        }),
+
                     new TestCaseDescriptor("FocusFormsPrompts", "SelectAsync", "Select returns the chosen index",
                         async ct =>
                         {

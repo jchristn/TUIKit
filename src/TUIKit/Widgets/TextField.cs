@@ -65,6 +65,35 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
+        /// Inserts literal text at the caret, as produced by a bracketed paste. Control characters are
+        /// dropped so a multi-line or newline-terminated clipboard payload (common when copying an access
+        /// key, secret, or token) collapses into the single line this field holds; the caret advances past
+        /// the inserted run.
+        /// </summary>
+        /// <param name="text">The text to insert. Null is treated as empty.</param>
+        public void Insert(string? text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            System.Text.StringBuilder builder = new System.Text.StringBuilder(text!.Length);
+            foreach (char c in text!)
+            {
+                // Keep printable characters (including any Unicode above the C0/C1 control ranges); drop
+                // CR, LF, Tab, and other controls that a single-line field cannot represent.
+                if (c >= ' ' && c != '\x7F' && !(c >= '\x80' && c <= '\x9F'))
+                    builder.Append(c);
+            }
+
+            if (builder.Length == 0)
+                return;
+
+            string sanitized = builder.ToString();
+            _Value = _Value.Insert(_Caret, sanitized);
+            _Caret += sanitized.Length;
+        }
+
+        /// <summary>
         /// Handles editing and caret keys.
         /// </summary>
         /// <param name="key">The key event.</param>

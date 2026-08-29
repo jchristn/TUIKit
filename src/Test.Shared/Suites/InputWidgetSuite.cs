@@ -45,6 +45,46 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("InputWidget", "TextFieldInsert", "Text field inserts pasted text at the caret and strips control characters",
+                        _ =>
+                        {
+                            TextField field = new TextField();
+
+                            // Insert at the end of an empty field.
+                            field.Insert("hello");
+                            Check.Equal("hello", field.Value, "pasted text inserted");
+
+                            // Insert at the caret, not just at the end: move to the start and paste there.
+                            field.HandleKey(KeyEvent.Special(KeyCode.Home));
+                            field.Insert("say ");
+                            Check.Equal("say hello", field.Value, "pasted text inserted at the caret");
+
+                            // The caret advanced past the inserted run, so typing lands mid-string.
+                            field.HandleKey(KeyEvent.Char('X'));
+                            Check.Equal("say Xhello", field.Value, "caret sits after the inserted text");
+
+                            // Newlines, tabs, and other control characters are dropped so a multi-line or
+                            // newline-terminated clipboard payload collapses onto the single line.
+                            TextField secret = new TextField();
+                            secret.Insert("AKIA\r\nEXAMPLE\tKEY\n");
+                            Check.Equal("AKIAEXAMPLEKEY", secret.Value, "control characters stripped from paste");
+
+                            // Null and empty are no-ops.
+                            secret.Insert(null);
+                            secret.Insert(string.Empty);
+                            Check.Equal("AKIAEXAMPLEKEY", secret.Value, "null and empty paste change nothing");
+
+                            // A paste that is entirely control characters leaves the value untouched.
+                            secret.Insert("\r\n\t");
+                            Check.Equal("AKIAEXAMPLEKEY", secret.Value, "all-control paste is a no-op");
+
+                            // Non-ASCII printable characters survive the sanitizer.
+                            TextField unicode = new TextField();
+                            unicode.Insert("café—π");
+                            Check.Equal("café—π", unicode.Value, "printable unicode preserved");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("InputWidget", "TextFieldMask", "Text field masks its rendered value but keeps the real value and editing",
                         _ =>
                         {

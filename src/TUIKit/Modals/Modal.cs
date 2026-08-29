@@ -62,6 +62,19 @@ namespace TUIKit.Modals
         public abstract bool HandleKey(KeyEvent key);
 
         /// <summary>
+        /// Handles a bracketed-paste event while the modal holds focus. The default implementation does
+        /// nothing and reports the paste as unconsumed; modals with a text field override this to insert
+        /// the pasted text. Kept separate from <see cref="HandleKey"/> because a paste arrives as one
+        /// literal run rather than a stream of synthetic key presses.
+        /// </summary>
+        /// <param name="text">The pasted text. Must not be null.</param>
+        /// <returns><c>true</c> when the paste was consumed; otherwise <c>false</c>.</returns>
+        public virtual bool HandlePaste(string text)
+        {
+            return false;
+        }
+
+        /// <summary>
         /// Requests a close from outside (for example Escape). Honors <see cref="CanClose"/>.
         /// </summary>
         /// <param name="result">The result to complete with when the close is allowed.</param>

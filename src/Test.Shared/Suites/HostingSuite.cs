@@ -122,6 +122,34 @@
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("Hosting", "PasteDispatch", "Paste surfaces to the app when idle and is trapped by an active modal",
+                        async ct =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(60, 10);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                StringBuilder pasted = new StringBuilder();
+                                app.PasteReceived += text => pasted.Append(text);
+                                app.Start();
+
+                                // No modal active: the paste reaches the application handler.
+                                backend.FeedInput(Esc + "[200~hello" + Esc + "[201~");
+                                app.PumpInputOnce();
+                                Check.Equal("hello", pasted.ToString(), "Paste delivered to the app when no modal is open");
+
+                                // With a modal trapping focus, the paste goes to the modal's field and does
+                                // NOT also fire the application handler.
+                                pasted.Clear();
+                                Task<string?> prompt = app.PromptAsync("Key?");
+                                backend.FeedInput(Esc + "[200~secret" + Esc + "[201~");
+                                backend.FeedInput(new byte[] { 0x0D });
+                                app.PumpInputOnce();
+                                Check.Equal("secret", await prompt.ConfigureAwait(false), "Paste landed in the modal field");
+                                Check.Equal(string.Empty, pasted.ToString(), "Paste trapped by the modal did not reach the app handler");
+                                app.Stop();
+                            }
+                        }),
+
                     new TestCaseDescriptor("Hosting", "NonTtyLineMode", "Non-interactive backend degrades to line output",
                         _ =>
                         {

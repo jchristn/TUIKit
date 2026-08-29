@@ -38,6 +38,31 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("Modal", "PasteRouting", "Stack routes paste to the top modal; base modals ignore it",
+                        _ =>
+                        {
+                            ModalStack stack = new ModalStack();
+
+                            // No modal: nothing consumes the paste.
+                            Check.False(stack.HandlePaste("x"), "Empty stack does not consume paste");
+
+                            // A modal without a text field (the default) reports the paste as unconsumed.
+                            MessageModal message = new MessageModal("A", "body", new List<string> { "OK" });
+                            stack.Push(message);
+                            Check.False(stack.HandlePaste("x"), "Message modal ignores paste by default");
+                            Check.False(message.IsClosed, "Ignored paste did not close the modal");
+
+                            // A prompt on top consumes the paste and receives the text.
+                            PromptModal prompt = new PromptModal("Key?");
+                            stack.Push(prompt);
+                            Check.True(stack.HandlePaste("AKIAEXAMPLE"), "Prompt consumes paste");
+                            Check.Equal("AKIAEXAMPLE", prompt.Value, "Prompt field received the pasted text");
+
+                            // Routing targets only the top modal: the message modal beneath is untouched.
+                            Check.False(message.IsClosed, "Lower modal untouched by paste to the top");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("Modal", "AsyncResult", "Choosing a button completes the modal",
                         async ct =>
                         {

@@ -54,6 +54,13 @@ namespace TUIKit.Modals
         }
 
         /// <inheritdoc/>
+        public override bool HandlePaste(string text)
+        {
+            _Field.Insert(text);
+            return true;
+        }
+
+        /// <inheritdoc/>
         public override void Render(ISurface surface)
         {
             if (surface == null)

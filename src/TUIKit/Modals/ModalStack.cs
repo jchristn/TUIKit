@@ -80,6 +80,25 @@ namespace TUIKit.Modals
         }
 
         /// <summary>
+        /// Routes a bracketed-paste event to the topmost modal.
+        /// </summary>
+        /// <param name="text">The pasted text. Must not be null.</param>
+        /// <returns><c>true</c> when a modal consumed the paste; otherwise <c>false</c>.</returns>
+        public bool HandlePaste(string text)
+        {
+            Modal? top;
+            lock (_Sync)
+                top = _Modals.Count > 0 ? _Modals[_Modals.Count - 1] : null;
+
+            if (top == null)
+                return false;
+
+            bool handled = top.HandlePaste(text);
+            RemoveClosed();
+            return handled;
+        }
+
+        /// <summary>
         /// Removes modals that have closed, from the top down.
         /// </summary>
         public void RemoveClosed()
