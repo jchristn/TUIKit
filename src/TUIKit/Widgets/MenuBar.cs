@@ -12,12 +12,21 @@ namespace TUIKit.Widgets
     /// Left/Right switch menus and keep the drop-down open, matching common desktop behavior. The bar
     /// traps navigation keys only while it has focus.
     /// </summary>
-    public sealed class MenuBar : IWidget, IFocusable
+    public sealed class MenuBar : IWidget, IFocusable, IMouseAware
     {
         private readonly List<Menu> _Menus = new List<Menu>();
         private int _Active;
         private int _Highlight;
         private bool _Open;
+        private int _HoverTitle = -1;
+        private Rect _LastDropdownRect;
+
+        /// <summary>
+        /// Gets or sets the style of a non-active menu title under the pointer while hover tracking
+        /// is on. The active title keeps its highlight when hovered. Defaults to underlined default
+        /// text.
+        /// </summary>
+        public CellStyle HoverStyle { get; set; } = CellStyle.Default.WithAttributes(CellAttributes.Underline);
 
         /// <summary>Gets whether a drop-down is currently open.</summary>
         public bool IsOpen
@@ -91,6 +100,39 @@ namespace TUIKit.Widgets
             return HandleOpen(key);
         }
 
+        /// <summary>
+        /// Routes mouse interaction: a left press on a title opens (or toggles) that menu, a press on
+        /// a drop-down item activates it, and a press elsewhere closes an open drop-down. Pointer
+        /// motion hovers titles (rendered with <see cref="HoverStyle"/>) and moves the drop-down
+        /// highlight, matching desktop menu behavior. Enter/Move/Leave events are never consumed.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when a press changed menu state; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            if (_Menus.Count == 0)
+                return false;
+
+            switch (mouse.Kind)
+            {
+                case MouseEventKind.Press:
+                    return mouse.Button == MouseButton.Left && HandlePress(mouse.X, mouse.Y);
+                case MouseEventKind.Enter:
+                case MouseEventKind.Move:
+                    UpdateHoverState(mouse.X, mouse.Y);
+                    return false;
+                case MouseEventKind.Leave:
+                    _HoverTitle = -1;
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
         /// <inheritdoc/>
         public Size Measure(Size available)
         {
@@ -116,9 +158,13 @@ namespace TUIKit.Widgets
             {
                 string title = " " + _Menus[i].Title + " ";
                 bool active = i == _Active;
-                CellStyle style = active
-                    ? CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6))
-                    : CellStyle.Default;
+                CellStyle style;
+                if (active)
+                    style = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6));
+                else if (i == _HoverTitle)
+                    style = HoverStyle;
+                else
+                    style = CellStyle.Default;
                 surface.DrawText(x, 0, title, style);
                 if (active)
                     activeX = x;
@@ -189,6 +235,102 @@ namespace TUIKit.Widgets
             }
         }
 
+        private bool HandlePress(int x, int y)
+        {
+            if (y == 0)
+            {
+                int title = TitleIndexAt(x);
+                if (title >= 0)
+                {
+                    if (_Open && title == _Active)
+                    {
+                        _Open = false;
+                    }
+                    else
+                    {
+                        _Active = title;
+                        _Open = true;
+                        _Highlight = 0;
+                    }
+
+                    return true;
+                }
+
+                if (_Open)
+                {
+                    _Open = false;
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (_Open)
+            {
+                int item = DropdownItemAt(x, y);
+                if (item >= 0)
+                {
+                    _Highlight = item;
+                    Activate(_Menus[_Active].Items);
+                    return true;
+                }
+
+                // A press outside the open drop-down dismisses it, like desktop menus.
+                _Open = false;
+                return true;
+            }
+
+            return false;
+        }
+
+        private void UpdateHoverState(int x, int y)
+        {
+            _HoverTitle = y == 0 ? TitleIndexAt(x) : -1;
+
+            if (_Open)
+            {
+                int item = DropdownItemAt(x, y);
+                if (item >= 0 && _Menus[_Active].Items[item].Enabled)
+                    _Highlight = item;
+            }
+        }
+
+        private int TitleIndexAt(int x)
+        {
+            if (x < 0)
+                return -1;
+
+            // Mirrors the render pass: each title occupies " title " with no gap between titles.
+            int cursor = 0;
+            for (int i = 0; i < _Menus.Count; i++)
+            {
+                int titleWidth = _Menus[i].Title.Length + 2;
+                if (x >= cursor && x < cursor + titleWidth)
+                    return i;
+
+                cursor += titleWidth;
+            }
+
+            return -1;
+        }
+
+        private int DropdownItemAt(int x, int y)
+        {
+            Rect box = _LastDropdownRect;
+            if (box.Width < 3 || box.Height < 3)
+                return -1;
+            if (x <= box.X || x >= box.X + box.Width - 1)
+                return -1;
+
+            // Items start on the row below the box's top border (box.Y + 1).
+            int item = y - (box.Y + 1);
+            IReadOnlyList<MenuItem> items = _Menus[_Active].Items;
+            if (item < 0 || item >= items.Count || item >= box.Height - 2)
+                return -1;
+
+            return item;
+        }
+
         private void Activate(IReadOnlyList<MenuItem> items)
         {
             if (_Highlight >= 0 && _Highlight < items.Count && items[_Highlight].Enabled)
@@ -217,6 +359,7 @@ namespace TUIKit.Widgets
                 return;
 
             Rect box = new Rect(menuX, 1, boxWidth, boxHeight);
+            _LastDropdownRect = box;
             surface.Fill(box, Cell.Blank(CellStyle.Default.WithBackground(Color.FromPalette(0))));
             surface.DrawBox(box, CellStyle.Default.WithForeground(Color.FromPalette(8)), BorderStyle.Line);
 

@@ -20,7 +20,7 @@ namespace TUIKit.Widgets
     /// regenerated nodes that compare equal keep their expansion. Not thread-safe.
     /// </remarks>
     /// <typeparam name="T">The node type.</typeparam>
-    public sealed class Tree<T> : IWidget, IFocusable
+    public sealed class Tree<T> : IWidget, IFocusable, IMouseAware
         where T : notnull
     {
         private readonly T _Root;
@@ -36,11 +36,19 @@ namespace TUIKit.Widgets
         private int _Selected;
         private int _Top;
         private int _LastViewportHeight = 1;
+        private int _HoverIndex = -1;
 
         /// <summary>
         /// Gets or sets the highlight style for the selected node. Defaults to reversed cyan.
         /// </summary>
         public CellStyle HighlightStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6));
+
+        /// <summary>
+        /// Gets or sets the style of the non-selected visible node under the pointer while hover
+        /// tracking is on. The selected node keeps <see cref="HighlightStyle"/> when hovered.
+        /// Defaults to underlined default text.
+        /// </summary>
+        public CellStyle HoverStyle { get; set; } = CellStyle.Default.WithAttributes(CellAttributes.Underline);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Tree{T}"/> class with the root expanded.
@@ -190,6 +198,71 @@ namespace TUIKit.Widgets
             }
         }
 
+        /// <summary>
+        /// Selects the visible node under a left press (a second press on the already-selected node
+        /// toggles its expansion), steps the selection with the wheel, and tracks the hovered node for
+        /// <see cref="HoverStyle"/> rendering. Enter/Move/Leave events are observed but never
+        /// consumed.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when a press or wheel changed selection or expansion; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            Rebuild();
+            switch (mouse.Kind)
+            {
+                case MouseEventKind.Press:
+                    if (mouse.Button == MouseButton.Left)
+                    {
+                        int pressed = NodeIndexAt(mouse.Y);
+                        if (pressed >= 0)
+                        {
+                            if (pressed == _Selected)
+                            {
+                                T node = _VisibleNodes[pressed];
+                                if (!_Expanded.Remove(node))
+                                    _Expanded.Add(node);
+                            }
+                            else
+                            {
+                                _Selected = pressed;
+                            }
+
+                            return true;
+                        }
+                    }
+
+                    return false;
+                case MouseEventKind.Wheel:
+                    if (mouse.Button == MouseButton.WheelUp)
+                    {
+                        _Selected = Math.Max(0, _Selected - 1);
+                        return true;
+                    }
+
+                    if (mouse.Button == MouseButton.WheelDown)
+                    {
+                        _Selected = Math.Min(_VisibleNodes.Count - 1, _Selected + 1);
+                        return true;
+                    }
+
+                    return false;
+                case MouseEventKind.Enter:
+                case MouseEventKind.Move:
+                    _HoverIndex = NodeIndexAt(mouse.Y);
+                    return false;
+                case MouseEventKind.Leave:
+                    _HoverIndex = -1;
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
         /// <inheritdoc/>
         public Size Measure(Size available)
         {
@@ -226,12 +299,21 @@ namespace TUIKit.Widgets
                 string line = new string(' ', depth * 2) + disclosure + _Label(node);
 
                 bool selected = index == _Selected;
-                CellStyle style = selected ? HighlightStyle : CellStyle.Default;
+                CellStyle style = selected ? HighlightStyle : (index == _HoverIndex ? HoverStyle : CellStyle.Default);
                 if (selected)
                     surface.Fill(new Rect(0, row, width, 1), Cell.Blank(style));
 
                 surface.DrawText(0, row, line, style);
             }
+        }
+
+        private int NodeIndexAt(int y)
+        {
+            if (y < 0)
+                return -1;
+
+            int index = _Top + y;
+            return index < _VisibleNodes.Count ? index : -1;
         }
 
         private void Rebuild()

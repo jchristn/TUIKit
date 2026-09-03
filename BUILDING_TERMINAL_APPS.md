@@ -304,6 +304,50 @@ Giving the focused widget first refusal is what lets a focused editor keep `Ctrl
 
 Mouse input is routed from a per-frame, host-owned hit-test map: a press **focuses** the `IFocusable` widget under the pointer (click-to-focus), and wheel/click events are forwarded to widgets that implement the optional **`IMouseAware`** interface, with coordinates translated into the widget's own rectangle. `Pane` and `ScrollView` scroll on the wheel out of the box. Turn the whole thing off with `app.EnableMouseRouting = false` to fall back to raw `MouseReceived`.
 
+### Responding to the mouse (hover, clicks, wheel)
+
+Hover tracking is **on by default**: the terminal reports pointer motion even with no button held
+(any-motion mode 1003), the host coalesces each burst of moves to its final position, and when the
+pointer crosses a widget boundary the host synthesizes **`MouseEventKind.Enter`** and
+**`MouseEventKind.Leave`** events around the real one. The delivery contract is: `Leave` to the old
+widget, `Enter` to the new widget, then the triggering event — and Enter/Leave return values never
+swallow that triggering event. A widget that wants hover styling tracks a flag:
+
+```csharp
+public bool HandleMouse(MouseEvent m)
+{
+    switch (m.Kind)
+    {
+        case MouseEventKind.Enter: _Hovered = true;  return false;
+        case MouseEventKind.Leave: _Hovered = false; return false;
+        case MouseEventKind.Move:  _HoverCell = new Point(m.X, m.Y); return false;
+        case MouseEventKind.Press: Activate(m.X, m.Y); return true;   // m.ClickCount: 1, 2, 3
+        case MouseEventKind.Wheel: return Scroll(m.Button);           // WheelUp/Down/Left/Right
+        default: return false;
+    }
+}
+```
+
+Presses arrive with a host-stamped `ClickCount` (single/double/triple, synthesized from timing and
+position via `ClickSynthesizer`). The wheel reports four directions — `WheelLeft`/`WheelRight`
+cover tilt wheels and trackpad horizontal scrolling, and `ScrollView` maps them to horizontal
+movement. The bundled widgets already do the right thing: `TabView` headers, `MenuBar` menus,
+`ListView<T>` rows, `Tree<T>` nodes, and `Checkbox` all activate on click and expose a
+`HoverStyle` for their under-the-pointer state.
+
+Three related host hooks: `app.MouseTrackingMode` drops hover to drag-only (`ButtonsAndDrag`) or
+off (`None`) for high-latency links; `app.TerminalFocusChanged` fires when the terminal window
+gains or loses focus (mode 1004 — dim your UI, pause spinners; focus loss also clears hover with a
+synthetic Leave); and assigning `app.Links = myLinkRegistry` makes the host track
+`app.HoveredLink` and raise `app.LinkHovered` so a status bar can preview the URL under the
+pointer.
+
+Degradation is automatic: terminals without any-motion support (GNU screen, some Terminal.app
+versions) simply never send hover motion, so Enter/Leave fire only during drags; terminals without
+focus reporting never fire `TerminalFocusChanged`. Check `Capabilities.AnyMotionMouse` and
+`Capabilities.FocusReporting` when you want to adapt the UI up front, and see the README's
+**Mouse support by environment** matrix for the per-terminal details.
+
 ### The application shell (dock helpers)
 
 `LayoutBuilder` builds the common four-way shell — header, footer, sidebar, main — as real, non-overlapping regions, so you bind `StatusBar`/`MenuBar`/content into them instead of computing rectangles by hand:

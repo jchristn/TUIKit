@@ -35,6 +35,8 @@ namespace TUIKit.Example
         private int _ThemeIndex;
         private int _FocusIndex = FocusLiveDemo;
         private bool _ShowHelp;
+        private bool _DemoHovered;
+        private Size _LastSize;
         private string _Input = string.Empty;
 
         internal GuidedTour(TuiApplication app)
@@ -74,7 +76,39 @@ namespace TUIKit.Example
 
             _App.CtrlCPolicy = CtrlCPolicy.DoubleTapToExit;
             _App.KeyReceived += OnKey;
+            _App.MouseReceived += OnMouse;
+            _App.TerminalFocusChanged += focused =>
+            {
+                Log(focused ? "Terminal focus gained (CSI I)" : "Terminal focus lost (CSI O)");
+            };
             _App.RenderOverlay = Draw;
+        }
+
+        // The tour composes its pages in the overlay rather than binding them to regions, so the
+        // host's hit-test routing never sees the demo widget. This shim mirrors that routing for the
+        // "Live demo" box: it translates raw mouse events into the demo's content rectangle and
+        // synthesizes Enter/Leave on the boundary, so mouse-aware demo widgets behave as if bound.
+        private void OnMouse(MouseEvent mouse)
+        {
+            if (!(_Pages[_Index].Demo is IMouseAware aware))
+                return;
+            if (_LastSize.Width <= 0 || _LastSize.Height <= 0)
+                return;
+
+            Region? region = _Layout.FindById("demo");
+            if (region == null)
+                return;
+
+            Rect rect = region.ContentRect(_LastSize);
+            bool inside = rect.Contains(new Point(mouse.X, mouse.Y));
+            if (inside && !_DemoHovered)
+                aware.HandleMouse(new MouseEvent(MouseEventKind.Enter, MouseButton.None, mouse.X - rect.X, mouse.Y - rect.Y, mouse.Modifiers, 0));
+            else if (!inside && _DemoHovered)
+                aware.HandleMouse(new MouseEvent(MouseEventKind.Leave, MouseButton.None, 0, 0, mouse.Modifiers, 0));
+
+            _DemoHovered = inside;
+            if (inside)
+                aware.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, mouse.X - rect.X, mouse.Y - rect.Y, mouse.Modifiers, mouse.ClickCount));
         }
 
         private void ToggleMouse()
@@ -330,6 +364,7 @@ namespace TUIKit.Example
         private void Draw(ISurface root)
         {
             Size size = root.Size;
+            _LastSize = size;
             if (!_Layout.FitsIn(size))
                 return;
 
@@ -800,6 +835,23 @@ namespace TUIKit.Example
                     "  .Add(\"Overview\", overview)",
                     "  .Add(\"Details\", details);",
                     "// Tab key cycles active tab"
+                }));
+
+            pages.Add(new TourPage(
+                "Mouse playground",
+                "Full mouse support: [bold]hover[/] tracks the pointer with Enter/Leave, [bold]clicks[/] count singles/doubles/triples with modifiers, the [bold]wheel[/] works on both axes, and [bold]dragging[/] paints. [bold]F12[/] hands the mouse back to the terminal.",
+                new MousePlaygroundWidget(),
+                new[]
+                {
+                    "// Hover is on by default (mode 1003):",
+                    "app.MouseTrackingMode = AnyMotion;",
+                    "class W : IWidget, IMouseAware {",
+                    "  bool HandleMouse(MouseEvent m) {",
+                    "    // m.Kind: Enter/Leave/Move/",
+                    "    //   Press/Release/Wheel",
+                    "    // m.X/m.Y are widget-local",
+                    "    // m.ClickCount: 1, 2, 3",
+                    "  } }"
                 }));
 
             pages.Add(new TourPage(

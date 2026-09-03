@@ -10,6 +10,7 @@ namespace TUIKit.Input
     public sealed class ClickSynthesizer
     {
         private int _ThresholdMilliseconds = 400;
+        private int _PositionSlopCells;
         private long _LastTimestamp = long.MinValue;
         private int _LastX = int.MinValue;
         private int _LastY = int.MinValue;
@@ -33,6 +34,23 @@ namespace TUIKit.Input
         }
 
         /// <summary>
+        /// Gets or sets the maximum distance in cells, per axis, that a subsequent press may land from
+        /// the previous one and still continue a multi-click sequence. Defaults to 0 (exact same
+        /// cell). Must not be negative.
+        /// </summary>
+        /// <exception cref="System.ArgumentOutOfRangeException">Thrown when set to a negative value.</exception>
+        public int PositionSlopCells
+        {
+            get { return _PositionSlopCells; }
+            set
+            {
+                if (value < 0)
+                    throw new System.ArgumentOutOfRangeException(nameof(value), value, "Slop must not be negative.");
+                _PositionSlopCells = value;
+            }
+        }
+
+        /// <summary>
         /// Registers a press and returns the resulting click count (1 for single, 2 for double, 3 for
         /// triple, then cycling back to 1).
         /// </summary>
@@ -43,7 +61,10 @@ namespace TUIKit.Input
         /// <returns>The click count.</returns>
         public int RegisterPress(MouseButton button, int x, int y, long timestampMilliseconds)
         {
-            bool sameSpot = x == _LastX && y == _LastY && button == _LastButton;
+            bool sameSpot = _LastX != int.MinValue
+                && System.Math.Abs(x - _LastX) <= _PositionSlopCells
+                && System.Math.Abs(y - _LastY) <= _PositionSlopCells
+                && button == _LastButton;
             bool inTime = timestampMilliseconds - _LastTimestamp <= _ThresholdMilliseconds;
 
             if (sameSpot && inTime && _Count >= 1 && _Count < 3)

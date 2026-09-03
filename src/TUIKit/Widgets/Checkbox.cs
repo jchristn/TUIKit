@@ -5,16 +5,24 @@ namespace TUIKit.Widgets
     using TUIKit.Input;
 
     /// <summary>
-    /// A labeled checkbox. Space or Enter toggles it.
+    /// A labeled checkbox. Space or Enter toggles it, as does a left click. While hover tracking is
+    /// on, the checkbox renders with <see cref="HoverStyle"/> when the pointer is over it.
     /// </summary>
-    public sealed class Checkbox : IWidget, IFocusable
+    public sealed class Checkbox : IWidget, IFocusable, IMouseAware
     {
         private readonly string _Label;
+        private bool _Hovered;
 
         /// <summary>
         /// Gets or sets a value indicating whether the checkbox is checked.
         /// </summary>
         public bool Checked { get; set; }
+
+        /// <summary>
+        /// Gets or sets the style used while the pointer is over the checkbox. Defaults to bold
+        /// default text.
+        /// </summary>
+        public CellStyle HoverStyle { get; set; } = CellStyle.Default.WithAttributes(CellAttributes.Bold);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Checkbox"/> class.
@@ -44,6 +52,39 @@ namespace TUIKit.Widgets
             return false;
         }
 
+        /// <summary>
+        /// Toggles the checkbox on a left press and tracks hover for <see cref="HoverStyle"/>
+        /// rendering. Enter/Move/Leave events are observed but never consumed.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when a press toggled the checkbox; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            switch (mouse.Kind)
+            {
+                case MouseEventKind.Press:
+                    if (mouse.Button == MouseButton.Left)
+                    {
+                        Checked = !Checked;
+                        return true;
+                    }
+
+                    return false;
+                case MouseEventKind.Enter:
+                    _Hovered = true;
+                    return false;
+                case MouseEventKind.Leave:
+                    _Hovered = false;
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
         /// <inheritdoc/>
         public Size Measure(Size available)
         {
@@ -57,7 +98,7 @@ namespace TUIKit.Widgets
                 throw new ArgumentNullException(nameof(surface));
 
             string mark = Checked ? "[x] " : "[ ] ";
-            surface.DrawText(0, 0, mark + _Label, CellStyle.Default);
+            surface.DrawText(0, 0, mark + _Label, _Hovered ? HoverStyle : CellStyle.Default);
         }
     }
 }

@@ -41,6 +41,7 @@ namespace TUIKit.Hosting
         private readonly ModalStack _Modals = new ModalStack();
         private readonly NotificationCenter _Notifications = new NotificationCenter();
         private readonly InputParser _Parser = new InputParser();
+        private readonly ClickSynthesizer _ClickSynthesizer = new ClickSynthesizer();
         private readonly Stopwatch _Clock = new Stopwatch();
         private readonly byte[] _ReadBuffer = new byte[4096];
         private readonly List<string> _FocusOrder = new List<string>();
@@ -66,6 +67,12 @@ namespace TUIKit.Hosting
         private bool _Started;
         private bool _Disposed;
         private bool _MouseCaptureEnabled = true;
+        private MouseTrackingMode _MouseTrackingMode = MouseTrackingMode.AnyMotion;
+        private string? _HoverRegionId;
+        private IWidget? _HoverWidget;
+        private Rect _HoverRect;
+        private LinkRegistry? _Links;
+        private Link? _HoveredLink;
         private int _TornDown;
         private ConsoleCancelEventHandler? _CancelKeyHandler;
         private EventHandler? _ProcessExitHandler;
@@ -248,9 +255,55 @@ namespace TUIKit.Hosting
                 _MouseCaptureEnabled = value;
                 if (_Started && _Backend.IsInteractive)
                 {
-                    _Backend.Write(value ? Ansi.EnableMouse : Ansi.DisableMouse);
+                    if (value)
+                    {
+                        string enable = BuildMouseEnableSequence();
+                        if (enable.Length > 0)
+                            _Backend.Write(enable);
+                    }
+                    else
+                    {
+                        _Backend.Write(Ansi.DisableMouse);
+                    }
+
                     _Backend.Flush();
                 }
+
+                if (!value)
+                    ClearHover(KeyModifiers.None);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets how much pointer traffic is requested from the terminal while
+        /// <see cref="MouseCaptureEnabled"/> is on. Defaults to
+        /// <see cref="MouseTrackingMode.AnyMotion"/>, which enables hover (Enter/Leave and
+        /// buttonless Move events); terminals without any-motion support degrade silently to
+        /// drag-only motion. Set to <see cref="MouseTrackingMode.ButtonsAndDrag"/> to cut hover
+        /// traffic on high-latency links, or <see cref="MouseTrackingMode.None"/> to stop mouse
+        /// reporting entirely. Changing the value after <see cref="Start"/> rewrites the terminal
+        /// modes immediately.
+        /// </summary>
+        public MouseTrackingMode MouseTrackingMode
+        {
+            get { return _MouseTrackingMode; }
+            set
+            {
+                if (_MouseTrackingMode == value)
+                    return;
+
+                _MouseTrackingMode = value;
+                if (_Started && _Backend.IsInteractive && _MouseCaptureEnabled)
+                {
+                    _Backend.Write(Ansi.DisableMouse);
+                    string enable = BuildMouseEnableSequence();
+                    if (enable.Length > 0)
+                        _Backend.Write(enable);
+                    _Backend.Flush();
+                }
+
+                if (value == MouseTrackingMode.None)
+                    ClearHover(KeyModifiers.None);
             }
         }
 
@@ -332,9 +385,48 @@ namespace TUIKit.Hosting
         public event Action<string>? PasteReceived;
 
         /// <summary>
-        /// Raised for a mouse event.
+        /// Raised for a mouse event that no bound widget consumed. With hover tracking on
+        /// (<see cref="MouseTrackingMode.AnyMotion"/>, the default) this includes every unconsumed
+        /// pointer motion, which can be a high-volume stream — keep handlers cheap.
         /// </summary>
         public event Action<MouseEvent>? MouseReceived;
+
+        /// <summary>
+        /// Raised when the terminal window gains (<c>true</c>) or loses (<c>false</c>) focus, on
+        /// terminals that support focus reporting (mode 1004; see
+        /// <see cref="TerminalCapabilities.FocusReporting"/>). On focus loss the host also clears any
+        /// hover state by delivering a Leave event to the hovered widget. Raised on the loop thread.
+        /// </summary>
+        public event Action<bool>? TerminalFocusChanged;
+
+        /// <summary>
+        /// Gets or sets the link registry the host hit-tests pointer motion against. When set, the
+        /// host tracks the link under the pointer in <see cref="HoveredLink"/> and raises
+        /// <see cref="LinkHovered"/> on changes, so an overlay can underline the hovered link or
+        /// preview its URI in a status bar. Null (the default) disables link hover tracking. The
+        /// registry is application-owned and typically rebuilt each frame.
+        /// </summary>
+        public LinkRegistry? Links
+        {
+            get { return _Links; }
+            set { _Links = value; }
+        }
+
+        /// <summary>
+        /// Gets the link currently under the pointer, or null when none (or when <see cref="Links"/>
+        /// is not set). Updated on pointer motion and cleared on focus loss and capture shutoff.
+        /// </summary>
+        public Link? HoveredLink
+        {
+            get { return _HoveredLink; }
+        }
+
+        /// <summary>
+        /// Raised when the link under the pointer changes: with the newly hovered <see cref="Link"/>,
+        /// or null when the pointer leaves all links. Requires <see cref="Links"/> to be set. Raised
+        /// on the loop thread.
+        /// </summary>
+        public event Action<Link?>? LinkHovered;
 
         /// <summary>
         /// Raised when Ctrl+C is pressed under the <see cref="CtrlCPolicy.InterruptFocusedPane"/> policy.
@@ -692,7 +784,14 @@ namespace TUIKit.Hosting
                 _Backend.Write(Ansi.EnterAltScreen);
                 _Backend.Write(Ansi.HideCursor);
                 if (_MouseCaptureEnabled)
-                    _Backend.Write(Ansi.EnableMouse);
+                {
+                    string enableMouse = BuildMouseEnableSequence();
+                    if (enableMouse.Length > 0)
+                        _Backend.Write(enableMouse);
+                }
+
+                if (_Backend.Capabilities.FocusReporting)
+                    _Backend.Write(Ansi.EnableFocusReporting);
                 _Backend.Write(Ansi.EnableBracketedPaste);
                 if (_Backend.Capabilities.EnhancedKeyboard)
                     _Backend.Write(Ansi.PushKittyKeyboard);
@@ -777,6 +876,8 @@ namespace TUIKit.Hosting
                     if (_Backend.Capabilities.EnhancedKeyboard)
                         _Backend.Write(Ansi.PopKittyKeyboard);
                     _Backend.Write(Ansi.DisableBracketedPaste);
+                    if (_Backend.Capabilities.FocusReporting)
+                        _Backend.Write(Ansi.DisableFocusReporting);
                     _Backend.Write(Ansi.DisableMouse);
                     _Backend.Write(Ansi.ShowCursor);
                     _Backend.Write(Ansi.ExitAltScreen);
@@ -846,8 +947,7 @@ namespace TUIKit.Hosting
             if (read > 0)
             {
                 _Parser.Feed(_ReadBuffer, read);
-                foreach (InputEvent inputEvent in _Parser.Drain())
-                    Dispatch(inputEvent);
+                DispatchAll(_Parser.Drain());
             }
             else
             {
@@ -972,6 +1072,30 @@ namespace TUIKit.Hosting
             _Backend.Flush();
         }
 
+        // Dispatches a drained batch, collapsing each run of consecutive pointer moves into its last
+        // event. Any-motion tracking can report one move per cell traversed; only the newest position
+        // matters, and presses/releases/wheel events act as barriers so ordering is preserved.
+        private void DispatchAll(IReadOnlyList<InputEvent> events)
+        {
+            for (int i = 0; i < events.Count; i++)
+            {
+                if (IsCoalescableMove(events[i]))
+                {
+                    while (i + 1 < events.Count && IsCoalescableMove(events[i + 1]))
+                        i++;
+                }
+
+                Dispatch(events[i]);
+            }
+        }
+
+        private static bool IsCoalescableMove(InputEvent inputEvent)
+        {
+            return inputEvent.Kind == InputEventKind.Mouse
+                && inputEvent.Mouse != null
+                && inputEvent.Mouse.Kind == MouseEventKind.Move;
+        }
+
         private void Dispatch(InputEvent inputEvent)
         {
             switch (inputEvent.Kind)
@@ -985,6 +1109,13 @@ namespace TUIKit.Hosting
                 case InputEventKind.Mouse:
                     if (inputEvent.Mouse != null)
                         DispatchMouse(inputEvent.Mouse);
+                    break;
+                case InputEventKind.FocusGained:
+                    TerminalFocusChanged?.Invoke(true);
+                    break;
+                case InputEventKind.FocusLost:
+                    ClearHover(KeyModifiers.None);
+                    TerminalFocusChanged?.Invoke(false);
                     break;
                 default:
                     break;
@@ -1093,6 +1224,17 @@ namespace TUIKit.Hosting
 
         private void DispatchMouse(MouseEvent mouse)
         {
+            // Multi-click synthesis happens here rather than in the parser so the timing source is the
+            // application clock and headless tests can drive it deterministically via PumpInputOnce.
+            if (mouse.Kind == MouseEventKind.Press)
+            {
+                int clickCount = _ClickSynthesizer.RegisterPress(mouse.Button, mouse.X, mouse.Y, NowMilliseconds);
+                if (clickCount != mouse.ClickCount)
+                    mouse = mouse.WithClickCount(clickCount);
+            }
+
+            UpdateLinkHover(mouse);
+
             if (_EnableMouseRouting && RouteMouse(mouse))
                 return;
 
@@ -1102,6 +1244,8 @@ namespace TUIKit.Hosting
         private bool RouteMouse(MouseEvent mouse)
         {
             HitTestEntry? hit = HitTest(mouse.X, mouse.Y);
+            UpdateHover(hit, mouse);
+
             if (hit == null)
                 return false;
 
@@ -1117,6 +1261,118 @@ namespace TUIKit.Hosting
             }
 
             return false;
+        }
+
+        // Synthesizes hover transitions from hit-test changes. The contract, in order: Leave to the
+        // previously hovered widget, Enter to the newly hovered widget, then the triggering event via
+        // the caller. Enter/Leave return values are ignored — they never swallow the triggering event.
+        private void UpdateHover(HitTestEntry? hit, MouseEvent mouse)
+        {
+            if (hit != null && string.Equals(hit.RegionId, _HoverRegionId, StringComparison.Ordinal))
+            {
+                // Same region; refresh the geometry in case a relayout moved it between events.
+                _HoverWidget = hit.Widget;
+                _HoverRect = hit.Rect;
+                return;
+            }
+
+            if (hit == null && _HoverRegionId == null)
+                return;
+
+            DeliverLeave(mouse.Modifiers, mouse.X, mouse.Y);
+
+            if (hit != null)
+            {
+                if (hit.Widget is IMouseAware aware)
+                {
+                    MouseEvent enter = new MouseEvent(
+                        MouseEventKind.Enter,
+                        MouseButton.None,
+                        ClampInt(mouse.X - hit.Rect.X, 0, hit.Rect.Width - 1),
+                        ClampInt(mouse.Y - hit.Rect.Y, 0, hit.Rect.Height - 1),
+                        mouse.Modifiers,
+                        0);
+                    aware.HandleMouse(enter);
+                }
+
+                _HoverRegionId = hit.RegionId;
+                _HoverWidget = hit.Widget;
+                _HoverRect = hit.Rect;
+            }
+        }
+
+        // Delivers a Leave to the hovered widget (coordinates clamped into its last known content
+        // rectangle) and clears the hover state. Used for region transitions, terminal focus loss, and
+        // mouse capture/tracking shutoff, where no meaningful pointer position may exist.
+        private void DeliverLeave(KeyModifiers modifiers, int pointerX, int pointerY)
+        {
+            if (_HoverWidget is IMouseAware aware && _HoverRect.Width > 0 && _HoverRect.Height > 0)
+            {
+                MouseEvent leave = new MouseEvent(
+                    MouseEventKind.Leave,
+                    MouseButton.None,
+                    ClampInt(pointerX - _HoverRect.X, 0, _HoverRect.Width - 1),
+                    ClampInt(pointerY - _HoverRect.Y, 0, _HoverRect.Height - 1),
+                    modifiers,
+                    0);
+                aware.HandleMouse(leave);
+            }
+
+            _HoverRegionId = null;
+            _HoverWidget = null;
+            _HoverRect = default;
+        }
+
+        private void ClearHover(KeyModifiers modifiers)
+        {
+            if (_HoveredLink != null)
+            {
+                _HoveredLink = null;
+                LinkHovered?.Invoke(null);
+            }
+
+            if (_HoverRegionId == null)
+                return;
+
+            DeliverLeave(modifiers, _HoverRect.X, _HoverRect.Y);
+        }
+
+        private void UpdateLinkHover(MouseEvent mouse)
+        {
+            if (_Links == null)
+                return;
+            if (mouse.Kind != MouseEventKind.Move && mouse.Kind != MouseEventKind.Press)
+                return;
+
+            Link? link = _Links.HitTest(mouse.X, mouse.Y);
+            if (!ReferenceEquals(link, _HoveredLink))
+            {
+                _HoveredLink = link;
+                LinkHovered?.Invoke(link);
+            }
+        }
+
+        private string BuildMouseEnableSequence()
+        {
+            switch (_MouseTrackingMode)
+            {
+                case MouseTrackingMode.None:
+                    return string.Empty;
+                case MouseTrackingMode.ButtonsAndDrag:
+                    return Ansi.EnableMouse + Ansi.DisableAnyMotion;
+                default:
+                    return Ansi.EnableMouse;
+            }
+        }
+
+        private static int ClampInt(int value, int min, int max)
+        {
+            if (value < min)
+                return min;
+            if (value > max)
+                return max;
+
+            return value;
         }
 
         private HitTestEntry? HitTest(int x, int y)

@@ -21,6 +21,12 @@ namespace TUIKit.Input
         WheelUp = 4,
 
         /// <summary>The scroll wheel moving down.</summary>
-        WheelDown = 5
+        WheelDown = 5,
+
+        /// <summary>The scroll wheel tilting or scrolling left (SGR button 66).</summary>
+        WheelLeft = 6,
+
+        /// <summary>The scroll wheel tilting or scrolling right (SGR button 67).</summary>
+        WheelRight = 7
     }
 }

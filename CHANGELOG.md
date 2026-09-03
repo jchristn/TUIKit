@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-02
+
+Full mouse support. TUIKit previously decoded clicks, drags, and the wheel; this release completes
+the pointer story with hover (any-motion tracking, on by default, with per-frame move coalescing),
+host-synthesized Enter/Leave events routed through the existing `IMouseAware` interface, horizontal
+wheel, terminal focus reporting, host-stamped multi-click counts, hover visual states on a
+representative widget set, link hover, and a QuickEdit fix so legacy Windows consoles stop
+swallowing mouse input. The guided tour gains a **Mouse playground** page demonstrating all of it.
+
+### Added
+- **Hover tracking (DECSET 1003), on by default.** `Ansi.EnableMouse` now enables any-motion
+  reporting alongside 1000/1002/1006; terminals without it degrade silently to drag-only motion.
+  `Ansi.EnableAnyMotion`/`DisableAnyMotion` toggle just that mode.
+- **`MouseEventKind.Enter` / `MouseEventKind.Leave`** — synthesized by the host from hit-test
+  transitions (never by the parser) and delivered through `IMouseAware.HandleMouse` in a
+  documented order: Leave to the old widget, Enter to the new widget, then the triggering event.
+  Enter/Leave return values never swallow the triggering event.
+- **`TuiApplication.MouseTrackingMode`** (`None` / `ButtonsAndDrag` / `AnyMotion`, default
+  `AnyMotion`) — rewrites the terminal modes live; `MouseCaptureEnabled` still trumps it.
+- **Move coalescing.** Each drained run of consecutive pointer moves collapses to its final
+  position (presses/releases/wheel act as barriers), bounding hover cost to one hit-test per pump.
+- **Horizontal wheel.** `MouseButton.WheelLeft`/`WheelRight` decode from SGR buttons 66/67;
+  `ScrollView` maps them to horizontal scrolling.
+- **Terminal focus reporting (DECSET 1004).** `CSI I`/`CSI O` decode as
+  `InputEventKind.FocusGained`/`FocusLost`; `TuiApplication.TerminalFocusChanged` surfaces them,
+  and focus loss clears hover with a synthetic Leave.
+- **Host-stamped click counts.** `TuiApplication` now runs presses through `ClickSynthesizer`
+  before routing, so widgets receive real single/double/triple `ClickCount` values.
+  `ClickSynthesizer.PositionSlopCells` (default 0) tolerates pointer drift between multi-clicks.
+- **Link hover.** Assign a `LinkRegistry` to `TuiApplication.Links` and the host tracks
+  `HoveredLink` and raises `LinkHovered` — for underlines and status-bar URL previews.
+- **Widget hover states and click activation** on the representative set: `TabView` (click
+  activates a tab; hovered header styled), `MenuBar` (titles open on click, drop-down items
+  hover-highlight and activate on click, outside clicks dismiss), `ListView<T>` (click selects,
+  wheel steps, hovered row styled), `Tree<T>` (click selects, click-again toggles expansion, wheel
+  steps, hovered node styled), and `Checkbox` (click toggles, hover emphasis) — each with a
+  configurable `HoverStyle`.
+- **`TerminalCapabilities.AnyMotionMouse` / `FocusReporting`** flags, detected per terminal
+  (conservatively false for GNU screen and Apple Terminal).
+- **Mouse playground** page in `TUIKit.Example`'s guided tour: live pointer readout, Enter/Leave
+  counters, click-count and modifier display, four-axis wheel counters, drag-to-paint (triple-click
+  clears), and terminal-focus logging in the Actions pane.
+
+### Fixed
+- **Legacy conhost QuickEdit.** `ConsoleBackend` clears `ENABLE_QUICK_EDIT_MODE` (with
+  `ENABLE_EXTENDED_FLAGS`) on start and restores the original mode on stop, so conhost's drag
+  selection no longer swallows every mouse report.
+- **SGR wheel decode.** Buttons 66/67 previously mis-decoded as WheelUp/WheelDown; the two low
+  bits now select the axis and direction correctly.
+- **Parser hardening.** SGR reports with a final byte other than `M`/`m`, too few parameters, or
+  zero (invalid one-based) wire coordinates are dropped instead of emitting bogus events.
+
+### Mouse support by environment (as of 0.10.0)
+
+Modes a terminal lacks are silently ignored, so every ⚠️/❌ degrades gracefully.
+
+| Environment | Click / drag / wheel | Hover / any-motion | Horizontal wheel | Focus in/out | Coords > 223 cols |
+|---|---|---|---|---|---|
+| Windows Terminal (Win 10/11) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Legacy conhost (Win 10+) | ⚠️ partial VT translation; QuickEdit cleared | ⚠️ | ❌ | ❌ | ✅ |
+| macOS Terminal.app | ✅ | ⚠️ varies by macOS version | ❌ | ⚠️ | ✅ |
+| iTerm2 / kitty / Alacritty / WezTerm / Ghostty | ✅ | ✅ | ✅ | ✅ | ✅ |
+| VTE terminals (GNOME Terminal, Tilix, …) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| xterm | ✅ | ✅ | ✅ | ✅ | ✅ |
+| tmux (`mouse on`) | ✅ | ✅ | ⚠️ version-dependent | ✅ | ✅ |
+| GNU screen | ⚠️ basic tracking only | ❌ | ❌ | ❌ | ⚠️ |
+| SSH / WSL | transparent — the client/hosting terminal's row applies | — | — | — | — |
+| Headless / redirected / CI | ❌ by design (`IsInteractive` false; no escapes emitted) | ❌ | ❌ | ❌ | — |
+
+Deliberately not supported: pixel-precision coordinates (DECSET 1016 — spotty support, and
+TUIKit's model is a cell grid), legacy X10/1005/1015 mouse encodings (SGR 1006 is ubiquitous;
+non-SGR terminals fall back to keyboard-only via `TerminalCapabilities.SgrMouse`), pointer events
+outside the terminal window, cursor shape changes on hover, and pre-Windows-10 consoles (no
+`ENABLE_VIRTUAL_TERMINAL_INPUT` to translate mouse input).
+
+### Notes
+- **Compatibility:** `MouseEventKind`, `MouseButton`, and `InputEventKind` gained members —
+  consumer `switch` statements without a `default:` arm will now see new values. Existing
+  `IMouseAware` widgets that return `false` for unrecognized kinds are unaffected; hover moves
+  arrive as `Move` with `Button == None`. The `TerminalCapabilities` constructor gained two
+  parameters (`anyMotionMouse`, `focusReporting`). Unconsumed hover moves flow to `MouseReceived`,
+  which is now a higher-volume stream — keep handlers cheap or set
+  `MouseTrackingMode.ButtonsAndDrag`.
+- 44 new Touchstone cases across five new suites (`MouseProtocol`, `MouseProtocolNegative`,
+  `MouseHoverRouting`, `MouseClickSynthesis`, `MouseWidget`) — positive protocol decoding,
+  malformed/truncated/hostile input, host hover synthesis and coalescing, click-count stamping,
+  and widget-level click/hover/wheel behavior — bringing the suite to 504 cases across all three
+  runners.
+
 ## [0.9.0] - 2026-08-29
 
 Bracketed paste now reaches the focused input. Pasting into a prompt or an inline add field was
