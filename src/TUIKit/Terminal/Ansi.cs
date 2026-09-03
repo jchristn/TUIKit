@@ -68,12 +68,13 @@ namespace TUIKit.Terminal
         }
 
         /// <summary>
-        /// Gets the sequence that enables SGR (1006) extended mouse reporting with button and motion
-        /// tracking.
+        /// Gets the sequence that enables SGR (1006) extended mouse reporting with button tracking
+        /// (1000), button-drag motion (1002), and any-motion hover tracking (1003). Terminals that do
+        /// not implement 1003 ignore it and degrade to drag-only motion reporting.
         /// </summary>
         public static string EnableMouse
         {
-            get { return Csi + "?1000h" + Csi + "?1002h" + Csi + "?1006h"; }
+            get { return Csi + "?1000h" + Csi + "?1002h" + Csi + "?1003h" + Csi + "?1006h"; }
         }
 
         /// <summary>
@@ -81,7 +82,42 @@ namespace TUIKit.Terminal
         /// </summary>
         public static string DisableMouse
         {
-            get { return Csi + "?1006l" + Csi + "?1002l" + Csi + "?1000l"; }
+            get { return Csi + "?1006l" + Csi + "?1003l" + Csi + "?1002l" + Csi + "?1000l"; }
+        }
+
+        /// <summary>
+        /// Gets the sequence that enables any-motion (hover) mouse tracking alone (mode 1003), for
+        /// re-enabling hover after <see cref="DisableAnyMotion"/> without touching the other modes.
+        /// </summary>
+        public static string EnableAnyMotion
+        {
+            get { return Csi + "?1003h"; }
+        }
+
+        /// <summary>
+        /// Gets the sequence that disables any-motion (hover) mouse tracking alone (mode 1003),
+        /// dropping motion reporting back to button-drag only.
+        /// </summary>
+        public static string DisableAnyMotion
+        {
+            get { return Csi + "?1003l"; }
+        }
+
+        /// <summary>
+        /// Gets the sequence that enables terminal focus reporting (mode 1004). The terminal then
+        /// emits CSI I on focus gained and CSI O on focus lost. Terminals without the mode ignore it.
+        /// </summary>
+        public static string EnableFocusReporting
+        {
+            get { return Csi + "?1004h"; }
+        }
+
+        /// <summary>
+        /// Gets the sequence that disables terminal focus reporting (mode 1004).
+        /// </summary>
+        public static string DisableFocusReporting
+        {
+            get { return Csi + "?1004l"; }
         }
 
         /// <summary>

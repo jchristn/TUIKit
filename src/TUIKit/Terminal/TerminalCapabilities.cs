@@ -41,6 +41,20 @@ namespace TUIKit.Terminal
         public bool BracketedPaste { get; }
 
         /// <summary>
+        /// Gets a value indicating whether the terminal reports pointer motion with no button held
+        /// (any-motion tracking, mode 1003). When false, hover features degrade gracefully: motion is
+        /// reported only while a button is held (drag), and Enter/Leave hover events fire only during
+        /// drags.
+        /// </summary>
+        public bool AnyMotionMouse { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the terminal reports focus gained/lost (mode 1004). When
+        /// false, terminal focus events never fire and the application behaves as always focused.
+        /// </summary>
+        public bool FocusReporting { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="TerminalCapabilities"/> class.
         /// </summary>
         /// <param name="colorDepth">The color depth the terminal can render.</param>
@@ -49,13 +63,17 @@ namespace TUIKit.Terminal
         /// <param name="hyperlinks">Whether OSC 8 hyperlinks are honored.</param>
         /// <param name="clipboardOsc52">Whether OSC 52 clipboard access is available.</param>
         /// <param name="bracketedPaste">Whether bracketed paste is available.</param>
+        /// <param name="anyMotionMouse">Whether any-motion (hover) mouse tracking is available.</param>
+        /// <param name="focusReporting">Whether terminal focus reporting is available.</param>
         public TerminalCapabilities(
             TerminalColorDepth colorDepth,
             bool enhancedKeyboard,
             bool sgrMouse,
             bool hyperlinks,
             bool clipboardOsc52,
-            bool bracketedPaste)
+            bool bracketedPaste,
+            bool anyMotionMouse,
+            bool focusReporting)
         {
             ColorDepth = colorDepth;
             EnhancedKeyboard = enhancedKeyboard;
@@ -63,15 +81,18 @@ namespace TUIKit.Terminal
             Hyperlinks = hyperlinks;
             ClipboardOsc52 = clipboardOsc52;
             BracketedPaste = bracketedPaste;
+            AnyMotionMouse = anyMotionMouse;
+            FocusReporting = focusReporting;
         }
 
         /// <summary>
         /// Gets a fully featured capability set (truecolor, enhanced keyboard, SGR mouse, hyperlinks,
-        /// OSC 52, bracketed paste). Useful for headless rendering and modern tier-1 terminals.
+        /// OSC 52, bracketed paste, any-motion mouse, focus reporting). Useful for headless rendering
+        /// and modern tier-1 terminals.
         /// </summary>
         public static TerminalCapabilities Full
         {
-            get { return new TerminalCapabilities(TerminalColorDepth.TrueColor, true, true, true, true, true); }
+            get { return new TerminalCapabilities(TerminalColorDepth.TrueColor, true, true, true, true, true, true, true); }
         }
 
         /// <summary>
@@ -80,7 +101,7 @@ namespace TUIKit.Terminal
         /// </summary>
         public static TerminalCapabilities Minimal
         {
-            get { return new TerminalCapabilities(TerminalColorDepth.Ansi16, false, false, false, false, false); }
+            get { return new TerminalCapabilities(TerminalColorDepth.Ansi16, false, false, false, false, false, false, false); }
         }
     }
 }

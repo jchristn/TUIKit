@@ -15,6 +15,18 @@ namespace TUIKit.Input
         Move = 2,
 
         /// <summary>The scroll wheel moved.</summary>
-        Wheel = 3
+        Wheel = 3,
+
+        /// <summary>
+        /// The pointer entered a widget's bounds. Synthesized by the host from hit-test transitions;
+        /// never produced by the input parser. Delivered before the event that caused the transition.
+        /// </summary>
+        Enter = 4,
+
+        /// <summary>
+        /// The pointer left a widget's bounds (moved to another widget, to unbound screen area, or the
+        /// terminal lost focus). Synthesized by the host; never produced by the input parser.
+        /// </summary>
+        Leave = 5
     }
 }

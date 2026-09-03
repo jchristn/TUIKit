@@ -263,10 +263,14 @@ namespace TUIKit.Terminal
 
                 NativeConsole.SetConsoleMode(outputHandle, outMode | NativeConsole.EnableVirtualTerminalProcessing);
 
+                // Clearing QuickEdit stops legacy conhost from capturing the mouse for its own
+                // drag-select, which would otherwise swallow every mouse report. Clearing it is only
+                // honored when extended flags are set. Windows Terminal ignores both bits.
                 uint rawInput = inMode & ~(NativeConsole.EnableLineInput
                     | NativeConsole.EnableEchoInput
-                    | NativeConsole.EnableProcessedInput);
-                rawInput |= NativeConsole.EnableVirtualTerminalInput;
+                    | NativeConsole.EnableProcessedInput
+                    | NativeConsole.EnableQuickEditMode);
+                rawInput |= NativeConsole.EnableVirtualTerminalInput | NativeConsole.EnableExtendedFlags;
                 NativeConsole.SetConsoleMode(inputHandle, rawInput);
             }
         }
@@ -295,7 +299,7 @@ namespace TUIKit.Terminal
             try
             {
                 byte[] reset = Encoding.UTF8.GetBytes(
-                    Ansi.DisableMouse + Ansi.DisableBracketedPaste
+                    Ansi.DisableMouse + Ansi.DisableFocusReporting + Ansi.DisableBracketedPaste
                     + Ansi.ShowCursor + Ansi.ExitAltScreen + Ansi.ResetAttributes);
                 WriteReset(reset);
             }

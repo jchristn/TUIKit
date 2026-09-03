@@ -76,5 +76,16 @@ namespace TUIKit.Input
 
             return new InputEvent(InputEventKind.Mouse, default, null, mouse);
         }
+
+        /// <summary>
+        /// Creates a terminal focus input event. Focus events carry no payload; only
+        /// <see cref="Kind"/> is meaningful.
+        /// </summary>
+        /// <param name="gained"><c>true</c> for focus gained (CSI I); <c>false</c> for focus lost (CSI O).</param>
+        /// <returns>The input event.</returns>
+        public static InputEvent FromFocus(bool gained)
+        {
+            return new InputEvent(gained ? InputEventKind.FocusGained : InputEventKind.FocusLost, default, null, null);
+        }
     }
 }

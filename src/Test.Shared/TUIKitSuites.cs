@@ -82,7 +82,12 @@ namespace Test.Shared
                     CommandRegistrySuite.Suite(),
                     AutocompleteSuite.Suite(),
                     ScrollFormSuite.Suite(),
-                    NavigationKeysSuite.Suite()
+                    NavigationKeysSuite.Suite(),
+                    MouseProtocolSuite.Suite(),
+                    MouseProtocolNegativeSuite.Suite(),
+                    MouseHoverRoutingSuite.Suite(),
+                    MouseClickSynthesisSuite.Suite(),
+                    MouseWidgetSuite.Suite()
                 };
             }
         }

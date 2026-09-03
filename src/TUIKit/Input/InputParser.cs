@@ -231,6 +231,14 @@ namespace TUIKit.Input
                 return total;
             }
 
+            // Terminal focus reporting (mode 1004): CSI I on focus gained, CSI O on focus lost. Both
+            // are parameterless; a parameterized sequence sharing the final byte is something else.
+            if (paramText.Length == 0 && (final == 'I' || final == 'O'))
+            {
+                events.Add(InputEvent.FromFocus(final == 'I'));
+                return total;
+            }
+
             int[] parameters = ParseParams(paramText);
 
             // The Kitty keyboard protocol can report a key event type as a sub-parameter of the
@@ -341,6 +349,11 @@ namespace TUIKit.Input
 
         private void ParseSgrMouse(List<InputEvent> events, string paramText, byte final)
         {
+            // Only 'M' (press/motion) and 'm' (release) terminate an SGR mouse report; any other
+            // final byte is a different (or corrupt) sequence and is discarded without an event.
+            if (final != 'M' && final != 'm')
+                return;
+
             int[] parts = ParseParams(paramText);
             if (parts.Length < 3)
                 return;
@@ -348,6 +361,11 @@ namespace TUIKit.Input
             int b = parts[0];
             int x = parts[1] - 1;
             int y = parts[2] - 1;
+
+            // Wire coordinates are one-based; zero (or a non-numeric token parsed as zero) is
+            // malformed and would produce a negative cell coordinate, so the report is dropped.
+            if (x < 0 || y < 0)
+                return;
 
             KeyModifiers mods = KeyModifiers.None;
             if ((b & 4) != 0)
@@ -364,7 +382,25 @@ namespace TUIKit.Input
             MouseEvent mouse;
             if (wheel)
             {
-                MouseButton wheelButton = (b & 1) == 0 ? MouseButton.WheelUp : MouseButton.WheelDown;
+                // Wheel buttons occupy 64-67: 64 up, 65 down, 66 left (tilt), 67 right (tilt), so
+                // both low bits select the axis and direction.
+                MouseButton wheelButton;
+                switch (low)
+                {
+                    case 0:
+                        wheelButton = MouseButton.WheelUp;
+                        break;
+                    case 1:
+                        wheelButton = MouseButton.WheelDown;
+                        break;
+                    case 2:
+                        wheelButton = MouseButton.WheelLeft;
+                        break;
+                    default:
+                        wheelButton = MouseButton.WheelRight;
+                        break;
+                }
+
                 mouse = new MouseEvent(MouseEventKind.Wheel, wheelButton, x, y, mods, 0);
             }
             else if (motion)

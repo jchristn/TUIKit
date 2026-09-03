@@ -35,11 +35,11 @@ namespace TUIKit.Terminal
                 throw new ArgumentNullException(nameof(getEnvironmentVariable));
 
             if (!interactive)
-                return new TerminalCapabilities(TerminalColorDepth.None, false, false, false, false, false);
+                return new TerminalCapabilities(TerminalColorDepth.None, false, false, false, false, false, false, false);
 
             string? term = getEnvironmentVariable("TERM");
             if (string.Equals(term, "dumb", StringComparison.OrdinalIgnoreCase))
-                return new TerminalCapabilities(TerminalColorDepth.None, false, false, false, false, false);
+                return new TerminalCapabilities(TerminalColorDepth.None, false, false, false, false, false, false, false);
 
             string? colorTerm = getEnvironmentVariable("COLORTERM");
             string? termProgram = getEnvironmentVariable("TERM_PROGRAM");
@@ -61,7 +61,19 @@ namespace TUIKit.Terminal
             bool clipboard = true;
             bool bracketedPaste = true;
 
-            return new TerminalCapabilities(depth, enhancedKeyboard, sgrMouse, hyperlinks, clipboard, bracketedPaste);
+            // Any-motion (1003) and focus reporting (1004) ride on SGR mouse support in every modern
+            // terminal; the known holdouts are GNU screen (limited pass-through; TERM=screen* without
+            // a TMUX marker) and Apple Terminal, where support varies by macOS version.
+            bool insideTmux = !string.IsNullOrEmpty(getEnvironmentVariable("TMUX"));
+            bool isGnuScreen = !insideTmux
+                && !string.IsNullOrEmpty(term)
+                && term!.StartsWith("screen", StringComparison.OrdinalIgnoreCase);
+            bool isAppleTerminal = !string.IsNullOrEmpty(termProgram)
+                && termProgram!.IndexOf("Apple_Terminal", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool anyMotionMouse = sgrMouse && !isGnuScreen && !isAppleTerminal;
+            bool focusReporting = sgrMouse && !isGnuScreen && !isAppleTerminal;
+
+            return new TerminalCapabilities(depth, enhancedKeyboard, sgrMouse, hyperlinks, clipboard, bracketedPaste, anyMotionMouse, focusReporting);
         }
 
         /// <summary>

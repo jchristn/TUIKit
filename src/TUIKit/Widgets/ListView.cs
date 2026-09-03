@@ -12,13 +12,14 @@ namespace TUIKit.Widgets
     /// <see cref="string"/>), so the selection can be read back as the original object.
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
-    public sealed class ListView<T> : IWidget, IFocusable, IFocusAware
+    public sealed class ListView<T> : IWidget, IFocusable, IFocusAware, IMouseAware
     {
         private readonly List<T> _Items = new List<T>();
         private readonly Func<T, string> _Display;
         private int _Selected;
         private int _Top;
         private int _LastViewportHeight = 1;
+        private int _HoverIndex = -1;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ListView{T}"/> class.
@@ -91,6 +92,13 @@ namespace TUIKit.Widgets
         /// Gets or sets the highlight color for the selected item. Defaults to palette cyan.
         /// </summary>
         public Color HighlightColor { get; set; } = Color.FromPalette(6);
+
+        /// <summary>
+        /// Gets or sets the style of the non-selected row under the pointer while hover tracking is
+        /// on. The selected row keeps its selection style when hovered. Defaults to underlined
+        /// default text.
+        /// </summary>
+        public CellStyle HoverStyle { get; set; } = CellStyle.Default.WithAttributes(CellAttributes.Underline);
 
         /// <summary>
         /// Replaces the list items and resets the selection to the first item.
@@ -209,6 +217,59 @@ namespace TUIKit.Widgets
             }
         }
 
+        /// <summary>
+        /// Selects the row under a left press, steps the selection with the wheel, and tracks the
+        /// hovered row for <see cref="HoverStyle"/> rendering. Enter/Move/Leave events are observed
+        /// but never consumed.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when a press or wheel changed the selection; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            switch (mouse.Kind)
+            {
+                case MouseEventKind.Press:
+                    if (mouse.Button == MouseButton.Left)
+                    {
+                        int pressed = RowIndexAt(mouse.Y);
+                        if (pressed >= 0)
+                        {
+                            _Selected = pressed;
+                            return true;
+                        }
+                    }
+
+                    return false;
+                case MouseEventKind.Wheel:
+                    if (mouse.Button == MouseButton.WheelUp)
+                    {
+                        SelectPrevious();
+                        return true;
+                    }
+
+                    if (mouse.Button == MouseButton.WheelDown)
+                    {
+                        SelectNext();
+                        return true;
+                    }
+
+                    return false;
+                case MouseEventKind.Enter:
+                case MouseEventKind.Move:
+                    _HoverIndex = RowIndexAt(mouse.Y);
+                    return false;
+                case MouseEventKind.Leave:
+                    _HoverIndex = -1;
+                    return false;
+                default:
+                    return false;
+            }
+        }
+
         /// <inheritdoc/>
         public Size Measure(Size available)
         {
@@ -249,6 +310,10 @@ namespace TUIKit.Widgets
                 {
                     style = CellStyle.Default.WithForeground(HighlightColor).WithAttribute(CellAttributes.Bold, true);
                 }
+                else if (index == _HoverIndex)
+                {
+                    style = HoverStyle;
+                }
                 else
                 {
                     style = CellStyle.Default;
@@ -256,6 +321,15 @@ namespace TUIKit.Widgets
 
                 surface.DrawText(0, row, _Display(_Items[index]), style);
             }
+        }
+
+        private int RowIndexAt(int y)
+        {
+            if (y < 0)
+                return -1;
+
+            int index = _Top + y;
+            return index < _Items.Count ? index : -1;
         }
     }
 }

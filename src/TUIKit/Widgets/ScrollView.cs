@@ -199,6 +199,12 @@ namespace TUIKit.Widgets
                 case MouseButton.WheelDown:
                     ScrollBy(0, 3);
                     return true;
+                case MouseButton.WheelLeft:
+                    ScrollBy(-3, 0);
+                    return true;
+                case MouseButton.WheelRight:
+                    ScrollBy(3, 0);
+                    return true;
                 default:
                     return false;
             }

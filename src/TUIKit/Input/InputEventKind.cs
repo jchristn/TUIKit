@@ -12,6 +12,12 @@ namespace TUIKit.Input
         Paste = 1,
 
         /// <summary>A mouse event.</summary>
-        Mouse = 2
+        Mouse = 2,
+
+        /// <summary>The terminal window gained focus (mode 1004 reporting, CSI I).</summary>
+        FocusGained = 3,
+
+        /// <summary>The terminal window lost focus (mode 1004 reporting, CSI O).</summary>
+        FocusLost = 4
     }
 }

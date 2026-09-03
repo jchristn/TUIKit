@@ -15,6 +15,8 @@ namespace TUIKit.Terminal
         internal const uint EnableProcessedInput = 0x0001;
         internal const uint EnableLineInput = 0x0002;
         internal const uint EnableEchoInput = 0x0004;
+        internal const uint EnableQuickEditMode = 0x0040;
+        internal const uint EnableExtendedFlags = 0x0080;
         internal const uint EnableVirtualTerminalInput = 0x0200;
         internal const uint EnableVirtualTerminalProcessing = 0x0004;
 
