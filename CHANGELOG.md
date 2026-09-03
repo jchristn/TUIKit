@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-09-02
+
+Exit-path teardown hardening. A process-exit handler must never throw, but the final
+terminal-restore `Flush()` on the teardown path caught only `IOException` — so if the process
+exited without a clean `Stop` while stdout was already disposed or closed for writing, the
+exception could escape the `AppDomain.ProcessExit` handler. This is a fallback-path robustness
+fix; correct usage (a clean `Stop`/`Dispose` with stdout open) was never affected.
+
+### Fixed
+- **Teardown `Flush()` no longer throws on a closed/non-writable stream.**
+  `TuiApplication.Teardown` and `ConsoleBackend.Stop` now swallow `ObjectDisposedException` and
+  `NotSupportedException` in addition to `IOException` around the final restore flush, so an app
+  that exits without a clean stop can't crash from the exit-handler fallback path. Normal-operation
+  flushes are unchanged and still propagate errors.
+
 ## [0.10.0] - 2026-09-02
 
 Full mouse support. TUIKit previously decoded clicks, drags, and the wheel; this release completes

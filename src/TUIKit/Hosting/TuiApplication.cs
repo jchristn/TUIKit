@@ -883,10 +883,13 @@ namespace TUIKit.Hosting
                     _Backend.Write(Ansi.ExitAltScreen);
                     _Backend.Flush();
                 }
-                catch (IOException)
+                catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException || ex is NotSupportedException)
                 {
-                    // Best effort during teardown: the stream may already be closing on process exit.
-                    // The backend still restores its console mode below.
+                    // Best effort during teardown: the output stream may already be closed or
+                    // non-writable on process exit (disposed → ObjectDisposedException, closed for
+                    // writing → NotSupportedException, transient I/O failure → IOException). A
+                    // process-exit handler must never throw, so swallow these; the backend still
+                    // restores its console mode below.
                 }
             }
 

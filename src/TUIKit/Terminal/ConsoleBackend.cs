@@ -221,9 +221,11 @@ namespace TUIKit.Terminal
             {
                 Flush();
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException || ex is NotSupportedException)
             {
-                // Best effort during teardown.
+                // Best effort during teardown: the output stream may already be closed or
+                // non-writable on process exit. This runs from the ProcessExit net, which must
+                // never throw, so swallow a disposed/non-writable stream as well as transient I/O.
             }
 
             if (_Interactive)
