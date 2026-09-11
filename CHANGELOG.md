@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-09-10
+
+Developer-configurable widget styles. Several widgets previously hardcoded their colors — a fixed
+palette for selection, borders, scrollbars, diff lines, menu chrome, and, most visibly, no way to
+give an editor or list a background. Those colors are now exposed as settable `CellStyle`
+properties. Every new property defaults to the exact style rendered before, so this is additive and
+fully backward compatible: a widget renders byte-identically until a style is assigned.
+
+### Added
+- **`TextEditor.NormalStyle` and `TextField.NormalStyle`.** The base style for the surface fill and
+  the text; the caret is drawn as this style with reverse video, so it inverts against whatever
+  foreground/background is set. This makes the composer background controllable — for example
+  `editor.NormalStyle = CellStyle.Default.WithBackground(Color.FromRgb(0x2A, 0x2A, 0x2A))` for a dark
+  grey editor.
+- **`Table.HeaderStyle` / `Table.RowStyle` / `Table.BorderStyle`.** Header row, data rows (and the
+  surface fill), and the box-drawing border lines.
+- **`DataTable<T>.HeaderStyle` and `DataTable<T>.NormalStyle`.**
+- **`ListView<T>.NormalStyle`, `Tree<T>.NormalStyle`, `CheckList<T>.NormalStyle`,
+  `CheckTree<T>.NormalStyle`.** A base style for unselected rows and the surface fill; each widget's
+  existing selection/hover/checked styles compose over it, so a background flows through consistently.
+- **`RadioGroup.NormalStyle` and `RadioGroup.SelectedStyle`.**
+- **`FileBrowser.HeaderStyle` / `SelectionStyle` / `DirectoryStyle` / `NormalStyle`.**
+- **`ScrollView.TrackStyle` and `ScrollView.ThumbStyle`** for the scrollbar groove and thumb.
+- **`DiffView.AddedStyle` / `RemovedStyle` / `ContextStyle`** for added, removed, and context lines.
+- **`MenuBar.BarStyle` / `ActiveStyle` / `ItemStyle` / `DisabledStyle` / `DropdownStyle` /
+  `DropdownBorderStyle`** for the bar strip, active title and highlighted item, normal items, disabled
+  items, and the drop-down panel and its border.
+
+### Behavior
+- Widgets that already painted a solid background (`TextEditor`, `TextField`, `ListView<T>`) fill it
+  with `NormalStyle`; at the default this is the terminal-default background, exactly as before.
+  Widgets that did **not** previously paint a solid background only paint one when a `NormalStyle`
+  background is assigned, so with the default they continue to inherit the region background the host
+  paints behind them.
+- 28 new Touchstone cases (positive and negative), 532 total across console/xUnit/NUnit on
+  net8.0/net10.0.
+
 ## [0.10.1] - 2026-09-02
 
 Exit-path teardown hardening. A process-exit handler must never throw, but the final

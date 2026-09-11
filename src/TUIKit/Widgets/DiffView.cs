@@ -22,6 +22,25 @@ namespace TUIKit.Widgets
         public string? SyntaxLanguage { get; set; }
 
         /// <summary>
+        /// Gets or sets the style applied to added lines and their <c>+</c> gutter. Defaults to a green
+        /// (palette 2) foreground.
+        /// </summary>
+        public CellStyle AddedStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(2));
+
+        /// <summary>
+        /// Gets or sets the style applied to removed lines and their <c>-</c> gutter. Defaults to a red
+        /// (palette 1) foreground.
+        /// </summary>
+        public CellStyle RemovedStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(1));
+
+        /// <summary>
+        /// Gets or sets the style applied to unchanged context lines and their gutter. When
+        /// <see cref="SyntaxLanguage"/> is set, highlighted spans compose over this style. Defaults to
+        /// <see cref="CellStyle.Default"/>.
+        /// </summary>
+        public CellStyle ContextStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Gets the number of diff lines.
         /// </summary>
         public int LineCount
@@ -125,25 +144,25 @@ namespace TUIKit.Widgets
                 {
                     case DiffLineKind.Added:
                         prefix = "+";
-                        prefixStyle = CellStyle.Default.WithForeground(Color.FromPalette(2));
-                        content = Text.From(line.Text, CellStyle.Default.WithForeground(Color.FromPalette(2)));
+                        prefixStyle = AddedStyle;
+                        content = Text.From(line.Text, AddedStyle);
                         break;
                     case DiffLineKind.Removed:
                         prefix = "-";
-                        prefixStyle = CellStyle.Default.WithForeground(Color.FromPalette(1));
-                        content = Text.From(line.Text, CellStyle.Default.WithForeground(Color.FromPalette(1)));
+                        prefixStyle = RemovedStyle;
+                        content = Text.From(line.Text, RemovedStyle);
                         break;
                     default:
                         prefix = " ";
-                        prefixStyle = CellStyle.Default;
+                        prefixStyle = ContextStyle;
                         content = SyntaxLanguage != null
                             ? SyntaxHighlighter.HighlightLine(line.Text, SyntaxLanguage)
-                            : Text.From(line.Text);
+                            : Text.From(line.Text, ContextStyle);
                         break;
                 }
 
                 surface.DrawText(0, row, prefix, prefixStyle);
-                surface.DrawStyledText(1, row, content);
+                surface.DrawStyledText(1, row, content, ContextStyle);
             }
         }
 

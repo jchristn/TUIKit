@@ -94,6 +94,14 @@ namespace TUIKit.Widgets
         public Color HighlightColor { get; set; } = Color.FromPalette(6);
 
         /// <summary>
+        /// Gets or sets the base style applied to unselected items and the surface fill. The selected
+        /// and hover styles are composed over this style, so a background set here shows through
+        /// consistently. Defaults to <see cref="CellStyle.Default"/>; assign a style with a background
+        /// to give the list a solid background.
+        /// </summary>
+        public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Gets or sets the style of the non-selected row under the pointer while hover tracking is
         /// on. The selected row keeps its selection style when hovered. Defaults to underlined
         /// default text.
@@ -294,7 +302,7 @@ namespace TUIKit.Widgets
             else if (_Selected >= _Top + height)
                 _Top = _Selected - height + 1;
 
-            surface.Fill(new Rect(0, 0, width, height), Cell.Blank(CellStyle.Default));
+            surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
 
             for (int row = 0; row < height && _Top + row < _Items.Count; row++)
             {
@@ -303,20 +311,20 @@ namespace TUIKit.Widgets
                 CellStyle style;
                 if (selected && IsFocused)
                 {
-                    style = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(HighlightColor);
+                    style = NormalStyle.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(HighlightColor);
                     surface.Fill(new Rect(0, row, width, 1), Cell.Blank(style));
                 }
                 else if (selected)
                 {
-                    style = CellStyle.Default.WithForeground(HighlightColor).WithAttribute(CellAttributes.Bold, true);
+                    style = NormalStyle.WithForeground(HighlightColor).WithAttribute(CellAttributes.Bold, true);
                 }
                 else if (index == _HoverIndex)
                 {
-                    style = HoverStyle;
+                    style = HoverStyle.Over(NormalStyle);
                 }
                 else
                 {
-                    style = CellStyle.Default;
+                    style = NormalStyle;
                 }
 
                 surface.DrawText(0, row, _Display(_Items[index]), style);

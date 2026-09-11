@@ -53,6 +53,27 @@ namespace TUIKit.Widgets
         /// <summary>Gets or sets how columns are sized. Defaults to <see cref="ColumnSizing.Even"/>.</summary>
         public ColumnSizing Sizing { get; set; }
 
+        /// <summary>
+        /// Gets or sets the style of the header row. Defaults to bold with a cyan (palette 6)
+        /// foreground on the terminal's default background.
+        /// </summary>
+        public CellStyle HeaderStyle { get; set; } = CellStyle.Default.WithAttribute(CellAttributes.Bold, true).WithForeground(Color.FromPalette(6));
+
+        /// <summary>
+        /// Gets or sets the base style applied to data rows and the surface fill. Pre-styled cells
+        /// supplied through <see cref="AddRow(StyledText[])"/> compose over this style, so their own
+        /// colors still win. Defaults to <see cref="CellStyle.Default"/>; assign a style with a
+        /// background to give the table a solid background.
+        /// </summary>
+        public CellStyle RowStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
+        /// Gets or sets the style of the box-drawing border lines drawn when <see cref="Border"/> is
+        /// not <see cref="TableBorder.None"/>. Defaults to a grey (palette 8) foreground on the
+        /// terminal's default background.
+        /// </summary>
+        public CellStyle BorderStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(8));
+
         /// <summary>Gets the number of data rows.</summary>
         public int RowCount
         {
@@ -146,6 +167,9 @@ namespace TUIKit.Widgets
             if (width <= 0 || height <= 0)
                 return;
 
+            if (RowStyle.Background.Kind != ColorKind.Default)
+                surface.Fill(new Rect(0, 0, width, height), Cell.Blank(RowStyle));
+
             if (Border == TableBorder.None)
                 RenderPlain(surface, width, height);
             else
@@ -179,14 +203,13 @@ namespace TUIKit.Widgets
                 }
             }
 
-            CellStyle headerStyle = CellStyle.Default.WithAttribute(CellAttributes.Bold, true).WithForeground(Color.FromPalette(6));
             for (int c = 0; c < count; c++)
-                DrawCell(surface, columnX[c], 0, Text.From(_Headers[c] ?? string.Empty), innerWidth[c], _Alignments[c], headerStyle);
+                DrawCell(surface, columnX[c], 0, Text.From(_Headers[c] ?? string.Empty), innerWidth[c], _Alignments[c], HeaderStyle);
 
             for (int r = 0; r < _Rows.Count && r + 1 < height; r++)
             {
                 for (int c = 0; c < count; c++)
-                    DrawCell(surface, columnX[c], r + 1, CellAt(r, c), innerWidth[c], _Alignments[c], CellStyle.Default);
+                    DrawCell(surface, columnX[c], r + 1, CellAt(r, c), innerWidth[c], _Alignments[c], RowStyle);
             }
         }
 
@@ -199,8 +222,7 @@ namespace TUIKit.Widgets
             string topRight = Border == TableBorder.Rounded ? "╮" : "┐";
             string bottomLeft = Border == TableBorder.Rounded ? "╰" : "└";
             string bottomRight = Border == TableBorder.Rounded ? "╯" : "┘";
-            CellStyle line = CellStyle.Default.WithForeground(Color.FromPalette(8));
-            CellStyle headerStyle = CellStyle.Default.WithAttribute(CellAttributes.Bold, true).WithForeground(Color.FromPalette(6));
+            CellStyle line = BorderStyle;
 
             int rowsToDraw = _Rows.Count;
             int neededHeight = rowsToDraw + 4;
@@ -208,11 +230,11 @@ namespace TUIKit.Widgets
                 rowsToDraw = Math.Max(0, height - 4);
 
             DrawBorderRow(surface, 0, widths, topLeft, "┬", topRight, line);
-            DrawContentRow(surface, 1, widths, RowCells(_Headers), headerStyle, line);
+            DrawContentRow(surface, 1, widths, RowCells(_Headers), HeaderStyle, line);
             DrawBorderRow(surface, 2, widths, "├", "┼", "┤", line);
 
             for (int r = 0; r < rowsToDraw; r++)
-                DrawContentRow(surface, 3 + r, widths, DataCells(r), CellStyle.Default, line);
+                DrawContentRow(surface, 3 + r, widths, DataCells(r), RowStyle, line);
 
             DrawBorderRow(surface, 3 + rowsToDraw, widths, bottomLeft, "┴", bottomRight, line);
         }

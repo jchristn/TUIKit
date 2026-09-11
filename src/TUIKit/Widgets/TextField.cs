@@ -19,6 +19,15 @@ namespace TUIKit.Widgets
         public bool IsFocused { get; set; }
 
         /// <summary>
+        /// Gets or sets the base style used to paint the field: the surface fill and the value text
+        /// share this style, and the caret is drawn as this style with reverse video so it inverts
+        /// against whatever foreground and background are set here. Defaults to
+        /// <see cref="CellStyle.Default"/> (the terminal's default colors); assign a style with a
+        /// background to give the field a solid background.
+        /// </summary>
+        public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Gets or sets the character used to obscure the value when rendering, for secret input such
         /// as passwords, API keys, or bearer tokens. When <c>'\0'</c> (the default) the value renders
         /// as typed. When set to a visible character (for example <c>'•'</c>) every value character is
@@ -152,9 +161,9 @@ namespace TUIKit.Widgets
             if (surface == null)
                 throw new ArgumentNullException(nameof(surface));
 
-            surface.Fill(new Rect(0, 0, surface.Size.Width, 1), Cell.Blank(CellStyle.Default));
+            surface.Fill(new Rect(0, 0, surface.Size.Width, 1), Cell.Blank(NormalStyle));
             string display = _MaskChar == '\0' ? _Value : new string(_MaskChar, _Value.Length);
-            surface.DrawText(0, 0, display, CellStyle.Default);
+            surface.DrawText(0, 0, display, NormalStyle);
 
             if (IsFocused && _Caret <= surface.Size.Width)
             {
@@ -163,7 +172,7 @@ namespace TUIKit.Widgets
                     underGlyph = _MaskChar == '\0' ? _Value[_Caret].ToString() : _MaskChar.ToString();
                 else
                     underGlyph = " ";
-                surface.Set(_Caret, 0, Cell.Glyph(underGlyph, CellStyle.Default.WithAttribute(CellAttributes.Reverse, true), 1));
+                surface.Set(_Caret, 0, Cell.Glyph(underGlyph, NormalStyle.WithAttribute(CellAttributes.Reverse, true), 1));
             }
         }
     }

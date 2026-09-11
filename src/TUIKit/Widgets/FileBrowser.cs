@@ -43,6 +43,31 @@ namespace TUIKit.Widgets
         public FileSelectionMode SelectionMode { get; set; } = FileSelectionMode.None;
 
         /// <summary>
+        /// Gets or sets the style of the current-directory header line. Defaults to bold with a cyan
+        /// (palette 6) foreground.
+        /// </summary>
+        public CellStyle HeaderStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true);
+
+        /// <summary>
+        /// Gets or sets the style of the highlighted (selected) row, which is filled edge to edge.
+        /// Defaults to black text on a cyan (palette 6) background.
+        /// </summary>
+        public CellStyle SelectionStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6));
+
+        /// <summary>
+        /// Gets or sets the style of unselected directory rows (including the parent link). It is
+        /// composed over <see cref="NormalStyle"/>. Defaults to a blue (palette 4) foreground.
+        /// </summary>
+        public CellStyle DirectoryStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(4));
+
+        /// <summary>
+        /// Gets or sets the base style applied to unselected file rows and the surface fill. Defaults
+        /// to <see cref="CellStyle.Default"/>; assign a style with a background to give the browser a
+        /// solid background.
+        /// </summary>
+        public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Gets the currently checked paths in listing order: zero or one in
         /// <see cref="FileSelectionMode.Single"/>, zero or more in <see cref="FileSelectionMode.Multiple"/>,
         /// and always empty in <see cref="FileSelectionMode.None"/>. Never null.
@@ -260,7 +285,10 @@ namespace TUIKit.Widgets
             if (width <= 0 || height <= 0)
                 return;
 
-            surface.DrawText(0, 0, Fit(_CurrentDirectory, width), CellStyle.Default.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true));
+            if (NormalStyle.Background.Kind != ColorKind.Default)
+                surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
+
+            surface.DrawText(0, 0, Fit(_CurrentDirectory, width), HeaderStyle);
 
             int listHeight = height - 1;
             if (listHeight <= 0)
@@ -281,8 +309,8 @@ namespace TUIKit.Widgets
                 int y = row + 1;
 
                 CellStyle style = selected
-                    ? CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6))
-                    : entry.IsDirectory ? CellStyle.Default.WithForeground(Color.FromPalette(4)) : CellStyle.Default;
+                    ? SelectionStyle
+                    : entry.IsDirectory ? DirectoryStyle.Over(NormalStyle) : NormalStyle;
 
                 if (selected)
                     surface.Fill(new Rect(0, y, width, 1), Cell.Blank(style));

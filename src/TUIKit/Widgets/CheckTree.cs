@@ -137,6 +137,14 @@ namespace TUIKit.Widgets
             .WithBackground(Color.FromPalette(6));
 
         /// <summary>
+        /// Gets or sets the base style applied to unselected rows and the surface fill when
+        /// <see cref="RowStyle"/> is null (when <see cref="RowStyle"/> is set it wins per node).
+        /// Defaults to <see cref="CellStyle.Default"/>; assign a style with a background to give the
+        /// tree a solid background.
+        /// </summary>
+        public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Gets the currently selected node, or the first root when the visible list is empty.
         /// </summary>
         public T SelectedNode
@@ -418,6 +426,9 @@ namespace TUIKit.Widgets
             else if (_Selected >= _Top + height)
                 _Top = _Selected - height + 1;
 
+            if (NormalStyle.Background.Kind != ColorKind.Default)
+                surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
+
             for (int row = 0; row < height && _Top + row < _VisibleNodes.Count; row++)
             {
                 int index = _Top + row;
@@ -437,7 +448,7 @@ namespace TUIKit.Widgets
                 }
                 else
                 {
-                    style = RowStyle != null ? RowStyle(node) : CellStyle.Default;
+                    style = RowStyle != null ? RowStyle(node) : NormalStyle;
                     if (selected)
                         style = style.WithAttribute(CellAttributes.Bold, true);
                 }

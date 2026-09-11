@@ -14,6 +14,20 @@ namespace TUIKit.Widgets
         private int _Selected;
 
         /// <summary>
+        /// Gets or sets the base style applied to unselected options and the surface fill. Defaults to
+        /// <see cref="CellStyle.Default"/>; assign a style with a background to give the group a solid
+        /// background.
+        /// </summary>
+        public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
+        /// Gets or sets the style applied to the selected option. It is composed over
+        /// <see cref="NormalStyle"/>, so a background set on <see cref="NormalStyle"/> shows through
+        /// unless this style sets its own. Defaults to a cyan (palette 6) foreground.
+        /// </summary>
+        public CellStyle SelectedStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(6));
+
+        /// <summary>
         /// Gets the zero-based index of the selected option.
         /// </summary>
         public int SelectedIndex
@@ -83,12 +97,15 @@ namespace TUIKit.Widgets
             if (surface == null)
                 throw new ArgumentNullException(nameof(surface));
 
+            if (NormalStyle.Background.Kind != ColorKind.Default)
+                surface.Fill(new Rect(0, 0, surface.Size.Width, surface.Size.Height), Cell.Blank(NormalStyle));
+
             for (int i = 0; i < _Options.Length && i < surface.Size.Height; i++)
             {
                 string mark = i == _Selected ? "(o) " : "( ) ";
                 CellStyle style = i == _Selected
-                    ? CellStyle.Default.WithForeground(Color.FromPalette(6))
-                    : CellStyle.Default;
+                    ? SelectedStyle.Over(NormalStyle)
+                    : NormalStyle;
                 surface.DrawText(0, i, mark + _Options[i], style);
             }
         }

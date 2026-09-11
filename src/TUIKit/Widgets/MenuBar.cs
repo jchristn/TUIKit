@@ -28,6 +28,42 @@ namespace TUIKit.Widgets
         /// </summary>
         public CellStyle HoverStyle { get; set; } = CellStyle.Default.WithAttributes(CellAttributes.Underline);
 
+        /// <summary>
+        /// Gets or sets the style of the menu-bar strip behind the titles. Defaults to a black
+        /// (palette 0) background.
+        /// </summary>
+        public CellStyle BarStyle { get; set; } = CellStyle.Default.WithBackground(Color.FromPalette(0));
+
+        /// <summary>
+        /// Gets or sets the style of the active menu title and the highlighted drop-down item.
+        /// Defaults to black text on a cyan (palette 6) background.
+        /// </summary>
+        public CellStyle ActiveStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6));
+
+        /// <summary>
+        /// Gets or sets the style of inactive menu titles and enabled, non-highlighted drop-down items.
+        /// On the bar it is composed over <see cref="BarStyle"/>. Defaults to <see cref="CellStyle.Default"/>.
+        /// </summary>
+        public CellStyle ItemStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
+        /// Gets or sets the style of disabled drop-down items. It is composed over
+        /// <see cref="DropdownStyle"/>. Defaults to dimmed default text.
+        /// </summary>
+        public CellStyle DisabledStyle { get; set; } = CellStyle.Default.WithAttribute(CellAttributes.Dim, true);
+
+        /// <summary>
+        /// Gets or sets the style of the open drop-down panel background. Defaults to a black
+        /// (palette 0) background.
+        /// </summary>
+        public CellStyle DropdownStyle { get; set; } = CellStyle.Default.WithBackground(Color.FromPalette(0));
+
+        /// <summary>
+        /// Gets or sets the style of the open drop-down border. Defaults to a grey (palette 8)
+        /// foreground.
+        /// </summary>
+        public CellStyle DropdownBorderStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(8));
+
         /// <summary>Gets whether a drop-down is currently open.</summary>
         public bool IsOpen
         {
@@ -150,7 +186,7 @@ namespace TUIKit.Widgets
             if (width <= 0 || height <= 0 || _Menus.Count == 0)
                 return;
 
-            surface.Fill(new Rect(0, 0, width, 1), Cell.Blank(CellStyle.Default.WithBackground(Color.FromPalette(0))));
+            surface.Fill(new Rect(0, 0, width, 1), Cell.Blank(BarStyle));
 
             int x = 0;
             int activeX = 0;
@@ -160,11 +196,11 @@ namespace TUIKit.Widgets
                 bool active = i == _Active;
                 CellStyle style;
                 if (active)
-                    style = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6));
+                    style = ActiveStyle;
                 else if (i == _HoverTitle)
-                    style = HoverStyle;
+                    style = HoverStyle.Over(BarStyle);
                 else
-                    style = CellStyle.Default;
+                    style = ItemStyle.Over(BarStyle);
                 surface.DrawText(x, 0, title, style);
                 if (active)
                     activeX = x;
@@ -360,19 +396,19 @@ namespace TUIKit.Widgets
 
             Rect box = new Rect(menuX, 1, boxWidth, boxHeight);
             _LastDropdownRect = box;
-            surface.Fill(box, Cell.Blank(CellStyle.Default.WithBackground(Color.FromPalette(0))));
-            surface.DrawBox(box, CellStyle.Default.WithForeground(Color.FromPalette(8)), BorderStyle.Line);
+            surface.Fill(box, Cell.Blank(DropdownStyle));
+            surface.DrawBox(box, DropdownBorderStyle, BorderStyle.Line);
 
             for (int i = 0; i < items.Count && i < boxHeight - 2; i++)
             {
                 bool highlighted = i == _Highlight;
                 CellStyle style;
                 if (!items[i].Enabled)
-                    style = CellStyle.Default.WithAttribute(CellAttributes.Dim, true);
+                    style = DisabledStyle.Over(DropdownStyle);
                 else if (highlighted)
-                    style = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6));
+                    style = ActiveStyle;
                 else
-                    style = CellStyle.Default;
+                    style = ItemStyle.Over(DropdownStyle);
 
                 string label = items[i].Label;
                 if (label.Length > boxWidth - 2)

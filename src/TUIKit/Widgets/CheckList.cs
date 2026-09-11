@@ -111,6 +111,13 @@ namespace TUIKit.Widgets
             .WithAttribute(CellAttributes.Bold, true);
 
         /// <summary>
+        /// Gets or sets the base style applied to unchecked, non-cursor items and the surface fill.
+        /// The checked style is composed over it. Defaults to <see cref="CellStyle.Default"/>; assign a
+        /// style with a background to give the list a solid background.
+        /// </summary>
+        public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Gets the zero-based indices of the checked items, in order. Never null.
         /// </summary>
         public IReadOnlyList<int> CheckedIndices
@@ -277,6 +284,9 @@ namespace TUIKit.Widgets
             else if (_Selected >= _Top + height)
                 _Top = _Selected - height + 1;
 
+            if (NormalStyle.Background.Kind != ColorKind.Default)
+                surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
+
             for (int row = 0; row < height; row++)
             {
                 int index = _Top + row;
@@ -295,9 +305,9 @@ namespace TUIKit.Widgets
                 if (isCursor && IsFocused)
                     style = HighlightStyle;
                 else if (isChecked)
-                    style = CheckedStyle;
+                    style = CheckedStyle.Over(NormalStyle);
                 else
-                    style = isCursor ? CellStyle.Default.WithAttribute(CellAttributes.Bold, true) : CellStyle.Default;
+                    style = isCursor ? NormalStyle.WithAttribute(CellAttributes.Bold, true) : NormalStyle;
 
                 if (isCursor && IsFocused)
                     surface.Fill(new Rect(0, row, width, 1), Cell.Blank(HighlightStyle));

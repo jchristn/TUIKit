@@ -468,6 +468,20 @@ var check  = new Checkbox("verbose", isChecked: true);
 var radio  = new RadioGroup(new[] { "Dark", "Light", "High-contrast" });
 ```
 
+Widget colors are configurable. `TextEditor` and `TextField` expose a `NormalStyle` that paints both
+the surface fill and the text (the caret inverts against it), so you can give an editor a solid
+background — `editor.NormalStyle = CellStyle.Default.WithBackground(Color.FromRgb(0x2A, 0x2A, 0x2A));`
+for a dark grey composer. The same pattern runs through the toolkit: `Table`/`DataTable<T>` expose
+`HeaderStyle`/`RowStyle` (and `Table.BorderStyle`); `ListView<T>`, `Tree<T>`, `CheckList<T>`, and
+`CheckTree<T>` expose a base `NormalStyle` that their selection and hover styles compose over;
+`RadioGroup` has `NormalStyle`/`SelectedStyle`; `FileBrowser` has `HeaderStyle`/`SelectionStyle`/
+`DirectoryStyle`/`NormalStyle`; `ScrollView` has `TrackStyle`/`ThumbStyle`; `DiffView` has
+`AddedStyle`/`RemovedStyle`/`ContextStyle`; and `MenuBar` has `BarStyle`/`ActiveStyle`/`ItemStyle`/
+`DisabledStyle`/`DropdownStyle`/`DropdownBorderStyle`. Each defaults to the widget's built-in look, so
+you set only what you want to change. Widgets that don't paint a solid background by default keep
+inheriting the region background (see [theming](#9-theming) and `CellStyle.Over`) until you assign a
+`NormalStyle` background.
+
 ### Data, navigation, and visuals
 
 ```csharp

@@ -27,6 +27,16 @@ namespace TUIKit.Widgets
         public bool IsFocused { get; set; }
 
         /// <summary>
+        /// Gets or sets the base style used to paint the editor: the surface fill and the text share
+        /// this style, and the caret is drawn as this style with reverse video so it inverts against
+        /// whatever foreground and background are set here. Defaults to <see cref="CellStyle.Default"/>
+        /// (the terminal's default colors); assign a style with a background to give the editor a solid
+        /// background — for example <c>CellStyle.Default.WithBackground(Color.FromRgb(0x2A, 0x2A, 0x2A))</c>
+        /// for a dark grey composer.
+        /// </summary>
+        public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Updates the focused state so the caret shows or hides on the next frame. Part of
         /// <see cref="IFocusAware"/>; called by the host and <see cref="FocusManager"/> on focus changes.
         /// </summary>
@@ -421,14 +431,14 @@ namespace TUIKit.Widgets
 
             int height = surface.Size.Height;
             int width = surface.Size.Width;
-            surface.Fill(new Rect(0, 0, width, height), Cell.Blank(CellStyle.Default));
+            surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
 
             int top = 0;
             if (_Row >= height)
                 top = _Row - height + 1;
 
             for (int row = 0; row < height && top + row < _Lines.Count; row++)
-                surface.DrawText(0, row, _Lines[top + row], CellStyle.Default);
+                surface.DrawText(0, row, _Lines[top + row], NormalStyle);
 
             if (IsFocused)
             {
@@ -436,8 +446,8 @@ namespace TUIKit.Widgets
                 if (caretScreenRow >= 0 && caretScreenRow < height && _Column <= width)
                 {
                     Cell under = _Column < _Lines[_Row].Length
-                        ? Cell.Glyph(_Lines[_Row][_Column].ToString(), CellStyle.Default, 1)
-                        : Cell.Blank(CellStyle.Default);
+                        ? Cell.Glyph(_Lines[_Row][_Column].ToString(), NormalStyle, 1)
+                        : Cell.Blank(NormalStyle);
                     surface.Set(_Column, caretScreenRow, Cell.Glyph(under.Grapheme, under.Style.WithAttribute(CellAttributes.Reverse, true), 1));
                 }
             }

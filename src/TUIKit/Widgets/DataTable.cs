@@ -27,6 +27,19 @@ namespace TUIKit.Widgets
         public CellStyle HighlightStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6));
 
         /// <summary>
+        /// Gets or sets the style of the header row. Defaults to bold with a cyan (palette 6)
+        /// foreground.
+        /// </summary>
+        public CellStyle HeaderStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true);
+
+        /// <summary>
+        /// Gets or sets the base style applied to unselected data rows and the surface fill. Defaults
+        /// to <see cref="CellStyle.Default"/>; assign a style with a background to give the table a
+        /// solid background.
+        /// </summary>
+        public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Gets the number of rows.
         /// </summary>
         public int RowCount
@@ -159,10 +172,12 @@ namespace TUIKit.Widgets
             if (width <= 0 || height <= 0 || _Columns.Count == 0)
                 return;
 
+            if (NormalStyle.Background.Kind != ColorKind.Default)
+                surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
+
             int columnWidth = Math.Max(1, width / _Columns.Count);
-            CellStyle header = CellStyle.Default.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true);
             for (int c = 0; c < _Columns.Count; c++)
-                surface.DrawText(c * columnWidth, 0, Fit(_Columns[c].Name, columnWidth), header);
+                surface.DrawText(c * columnWidth, 0, Fit(_Columns[c].Name, columnWidth), HeaderStyle);
 
             int listHeight = height - 1;
             _LastViewportHeight = Math.Max(1, listHeight);
@@ -176,7 +191,7 @@ namespace TUIKit.Widgets
                 int index = _Top + row;
                 bool selected = index == _Selected;
                 int y = row + 1;
-                CellStyle style = selected ? HighlightStyle : CellStyle.Default;
+                CellStyle style = selected ? HighlightStyle : NormalStyle;
                 if (selected)
                     surface.Fill(new Rect(0, y, width, 1), Cell.Blank(style));
 

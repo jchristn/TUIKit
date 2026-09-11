@@ -38,6 +38,18 @@ namespace TUIKit.Widgets
         public bool ShowHorizontalScrollbar { get; set; } = true;
 
         /// <summary>
+        /// Gets or sets the style of the scrollbar track (the groove behind the thumb). Applies to
+        /// both the vertical and horizontal scrollbars. Defaults to a grey (palette 8) foreground.
+        /// </summary>
+        public CellStyle TrackStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(8));
+
+        /// <summary>
+        /// Gets or sets the style of the scrollbar thumb (the draggable indicator). Applies to both
+        /// the vertical and horizontal scrollbars. Defaults to a light-grey (palette 7) foreground.
+        /// </summary>
+        public CellStyle ThumbStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(7));
+
+        /// <summary>
         /// Gets the current horizontal scroll offset in cells.
         /// </summary>
         public int ScrollX
@@ -265,8 +277,8 @@ namespace TUIKit.Widgets
 
         private void DrawVerticalScrollbar(ISurface surface, int column, int height, int maxY)
         {
-            CellStyle track = CellStyle.Default.WithForeground(Color.FromPalette(8));
-            CellStyle thumb = CellStyle.Default.WithForeground(Color.FromPalette(7));
+            CellStyle track = TrackStyle;
+            CellStyle thumb = ThumbStyle;
             int thumbSize = Math.Max(1, height * height / _ContentHeight);
             int thumbPos = maxY > 0 ? (height - thumbSize) * _ScrollY / maxY : 0;
 
@@ -279,8 +291,8 @@ namespace TUIKit.Widgets
 
         private void DrawHorizontalScrollbar(ISurface surface, int width, int row, int maxX)
         {
-            CellStyle track = CellStyle.Default.WithForeground(Color.FromPalette(8));
-            CellStyle thumb = CellStyle.Default.WithForeground(Color.FromPalette(7));
+            CellStyle track = TrackStyle;
+            CellStyle thumb = ThumbStyle;
             int thumbSize = Math.Max(1, width * width / _ContentWidth);
             int thumbPos = maxX > 0 ? (width - thumbSize) * _ScrollX / maxX : 0;
 

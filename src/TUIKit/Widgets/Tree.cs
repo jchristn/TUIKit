@@ -51,6 +51,13 @@ namespace TUIKit.Widgets
         public CellStyle HoverStyle { get; set; } = CellStyle.Default.WithAttributes(CellAttributes.Underline);
 
         /// <summary>
+        /// Gets or sets the base style applied to unselected nodes and the surface fill. The hover
+        /// style is composed over it. Defaults to <see cref="CellStyle.Default"/>; assign a style with
+        /// a background to give the tree a solid background.
+        /// </summary>
+        public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Tree{T}"/> class with the root expanded.
         /// </summary>
         /// <param name="root">The root node. Must not be null.</param>
@@ -289,6 +296,9 @@ namespace TUIKit.Widgets
             else if (_Selected >= _Top + height)
                 _Top = _Selected - height + 1;
 
+            if (NormalStyle.Background.Kind != ColorKind.Default)
+                surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
+
             for (int row = 0; row < height && _Top + row < _VisibleNodes.Count; row++)
             {
                 int index = _Top + row;
@@ -299,7 +309,7 @@ namespace TUIKit.Widgets
                 string line = new string(' ', depth * 2) + disclosure + _Label(node);
 
                 bool selected = index == _Selected;
-                CellStyle style = selected ? HighlightStyle : (index == _HoverIndex ? HoverStyle : CellStyle.Default);
+                CellStyle style = selected ? HighlightStyle : (index == _HoverIndex ? HoverStyle.Over(NormalStyle) : NormalStyle);
                 if (selected)
                     surface.Fill(new Rect(0, row, width, 1), Cell.Blank(style));
 
