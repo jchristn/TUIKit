@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.2] - 2026-09-10
+## [0.10.3] - 2026-09-10
+
+Corrected package for the configurable-widget-styles release. **0.10.2 was published with a stale
+assembly** — its `TUIKit.dll` was the 0.10.1 binary and did not contain the new APIs (`pack` reused
+an out-of-date Release build). 0.10.3 is that same source rebuilt cleanly and repackaged; the packed
+assembly was verified to report `AssemblyVersion 0.10.3.0` and to contain the new members before
+publishing. **0.10.2 has been unlisted; use 0.10.3.** No source changes from the intended 0.10.2 —
+the feature set below is unchanged.
+
+## [0.10.2] - 2026-09-10 [UNLISTED]
+
+> **Unlisted:** this package shipped a stale `TUIKit.dll` (the 0.10.1 binary) and does not contain
+> the APIs described below. Superseded by [0.10.3](#0103---2026-09-10).
 
 Developer-configurable widget styles. Several widgets previously hardcoded their colors — a fixed
 palette for selection, borders, scrollbars, diff lines, menu chrome, and, most visibly, no way to
