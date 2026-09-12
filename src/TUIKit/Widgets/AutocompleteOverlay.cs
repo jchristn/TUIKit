@@ -14,11 +14,16 @@ namespace TUIKit.Widgets
     /// content with <see cref="RenderAt"/>, which flips the list above the caret when there is no room
     /// below.
     /// </summary>
-    public sealed class AutocompleteOverlay
+    public sealed class AutocompleteOverlay : IMouseAware
     {
         private readonly ISuggestionProvider _Provider;
         private readonly List<string> _Suggestions = new List<string>();
         private int _Selected;
+        private int _LastTop;
+        private int _LastAnchorX;
+        private int _LastWidth;
+        private int _LastRows;
+        private int _LastFirst;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AutocompleteOverlay"/> class.
@@ -205,6 +210,12 @@ namespace TUIKit.Widgets
             if (_Selected >= rows)
                 first = _Selected - rows + 1;
 
+            _LastTop = top;
+            _LastAnchorX = anchorX;
+            _LastWidth = width;
+            _LastRows = rows;
+            _LastFirst = first;
+
             for (int row = 0; row < rows; row++)
             {
                 int index = first + row;
@@ -217,6 +228,49 @@ namespace TUIKit.Widgets
                 surface.Fill(new Rect(anchorX, y, width, 1), Cell.Blank(style));
                 surface.DrawText(anchorX, y, Fit(_Suggestions[index], width), style);
             }
+        }
+
+        /// <summary>
+        /// Selects the suggestion under the pointer on a left press within the rendered dropdown, and moves the
+        /// selection one row per wheel notch (wrapping). Coordinates are in the host surface's space, since the
+        /// overlay draws itself at an anchor rather than filling a region.
+        /// </summary>
+        /// <param name="mouse">The mouse event. Must not be null.</param>
+        /// <returns><c>true</c> when the event changed the selection; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            if (_Suggestions.Count == 0)
+                return false;
+
+            if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left
+                && mouse.X >= _LastAnchorX && mouse.X < _LastAnchorX + _LastWidth
+                && mouse.Y >= _LastTop && mouse.Y < _LastTop + _LastRows)
+            {
+                int index = _LastFirst + (mouse.Y - _LastTop);
+                if (index >= 0 && index < _Suggestions.Count)
+                {
+                    _Selected = index;
+                    return true;
+                }
+            }
+
+            if (mouse.Kind == MouseEventKind.Wheel && mouse.Button == MouseButton.WheelUp)
+            {
+                _Selected = _Selected > 0 ? _Selected - 1 : _Suggestions.Count - 1;
+                return true;
+            }
+
+            if (mouse.Kind == MouseEventKind.Wheel && mouse.Button == MouseButton.WheelDown)
+            {
+                _Selected = (_Selected + 1) % _Suggestions.Count;
+                return true;
+            }
+
+            return false;
         }
 
         private static string Fit(string text, int maxWidth)

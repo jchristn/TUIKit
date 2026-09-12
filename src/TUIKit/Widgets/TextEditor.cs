@@ -11,7 +11,7 @@ namespace TUIKit.Widgets
     /// a kill ring, and undo/redo. Drive it by forwarding key events to <see cref="HandleKey"/>. This
     /// is the interactive composer in the example harness.
     /// </summary>
-    public sealed class TextEditor : IWidget, IFocusable, IFocusAware
+    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware
     {
         private readonly List<string> _Lines = new List<string> { string.Empty };
         private readonly Stack<EditorSnapshot> _Undo = new Stack<EditorSnapshot>();
@@ -20,6 +20,11 @@ namespace TUIKit.Widgets
         private int _Column;
         private string _KillRing = string.Empty;
         private int _MaxUndo = 200;
+
+        // The first visible line index and viewport height captured on the last render, so a click can map a
+        // screen row back to a text row.
+        private int _LastTop;
+        private int _LastHeight = 1;
 
         /// <summary>
         /// Gets or sets a value indicating whether the editor is focused and should render a caret.
@@ -417,6 +422,45 @@ namespace TUIKit.Widgets
             }
         }
 
+        /// <summary>
+        /// Positions the caret at the clicked row and column on a left press (mapping the screen row through
+        /// the current scroll offset), and scrolls the caret one line per wheel notch. Coordinates are
+        /// widget-local. Other mouse events are not consumed.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when the event moved the caret; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
+            {
+                int row = Math.Max(0, Math.Min(_LastTop + mouse.Y, _Lines.Count - 1));
+                _Row = row;
+                _Column = Math.Max(0, Math.Min(mouse.X, _Lines[row].Length));
+                return true;
+            }
+
+            if (mouse.Kind == MouseEventKind.Wheel)
+            {
+                if (mouse.Button == MouseButton.WheelUp)
+                {
+                    MoveUp();
+                    return true;
+                }
+
+                if (mouse.Button == MouseButton.WheelDown)
+                {
+                    MoveDown();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <inheritdoc/>
         public Size Measure(Size available)
         {
@@ -436,6 +480,9 @@ namespace TUIKit.Widgets
             int top = 0;
             if (_Row >= height)
                 top = _Row - height + 1;
+
+            _LastTop = top;
+            _LastHeight = height;
 
             for (int row = 0; row < height && top + row < _Lines.Count; row++)
                 surface.DrawText(0, row, _Lines[top + row], NormalStyle);

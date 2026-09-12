@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-12
+
+Mouse everywhere. 0.11.0 let modals receive the mouse; this release completes the pointer story across the
+**widget** set — every widget that was keyboard-navigable is now also mouse-aware, so a host that routes the
+mouse (region-bound widgets, and modals via 0.11.0) gets click, select, and wheel behavior for free.
+
+### Added
+- **`IMouseAware` on the remaining interactive widgets.** New implementations, each additive:
+  - **`TextField`** / **`TextEditor`** — a left click places the caret at the clicked column (and row); the
+    editor also scrolls on the wheel.
+  - **`RadioGroup`** — click an option to select it; the wheel steps the selection.
+  - **`Form`** — a left click focuses the field under the pointer and forwards the event, translated into the
+    field's local coordinates, to that field's widget when it is itself mouse-aware.
+  - **`CheckList<T>`** / **`CheckTree<T>`** — click selects a row and toggles its check (tri-state for the tree).
+  - **`DataTable<T>`**, **`FuzzyList<T>`**, **`KeyBindingEditor`**, **`FileBrowser`** — click selects the row
+    under the pointer; the wheel steps the selection.
+  - **`ActionListView<T>`** / **`ReorderableList<T>`** — forward to their inner list.
+  - **`Collapsible`** — click the header to expand/collapse; clicks in the body forward to the child.
+  - **`ColorPicker`** — click a channel row to select it and set its value from the horizontal click position.
+  - **`SplitView`** — routes a click to the pane under the pointer, forwarding it in that pane's local
+    coordinates.
+  - **`AutocompleteOverlay`** — click a suggestion to select it.
+- A **Clickable form** guided-tour page demonstrating click-to-focus fields plus radio and checkbox selection.
+- 9 new Touchstone cases in a new `WidgetMouseCoverage` suite (545 total across console/xUnit/NUnit on
+  net8.0/net10.0).
+
+Additive and fully backward compatible: these are new interface implementations and methods only. Every widget
+renders and behaves exactly as before until a host forwards a mouse event, and every keyboard path is unchanged.
+
 ## [0.11.0] - 2026-09-12
 
 Clickable modals. The mouse layer previously routed only to region-bound `IMouseAware` widgets; a modal

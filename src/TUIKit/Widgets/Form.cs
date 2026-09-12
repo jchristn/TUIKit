@@ -13,12 +13,13 @@ namespace TUIKit.Widgets
     /// <see cref="IScrollExtent"/>, so placing it inside a <see cref="ScrollView"/> scrolls the focused
     /// field into view automatically when the form is taller than the viewport.
     /// </summary>
-    public sealed class Form : IWidget, IFocusable, IScrollExtent
+    public sealed class Form : IWidget, IFocusable, IScrollExtent, IMouseAware
     {
         private readonly List<FormField> _Fields = new List<FormField>();
         private readonly FocusManager _Focus = new FocusManager();
         private readonly List<int> _FieldTops = new List<int>();
         private readonly List<int> _FieldHeights = new List<int>();
+        private readonly List<Rect> _FieldWidgetRects = new List<Rect>();
         private int _ContentHeight;
         private int _ContentWidth;
 
@@ -70,6 +71,7 @@ namespace TUIKit.Widgets
             _Focus.Clear();
             _FieldTops.Clear();
             _FieldHeights.Clear();
+            _FieldWidgetRects.Clear();
             _ContentHeight = 0;
         }
 
@@ -133,6 +135,43 @@ namespace TUIKit.Widgets
             return _Focus.HandleKey(key);
         }
 
+        /// <summary>
+        /// Routes a mouse event to the field under the pointer: a left press focuses that field, and the event
+        /// is then forwarded (in field-widget-local coordinates) to the field's widget when it is itself
+        /// mouse-aware — so a click lands the caret in the right text field, toggles the right checkbox, and so
+        /// on. Coordinates are form-local. Returns false when no field is under the pointer.
+        /// </summary>
+        /// <param name="mouse">The mouse event in form-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when a field consumed the event; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            for (int i = 0; i < _FieldTops.Count; i++)
+            {
+                if (mouse.Y < _FieldTops[i] || mouse.Y >= _FieldTops[i] + _FieldHeights[i])
+                    continue;
+
+                if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
+                    _Focus.SetFocus(i);
+
+                if (i < _FieldWidgetRects.Count && _Fields[i].Widget is IMouseAware aware)
+                {
+                    Rect wr = _FieldWidgetRects[i];
+                    if (mouse.X >= wr.X && mouse.X < wr.X + wr.Width && mouse.Y >= wr.Y && mouse.Y < wr.Y + wr.Height)
+                    {
+                        aware.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, mouse.X - wr.X, mouse.Y - wr.Y, mouse.Modifiers, mouse.ClickCount));
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
         /// <inheritdoc/>
         public Size Measure(Size available)
         {
@@ -153,6 +192,7 @@ namespace TUIKit.Widgets
             BufferSurface? buffer = surface as BufferSurface;
             _FieldTops.Clear();
             _FieldHeights.Clear();
+            _FieldWidgetRects.Clear();
             _ContentWidth = width;
             int y = 0;
             for (int i = 0; i < _Fields.Count && y < height; i++)
@@ -165,12 +205,14 @@ namespace TUIKit.Widgets
                 y++;
 
                 int fieldHeight = Math.Max(1, field.Widget.Measure(new Size(width - 2, height - y)).Height);
+                Rect widgetRect = new Rect(2, y, width - 2, Math.Min(fieldHeight, height - y));
                 if (buffer != null && y < height)
-                    field.Widget.Render(buffer.CreateView(new Rect(2, y, width - 2, Math.Min(fieldHeight, height - y))));
+                    field.Widget.Render(buffer.CreateView(widgetRect));
 
                 y += fieldHeight + 1;
                 _FieldTops.Add(blockTop);
                 _FieldHeights.Add(Math.Max(1, y - blockTop));
+                _FieldWidgetRects.Add(widgetRect);
             }
 
             _ContentHeight = y;

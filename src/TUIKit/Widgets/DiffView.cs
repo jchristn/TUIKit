@@ -11,7 +11,7 @@ namespace TUIKit.Widgets
     /// and unchanged context lines optionally syntax-highlighted. The line diff is computed with a
     /// longest-common-subsequence match. Up/Down scroll when the diff is taller than the region.
     /// </summary>
-    public sealed class DiffView : IWidget, IFocusable
+    public sealed class DiffView : IWidget, IFocusable, IMouseAware
     {
         private readonly List<DiffLine> _Lines = new List<DiffLine>();
         private int _Top;
@@ -114,6 +114,33 @@ namespace TUIKit.Widgets
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Scrolls the diff one line per wheel notch. Coordinates are widget-local. Other mouse events are not
+        /// consumed.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when the wheel scrolled the view; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            if (mouse.Kind == MouseEventKind.Wheel && mouse.Button == MouseButton.WheelUp)
+            {
+                _Top = Math.Max(0, _Top - 1);
+                return true;
+            }
+
+            if (mouse.Kind == MouseEventKind.Wheel && mouse.Button == MouseButton.WheelDown)
+            {
+                _Top = Math.Min(Math.Max(0, _Lines.Count - 1), _Top + 1);
+                return true;
+            }
+
+            return false;
         }
 
         /// <inheritdoc/>

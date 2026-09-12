@@ -12,7 +12,7 @@ namespace TUIKit.Widgets
     /// <see cref="Order"/>, and <see cref="Reordered"/> / <see cref="Removed"/> report changes.
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
-    public sealed class ReorderableList<T> : IWidget, IFocusable, IFocusAware
+    public sealed class ReorderableList<T> : IWidget, IFocusable, IFocusAware, IMouseAware
     {
         private readonly ListView<T> _List;
         private readonly List<T> _Items = new List<T>();
@@ -143,6 +143,21 @@ namespace TUIKit.Widgets
                 return RemoveSelected();
 
             return _List.HandleKey(key);
+        }
+
+        /// <summary>
+        /// Forwards the mouse event to the underlying list (in the same coordinate space), so a click selects
+        /// the row under the pointer and the wheel scrolls.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when the list consumed the event; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            return _List.HandleMouse(mouse);
         }
 
         /// <inheritdoc/>

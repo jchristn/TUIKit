@@ -11,10 +11,12 @@ namespace TUIKit.Widgets
     /// giving resizable panes. Because a child may itself be a <see cref="SplitView"/>, arbitrarily
     /// nested layouts compose from this one widget.
     /// </summary>
-    public sealed class SplitView : IWidget, IFocusable
+    public sealed class SplitView : IWidget, IFocusable, IMouseAware
     {
         private readonly IWidget _First;
         private readonly IWidget _Second;
+        private int _LastFirstExtent;
+        private int _LastDivider;
         private double _Ratio;
         private double _MinRatio = 0.1;
         private double _MaxRatio = 0.9;
@@ -144,18 +146,22 @@ namespace TUIKit.Widgets
                 return;
 
             int divider = ShowDivider ? 1 : 0;
+            _LastDivider = divider;
 
             if (Orientation == SplitOrientation.Horizontal)
             {
                 int usable = width - divider;
                 if (usable < 2)
                 {
+                    _LastFirstExtent = width;
+                    _LastDivider = 0;
                     _First.Render(surface);
                     return;
                 }
 
                 int firstWidth = Clamp(usable, (int)Math.Round(_Ratio * usable));
                 int secondWidth = usable - firstWidth;
+                _LastFirstExtent = firstWidth;
 
                 _First.Render(new SurfaceView(surface, new Rect(0, 0, firstWidth, height)));
                 if (divider > 0)
@@ -167,18 +173,61 @@ namespace TUIKit.Widgets
                 int usable = height - divider;
                 if (usable < 2)
                 {
+                    _LastFirstExtent = height;
+                    _LastDivider = 0;
                     _First.Render(surface);
                     return;
                 }
 
                 int firstHeight = Clamp(usable, (int)Math.Round(_Ratio * usable));
                 int secondHeight = usable - firstHeight;
+                _LastFirstExtent = firstHeight;
 
                 _First.Render(new SurfaceView(surface, new Rect(0, 0, width, firstHeight)));
                 if (divider > 0)
                     surface.Fill(new Rect(0, firstHeight, width, 1), Cell.Glyph("─", CellStyle.Default.WithForeground(Color.FromPalette(8)), 1));
                 _Second.Render(new SurfaceView(surface, new Rect(0, firstHeight + divider, width, secondHeight)));
             }
+        }
+
+        /// <summary>
+        /// Routes the mouse to the pane under the pointer, forwarding it (in that pane's local coordinates) to
+        /// the child when the child is itself mouse-aware. A click on the divider is ignored. Coordinates are
+        /// widget-local.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when a pane consumed the event; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            int secondStart = _LastFirstExtent + _LastDivider;
+            if (Orientation == SplitOrientation.Horizontal)
+            {
+                if (mouse.X < _LastFirstExtent)
+                    return ForwardTo(_First, mouse, mouse.X, mouse.Y);
+                if (mouse.X >= secondStart)
+                    return ForwardTo(_Second, mouse, mouse.X - secondStart, mouse.Y);
+            }
+            else
+            {
+                if (mouse.Y < _LastFirstExtent)
+                    return ForwardTo(_First, mouse, mouse.X, mouse.Y);
+                if (mouse.Y >= secondStart)
+                    return ForwardTo(_Second, mouse, mouse.X, mouse.Y - secondStart);
+            }
+
+            return false;
+        }
+
+        private static bool ForwardTo(IWidget child, MouseEvent mouse, int localX, int localY)
+        {
+            if (child is IMouseAware aware)
+                return aware.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, localX, localY, mouse.Modifiers, mouse.ClickCount));
+
+            return false;
         }
 
         private double Clamp(double ratio)

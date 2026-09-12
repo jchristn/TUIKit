@@ -14,7 +14,7 @@ namespace TUIKit.Widgets
     /// built-in "activate" action.
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
-    public sealed class ActionListView<T> : IWidget, IFocusable, IFocusAware
+    public sealed class ActionListView<T> : IWidget, IFocusable, IFocusAware, IMouseAware
     {
         /// <summary>
         /// The identifier of the built-in activate action bound to Enter.
@@ -148,6 +148,21 @@ namespace TUIKit.Widgets
             }
 
             return _List.HandleKey(key);
+        }
+
+        /// <summary>
+        /// Forwards the mouse event to the underlying list (in the same coordinate space), so a click selects
+        /// the row under the pointer and the wheel scrolls.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when the list consumed the event; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            return _List.HandleMouse(mouse);
         }
 
         /// <inheritdoc/>

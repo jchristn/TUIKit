@@ -854,9 +854,27 @@ namespace TUIKit.Example
                     "  } }"
                 }));
 
+            Form clickForm = new Form();
+            clickForm.Add("Name", new TextField { Value = "my-endpoint" });
+            clickForm.Add("Transport", new RadioGroup(new[] { "stdio", "http" }));
+            clickForm.Add("Options", new CheckList<string>(new[] { "auto-approve", "show thinking", "stream" }));
+            pages.Add(new TourPage(
+                "Clickable form",
+                "Every input widget is now [bold]mouse-aware[/]: click a field to focus it and drop the caret at the click, click a [bold]radio[/] option or a [bold]checkbox[/] row to choose it, and the wheel scrolls lists. The keyboard still works everywhere — the mouse is purely additive.",
+                clickForm,
+                new[]
+                {
+                    "var form = new Form();",
+                    "form.Add(\"Name\", new TextField());",
+                    "form.Add(\"Transport\",",
+                    "  new RadioGroup(new[]{\"stdio\",\"http\"}));",
+                    "// Form routes a click to the field",
+                    "// under it and forwards to the widget"
+                }));
+
             pages.Add(new TourPage(
                 "Fuzzy finder",
-                "[bold]FuzzyList[/] filters as you type. Type letters; [bold]Backspace[/] edits.",
+                "[bold]FuzzyList[/] filters as you type. Type letters; [bold]Backspace[/] edits. Click a result to select it.",
                 new FuzzyList<string>(new[] { "apple", "apricot", "banana", "grape", "grapefruit", "mango" }),
                 new[]
                 {

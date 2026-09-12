@@ -7,7 +7,7 @@ namespace TUIKit.Widgets
     /// <summary>
     /// A single-line text input widget with a caret, suitable for modal forms.
     /// </summary>
-    public sealed class TextField : IWidget, IFocusable, IFocusAware
+    public sealed class TextField : IWidget, IFocusable, IFocusAware, IMouseAware
     {
         private string _Value = string.Empty;
         private int _Caret;
@@ -147,6 +147,28 @@ namespace TUIKit.Widgets
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Positions the caret at the clicked column on a left press. The value renders from column 0, so the
+        /// click column maps directly to a caret index (clamped to the value length). Other mouse events are
+        /// not consumed.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when a left press positioned the caret; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
+            {
+                _Caret = Math.Max(0, Math.Min(mouse.X, _Value.Length));
+                return true;
+            }
+
+            return false;
         }
 
         /// <inheritdoc/>

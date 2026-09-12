@@ -13,7 +13,7 @@ namespace TUIKit.Widgets
     /// <typeparamref name="T"/> is <see cref="string"/>).
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
-    public sealed class CheckList<T> : IWidget, IFocusable, IFocusAware
+    public sealed class CheckList<T> : IWidget, IFocusable, IFocusAware, IMouseAware
     {
         private readonly List<T> _Items = new List<T>();
         private readonly List<bool> _Checked = new List<bool>();
@@ -249,6 +249,53 @@ namespace TUIKit.Widgets
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Selects the row under the pointer on a left press (and toggles it where the widget is a check
+        /// widget), and moves the selection one row per wheel notch. Coordinates are widget-local.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when the event changed the selection; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            int count = _Items.Count;
+            if (count == 0)
+                return false;
+
+            if (mouse.Kind == MouseEventKind.Wheel)
+            {
+                if (mouse.Button == MouseButton.WheelUp)
+                {
+                    _Selected = Math.Max(0, _Selected - 1);
+                    return true;
+                }
+
+                if (mouse.Button == MouseButton.WheelDown)
+                {
+                    _Selected = Math.Min(count - 1, _Selected + 1);
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
+            {
+                int index = _Top + (mouse.Y);
+                if (index >= 0 && index < count)
+                {
+                    _Selected = index;
+                    _Checked[index] = !_Checked[index];
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <inheritdoc/>

@@ -8,7 +8,7 @@ namespace TUIKit.Widgets
     /// A vertical group of mutually exclusive options. Up/Down change the selection and Home/End jump
     /// to the first and last option.
     /// </summary>
-    public sealed class RadioGroup : IWidget, IFocusable
+    public sealed class RadioGroup : IWidget, IFocusable, IMouseAware
     {
         private readonly string[] _Options;
         private int _Selected;
@@ -83,6 +83,39 @@ namespace TUIKit.Widgets
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Selects the clicked option on a left press (each option occupies one row) and moves the selection
+        /// one option per wheel notch. Coordinates are widget-local. Other mouse events are not consumed.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when the event changed the selection; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left && mouse.Y >= 0 && mouse.Y < _Options.Length)
+            {
+                _Selected = mouse.Y;
+                return true;
+            }
+
+            if (mouse.Kind == MouseEventKind.Wheel && mouse.Button == MouseButton.WheelUp)
+            {
+                _Selected = Math.Max(0, _Selected - 1);
+                return true;
+            }
+
+            if (mouse.Kind == MouseEventKind.Wheel && mouse.Button == MouseButton.WheelDown)
+            {
+                _Selected = Math.Min(_Options.Length - 1, _Selected + 1);
+                return true;
+            }
+
+            return false;
         }
 
         /// <inheritdoc/>

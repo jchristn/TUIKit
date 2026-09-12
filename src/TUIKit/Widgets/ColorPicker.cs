@@ -11,10 +11,11 @@ namespace TUIKit.Widgets
     /// select a channel, Left/Right nudge it, PageUp/PageDown jump by sixteen, and Home/End snap to
     /// the extremes. Read <see cref="Value"/> for the chosen color.
     /// </summary>
-    public sealed class ColorPicker : IWidget, IFocusable
+    public sealed class ColorPicker : IWidget, IFocusable, IMouseAware
     {
         private readonly int[] _Channels = new int[3];
         private int _Active;
+        private int _LastWidth;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorPicker"/> class.
@@ -93,6 +94,34 @@ namespace TUIKit.Widgets
             }
         }
 
+        /// <summary>
+        /// On a left press, selects the R/G/B channel row under the pointer and sets that channel's value from
+        /// the horizontal click position within its bar. Coordinates are widget-local.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when the press changed the active channel or its value; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            if (mouse.Kind != MouseEventKind.Press || mouse.Button != MouseButton.Left || mouse.Y < 0 || mouse.Y > 2)
+                return false;
+
+            _Active = mouse.Y;
+
+            const int barStart = 3;
+            int barWidth = _LastWidth - barStart - 4 - 1;
+            if (barWidth > 0 && mouse.X >= barStart && mouse.X < barStart + barWidth)
+            {
+                double fraction = (mouse.X - barStart) / (double)(barWidth - 1 <= 0 ? 1 : barWidth - 1);
+                _Channels[_Active] = Math.Max(0, Math.Min((int)Math.Round(fraction * 255.0), 255));
+            }
+
+            return true;
+        }
+
         /// <inheritdoc/>
         public Size Measure(Size available)
         {
@@ -110,6 +139,7 @@ namespace TUIKit.Widgets
             if (width <= 0 || height <= 0)
                 return;
 
+            _LastWidth = width;
             string[] labels = { "R", "G", "B" };
             byte[] hues = { 1, 2, 4 };
 

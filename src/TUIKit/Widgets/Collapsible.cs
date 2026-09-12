@@ -8,7 +8,7 @@ namespace TUIKit.Widgets
     /// A header line that expands or collapses a child widget. Useful for tool-call output, log
     /// groups, and detail blocks that should be scannable when collapsed. Enter or Space toggles it.
     /// </summary>
-    public sealed class Collapsible : IWidget, IFocusable
+    public sealed class Collapsible : IWidget, IFocusable, IMouseAware
     {
         private readonly string _Header;
         private readonly IWidget _Child;
@@ -54,6 +54,37 @@ namespace TUIKit.Widgets
             {
                 Toggle();
                 return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Toggles the section when the header row is left-clicked; when expanded, forwards clicks in the child
+        /// region to the child widget if it is itself mouse-aware. Coordinates are widget-local.
+        /// </summary>
+        /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
+        /// <returns><c>true</c> when the event was consumed; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            if (mouse.Y == 0)
+            {
+                if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
+                {
+                    Toggle();
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (Expanded && mouse.Y >= 1 && _Child is IMouseAware aware)
+            {
+                return aware.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, mouse.X, mouse.Y - 1, mouse.Modifiers, mouse.ClickCount));
             }
 
             return false;
