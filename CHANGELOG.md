@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-12
+
+Clickable modals. The mouse layer previously routed only to region-bound `IMouseAware` widgets; a modal
+dialog received keys but never the pointer, so modal-heavy apps could not be driven by clicking. This
+release adds a mouse hook to the modal layer.
+
+### Added
+- **`Modal.HandleMouse(MouseEvent)`** — a virtual (default no-op, returns `false`) that receives presses,
+  releases, wheel, and hover in **absolute screen coordinates**. A modal renders into a full-screen surface
+  and draws its own centered box, so it hit-tests clicks against the same geometry it computed in `Render`.
+- **`ModalStack.HandleMouse(MouseEvent)`** — routes a mouse event to the topmost modal and prunes it if the
+  click closed it, mirroring `HandleKey`/`HandlePaste`.
+
+### Changed
+- **The host traps the mouse to the active modal.** While a modal is active, `TuiApplication` offers each
+  mouse event to `ModalStack.HandleMouse` before any region-bound widget and consumes it there, mirroring the
+  existing key trap — so clicks land on the dialog and never leak to the interface behind it.
+
+Additive and fully backward compatible: the new virtual defaults to unconsumed, so existing modals render and
+behave identically until they override it. 4 new Touchstone cases across a new `ModalMouseRouting` suite
+(536 total across console/xUnit/NUnit on net8.0/net10.0).
+
 ## [0.10.3] - 2026-09-10
 
 Corrected package for the configurable-widget-styles release. **0.10.2 was published with a stale

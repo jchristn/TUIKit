@@ -75,6 +75,21 @@ namespace TUIKit.Modals
         }
 
         /// <summary>
+        /// Handles a mouse event while the modal holds focus. Coordinates are absolute screen cells: the
+        /// modal renders into a full-screen surface and draws its own centered box, so it hit-tests clicks
+        /// against the same geometry it computed in <see cref="Render"/>. The default implementation does
+        /// nothing and reports the event as unconsumed; modals override this to make their rows, buttons, or
+        /// key hints clickable. While a modal is active the host offers it the mouse before any region-bound
+        /// widget, so clicks land on the dialog rather than the interface behind it.
+        /// </summary>
+        /// <param name="mouse">The mouse event, in absolute screen coordinates. Never null.</param>
+        /// <returns><c>true</c> when the event was consumed; otherwise <c>false</c>.</returns>
+        public virtual bool HandleMouse(MouseEvent mouse)
+        {
+            return false;
+        }
+
+        /// <summary>
         /// Requests a close from outside (for example Escape). Honors <see cref="CanClose"/>.
         /// </summary>
         /// <param name="result">The result to complete with when the close is allowed.</param>

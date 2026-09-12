@@ -99,6 +99,25 @@ namespace TUIKit.Modals
         }
 
         /// <summary>
+        /// Routes a mouse event to the topmost modal.
+        /// </summary>
+        /// <param name="mouse">The mouse event, in absolute screen coordinates.</param>
+        /// <returns><c>true</c> when a modal consumed the event; otherwise <c>false</c>.</returns>
+        public bool HandleMouse(MouseEvent mouse)
+        {
+            Modal? top;
+            lock (_Sync)
+                top = _Modals.Count > 0 ? _Modals[_Modals.Count - 1] : null;
+
+            if (top == null)
+                return false;
+
+            bool handled = top.HandleMouse(mouse);
+            RemoveClosed();
+            return handled;
+        }
+
+        /// <summary>
         /// Removes modals that have closed, from the top down.
         /// </summary>
         public void RemoveClosed()

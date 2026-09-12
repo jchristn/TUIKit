@@ -1238,6 +1238,15 @@ namespace TUIKit.Hosting
 
             UpdateLinkHover(mouse);
 
+            // Modal trap: while a modal is active it receives the mouse before any region-bound widget,
+            // mirroring the key trap above, so clicks land on the dialog and never leak to the interface
+            // behind it. The event is consumed here whether or not the modal acts on it.
+            if (_Modals.IsActive)
+            {
+                _Modals.HandleMouse(mouse);
+                return;
+            }
+
             if (_EnableMouseRouting && RouteMouse(mouse))
                 return;
 

@@ -88,7 +88,8 @@ namespace Test.Shared
                     MouseProtocolNegativeSuite.Suite(),
                     MouseHoverRoutingSuite.Suite(),
                     MouseClickSynthesisSuite.Suite(),
-                    MouseWidgetSuite.Suite()
+                    MouseWidgetSuite.Suite(),
+                    ModalMouseRoutingSuite.Suite()
                 };
             }
         }
