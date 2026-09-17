@@ -746,7 +746,7 @@ namespace TUIKit.Example
             distribution.Add("ttft", 12, 30, 44, 120, 240);
             distribution.Add("stream", 40, 90, 140, 320, 600);
             pages.Add(new TourPage(
-                "Box plot (distribution)",
+                "Box plot (horizontal)",
                 "[bold]BoxPlotChart[/] renders a five-number summary per row — whiskers, box, and a mid marker — on a shared axis. The five numbers are caller-supplied (here min / avg / p95 / p99 / max).",
                 distribution,
                 new[]
@@ -755,6 +755,24 @@ namespace TUIKit.Example
                     "  .Add(\"latency\", 8, 21, 34, 96, 180)",
                     "  .Add(\"ttft\", 12, 30, 44, 120, 240);",
                     "// min, low, mid, high, max per row"
+                }));
+
+            BoxPlotChart verticalDistribution = new BoxPlotChart();
+            verticalDistribution.Orientation = BoxPlotOrientation.Vertical;
+            verticalDistribution.ShowValues = true;
+            verticalDistribution.Add("latency", 8, 21, 34, 96, 180);
+            verticalDistribution.Add("ttft", 12, 30, 44, 120, 240);
+            verticalDistribution.Add("stream", 40, 90, 140, 320, 600);
+            pages.Add(new TourPage(
+                "Box plot (vertical)",
+                "[bold]BoxPlotChart[/] with [bold]Orientation = Vertical[/] draws the same five-number summary as columns — vertical whiskers and box, a horizontal mid marker, a category label under each column, and the shared scale in a left gutter.",
+                verticalDistribution,
+                new[]
+                {
+                    "BoxPlotChart c = new BoxPlotChart();",
+                    "c.Orientation = BoxPlotOrientation.Vertical;",
+                    "c.Add(\"latency\", 8, 21, 34, 96, 180);",
+                    "// one column per summary"
                 }));
 
             double[] samples = new double[240];

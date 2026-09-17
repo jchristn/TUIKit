@@ -150,6 +150,86 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("DistributionCharts", "BoxPlotVerticalScales", "Vertical box height scales with value",
+                        _ =>
+                        {
+                            BoxPlotChart chart = new BoxPlotChart();
+                            chart.Orientation = BoxPlotOrientation.Vertical;
+                            chart.ShowAxis = false;
+                            chart.Add("a", 0, 10, 20, 30, 100);
+                            chart.Add("b", 0, 10, 20, 90, 100);
+
+                            CellBuffer buffer = new CellBuffer(20, 12);
+                            chart.Render(new BufferSurface(buffer));
+
+                            // Two columns split the width; the left half is 'a', the right half is 'b'.
+                            int half = buffer.Width / 2;
+                            int topA = TopGlyphRow(buffer, 0, half, "█");
+                            int topB = TopGlyphRow(buffer, half, buffer.Width, "█");
+                            Check.True(topA >= 0 && topB >= 0, "both columns drew a box");
+                            Check.True(topB < topA, "a larger High pushes the box top higher (smaller row index)");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("DistributionCharts", "BoxPlotVerticalMidMarker", "Vertical mid marker sits between the box edges",
+                        _ =>
+                        {
+                            BoxPlotChart chart = new BoxPlotChart();
+                            chart.Orientation = BoxPlotOrientation.Vertical;
+                            chart.ShowAxis = false;
+                            chart.Add("row", 0, 20, 50, 80, 100);
+
+                            CellBuffer buffer = new CellBuffer(9, 12);
+                            chart.Render(new BufferSurface(buffer));
+
+                            int topBox = TopGlyphRow(buffer, 0, buffer.Width, "█");
+                            int bottomBox = BottomGlyphRow(buffer, 0, buffer.Width, "█");
+                            int mid = TopGlyphRow(buffer, 0, buffer.Width, "━");
+                            Check.True(topBox >= 0 && mid >= 0, "box and mid marker drawn");
+                            Check.True(mid >= topBox && mid <= bottomBox, "mid marker lies within the box span");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("DistributionCharts", "BoxPlotVerticalDegenerate", "Vertical all-equal summary renders one marker and no whiskers",
+                        _ =>
+                        {
+                            BoxPlotChart chart = new BoxPlotChart();
+                            chart.Orientation = BoxPlotOrientation.Vertical;
+                            chart.ShowAxis = false;
+                            chart.Add("flat", 5, 5, 5, 5, 5);
+
+                            CellBuffer buffer = new CellBuffer(9, 8);
+                            chart.Render(new BufferSurface(buffer));
+
+                            Check.Equal(1, CountGlyphAll(buffer, "━"), "exactly one mid marker");
+                            Check.Equal(0, CountGlyphAll(buffer, "│"), "no whiskers");
+                            Check.Equal(0, CountGlyphAll(buffer, "█"), "no box");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("DistributionCharts", "BoxPlotVerticalAxisLabels", "Vertical axis gutter offsets the plot and prints ticks and labels",
+                        _ =>
+                        {
+                            BoxPlotChart chart = new BoxPlotChart();
+                            chart.Orientation = BoxPlotOrientation.Vertical;
+                            chart.ShowAxis = true;
+                            chart.Add("cat", 0, 10, 20, 30, 40);
+                            chart.SetRange(0, 40);
+
+                            CellBuffer buffer = new CellBuffer(14, 10);
+                            chart.Render(new BufferSurface(buffer));
+
+                            // The scale axis line sits in the left gutter, so the box is pushed right of column 0.
+                            int boxCol = FirstGlyphColAnyRow(buffer, "█");
+                            Check.True(boxCol > 0, "the box is offset right of the axis gutter");
+                            Check.True(CountGlyphAll(buffer, "│") > 0, "the vertical axis line is drawn");
+
+                            // The maximum tick is on the top plot row; the category label is on the bottom row.
+                            Check.True(RowText(buffer, 0).Contains("40"), "max tick prints at the top of the gutter");
+                            Check.True(RowText(buffer, buffer.Height - 1).Contains("cat"), "category label prints on the bottom row");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("DistributionCharts", "HistogramBucketSum", "Bucket counts sum to the sample count",
                         _ =>
                         {
@@ -333,6 +413,75 @@ namespace Test.Shared.Suites
             }
 
             return count;
+        }
+
+        private static int CountGlyphAll(CellBuffer buffer, string glyph)
+        {
+            int count = 0;
+            for (int y = 0; y < buffer.Height; y++)
+            {
+                for (int x = 0; x < buffer.Width; x++)
+                {
+                    if (buffer.Get(x, y).Grapheme == glyph)
+                        count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int TopGlyphRow(CellBuffer buffer, int xStart, int xEnd, string glyph)
+        {
+            for (int y = 0; y < buffer.Height; y++)
+            {
+                for (int x = xStart; x < xEnd; x++)
+                {
+                    if (buffer.Get(x, y).Grapheme == glyph)
+                        return y;
+                }
+            }
+
+            return -1;
+        }
+
+        private static int BottomGlyphRow(CellBuffer buffer, int xStart, int xEnd, string glyph)
+        {
+            for (int y = buffer.Height - 1; y >= 0; y--)
+            {
+                for (int x = xStart; x < xEnd; x++)
+                {
+                    if (buffer.Get(x, y).Grapheme == glyph)
+                        return y;
+                }
+            }
+
+            return -1;
+        }
+
+        private static int FirstGlyphColAnyRow(CellBuffer buffer, string glyph)
+        {
+            for (int x = 0; x < buffer.Width; x++)
+            {
+                for (int y = 0; y < buffer.Height; y++)
+                {
+                    if (buffer.Get(x, y).Grapheme == glyph)
+                        return x;
+                }
+            }
+
+            return -1;
+        }
+
+        private static string RowText(CellBuffer buffer, int row)
+        {
+            System.Text.StringBuilder builder = new System.Text.StringBuilder(buffer.Width);
+            for (int x = 0; x < buffer.Width; x++)
+            {
+                string g = buffer.Get(x, row).Grapheme;
+                builder.Append(string.IsNullOrEmpty(g) ? " " : g);
+            }
+
+            return builder.ToString();
         }
     }
 }
