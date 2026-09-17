@@ -189,6 +189,33 @@ namespace Test.Shared.Suites
                             pane.SetSearch(null);
                             Check.False(pane.FindNext(), "cleared search finds nothing");
                             return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("InputWidget", "EditorWordWrapRenders", "Word wrap splits a long line across rows and reports the visual count",
+                        _ =>
+                        {
+                            TextEditor editor = new TextEditor { WordWrap = true };
+                            editor.Text = "the quick brown fox jumps";
+                            Check.Equal(3, editor.VisualLineCount(10), "the line wraps into three visual rows at width 10");
+
+                            CellBuffer buffer = new CellBuffer(10, 4);
+                            editor.Render(new BufferSurface(buffer));
+                            Check.Equal("t", buffer.Get(0, 0).Grapheme, "row 0 begins the line");
+                            Check.Equal("b", buffer.Get(0, 1).Grapheme, "row 1 continues at a word boundary");
+                            Check.Equal("j", buffer.Get(0, 2).Grapheme, "row 2 holds the final word");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("InputWidget", "EditorNoWrapByDefault", "Without word wrap a long line stays one visual row",
+                        _ =>
+                        {
+                            TextEditor editor = new TextEditor();
+                            editor.Text = "abcdefghijklmnopqrstuvwxyz";
+                            Check.Equal(1, editor.VisualLineCount(5), "no wrap keeps one visual row per logical line");
+
+                            editor.WordWrap = true;
+                            Check.True(editor.VisualLineCount(5) > 1, "enabling wrap splits the long line");
+                            return Task.CompletedTask;
                         })
                 });
         }

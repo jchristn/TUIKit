@@ -26,6 +26,13 @@ namespace TUIKit.Widgets
         private int _LastTop;
         private int _LastHeight = 1;
 
+        // The visual (wrapped) rows painted on the last word-wrapped render, parallel arrays of the logical
+        // line each visual row belongs to plus its start column and length within that line. Used to map a
+        // click back to a logical (row, column) when WordWrap is on.
+        private readonly List<int> _VisLogical = new List<int>();
+        private readonly List<int> _VisStart = new List<int>();
+        private readonly List<int> _VisLen = new List<int>();
+
         /// <summary>
         /// Gets or sets a value indicating whether the editor is focused and should render a caret.
         /// </summary>
@@ -40,6 +47,15 @@ namespace TUIKit.Widgets
         /// for a dark grey composer.
         /// </summary>
         public CellStyle NormalStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether long logical lines are wrapped to the render width instead
+        /// of clipping at the right edge. Wrapping breaks after spaces where possible and hard-breaks words
+        /// longer than the width; every character keeps its position, so the caret stays accurate. Defaults to
+        /// <c>false</c> (each logical line renders on one row). Hosts that grow to fit content should size
+        /// using <see cref="VisualLineCount"/> when this is on.
+        /// </summary>
+        public bool WordWrap { get; set; }
 
         /// <summary>
         /// Updates the focused state so the caret shows or hides on the next frame. Part of
@@ -437,6 +453,15 @@ namespace TUIKit.Widgets
 
             if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
             {
+                if (WordWrap && _VisLogical.Count > 0)
+                {
+                    int vi = Math.Max(0, Math.Min(_LastTop + mouse.Y, _VisLogical.Count - 1));
+                    _Row = _VisLogical[vi];
+                    _Column = Math.Max(0, Math.Min(_VisStart[vi] + mouse.X, _VisStart[vi] + _VisLen[vi]));
+                    _Column = Math.Min(_Column, _Lines[_Row].Length);
+                    return true;
+                }
+
                 int row = Math.Max(0, Math.Min(_LastTop + mouse.Y, _Lines.Count - 1));
                 _Row = row;
                 _Column = Math.Max(0, Math.Min(mouse.X, _Lines[row].Length));
@@ -464,7 +489,8 @@ namespace TUIKit.Widgets
         /// <inheritdoc/>
         public Size Measure(Size available)
         {
-            return new Size(available.Width, Math.Min(available.Height, _Lines.Count));
+            int lines = WordWrap ? VisualLineCount(available.Width) : _Lines.Count;
+            return new Size(available.Width, Math.Min(available.Height, lines));
         }
 
         /// <inheritdoc/>
@@ -476,6 +502,12 @@ namespace TUIKit.Widgets
             int height = surface.Size.Height;
             int width = surface.Size.Width;
             surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
+
+            if (WordWrap && width > 0)
+            {
+                RenderWrapped(surface, width, height);
+                return;
+            }
 
             int top = 0;
             if (_Row >= height)
@@ -497,6 +529,148 @@ namespace TUIKit.Widgets
                         : Cell.Blank(NormalStyle);
                     surface.Set(_Column, caretScreenRow, Cell.Glyph(under.Grapheme, under.Style.WithAttribute(CellAttributes.Reverse, true), 1));
                 }
+            }
+        }
+
+        /// <summary>
+        /// Returns the number of visual rows the text occupies when wrapped to <paramref name="width"/>. When
+        /// <see cref="WordWrap"/> is off or the width is not positive, this is the logical line count. Hosts
+        /// use it to size a composer that grows to fit its wrapped content.
+        /// </summary>
+        /// <param name="width">The wrap width in columns.</param>
+        /// <returns>The visual row count (at least one).</returns>
+        public int VisualLineCount(int width)
+        {
+            if (!WordWrap || width <= 0)
+            {
+                return _Lines.Count;
+            }
+
+            int total = 0;
+            for (int i = 0; i < _Lines.Count; i++)
+            {
+                total += SegmentCount(_Lines[i], width);
+            }
+
+            return total;
+        }
+
+        // Rebuilds the visual-row layout, scrolls it to keep the caret in view, and paints it.
+        private void RenderWrapped(ISurface surface, int width, int height)
+        {
+            _VisLogical.Clear();
+            _VisStart.Clear();
+            _VisLen.Clear();
+
+            int caretVisual = 0;
+            int caretColumn = 0;
+            bool caretFound = false;
+
+            for (int r = 0; r < _Lines.Count; r++)
+            {
+                string line = _Lines[r];
+                int firstIndex = _VisLogical.Count;
+                ForEachSegment(line, width, (start, len) =>
+                {
+                    _VisLogical.Add(r);
+                    _VisStart.Add(start);
+                    _VisLen.Add(len);
+                });
+
+                if (r == _Row && !caretFound)
+                {
+                    for (int k = firstIndex; k < _VisLogical.Count; k++)
+                    {
+                        int start = _VisStart[k];
+                        int len = _VisLen[k];
+                        bool lastSegOfLine = k + 1 >= _VisLogical.Count || _VisLogical[k + 1] != r;
+                        if (_Column < start + len || (lastSegOfLine && _Column <= start + len))
+                        {
+                            caretVisual = k;
+                            caretColumn = _Column - start;
+                            caretFound = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            int total = _VisLogical.Count;
+            int top = 0;
+            if (caretFound && caretVisual >= height)
+            {
+                top = caretVisual - height + 1;
+            }
+
+            _LastTop = top;
+            _LastHeight = height;
+
+            for (int row = 0; row < height && top + row < total; row++)
+            {
+                int vi = top + row;
+                surface.DrawText(0, row, _Lines[_VisLogical[vi]].Substring(_VisStart[vi], _VisLen[vi]), NormalStyle);
+            }
+
+            if (IsFocused && caretFound)
+            {
+                int caretScreenRow = caretVisual - top;
+                if (caretScreenRow >= 0 && caretScreenRow < height && caretColumn >= 0 && caretColumn <= width)
+                {
+                    string seg = _Lines[_VisLogical[caretVisual]].Substring(_VisStart[caretVisual], _VisLen[caretVisual]);
+                    Cell under = caretColumn < seg.Length
+                        ? Cell.Glyph(seg[caretColumn].ToString(), NormalStyle, 1)
+                        : Cell.Blank(NormalStyle);
+                    surface.Set(caretColumn, caretScreenRow, Cell.Glyph(under.Grapheme, under.Style.WithAttribute(CellAttributes.Reverse, true), 1));
+                }
+            }
+        }
+
+        private static int SegmentCount(string line, int width)
+        {
+            int count = 0;
+            ForEachSegment(line, width, (start, len) => count++);
+            return count;
+        }
+
+        // Emits the (startColumn, length) of each visual segment of a logical line wrapped to width, preserving
+        // every character: it breaks after the last space within the width when there is one, otherwise
+        // hard-breaks at the width. An empty line emits a single zero-length segment.
+        private static void ForEachSegment(string line, int width, Action<int, int> emit)
+        {
+            int length = line.Length;
+            if (length == 0)
+            {
+                emit(0, 0);
+                return;
+            }
+
+            int i = 0;
+            while (i < length)
+            {
+                int remaining = length - i;
+                int segLen;
+                if (remaining <= width)
+                {
+                    segLen = remaining;
+                }
+                else
+                {
+                    int limit = i + width; // exclusive
+                    int breakPos = -1;
+                    for (int j = limit - 1; j > i; j--)
+                    {
+                        if (line[j] == ' ')
+                        {
+                            breakPos = j;
+                            break;
+                        }
+                    }
+
+                    segLen = breakPos > i ? (breakPos - i + 1) : width;
+                }
+
+                emit(i, segLen);
+                i += segLen;
             }
         }
 

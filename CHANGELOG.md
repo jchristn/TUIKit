@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-09-17
+
+### Added
+- **`TextEditor.WordWrap`.** An opt-in property (default off, so existing behavior is unchanged) that wraps long
+  logical lines to the render width instead of clipping at the right edge. Wrapping breaks after spaces where
+  possible and hard-breaks words longer than the width, preserving every character so the caret stays accurate.
+  New `TextEditor.VisualLineCount(width)` reports the wrapped row count for hosts that grow a composer to fit its
+  content; `Measure` and mouse hit-testing account for wrapping when it is on.
+
+## [0.13.1] - 2026-09-17
+
+### Added
+- **`BoxPlotChart` vertical orientation.** `BoxPlotOrientation.Vertical` draws one column per summary (the
+  default stays horizontal), better suited to compact KPI panels.
+
 ## [0.13.0] - 2026-09-16
 
 Distribution widgets. Adds the chart widgets needed to render the *shape* of a metric — the min/avg/p95/p99/max
