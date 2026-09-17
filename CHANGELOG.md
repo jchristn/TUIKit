@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-16
+
+Distribution widgets. Adds the chart widgets needed to render the *shape* of a metric — the min/avg/p95/p99/max
+summary, the bucketed frequency, and two-dimensional intensity — that latency, time-to-first-token, streaming
+time, and throughput are read through in practice. All three are static, dependency-free render widgets drawn with
+block/line glyphs on `ISurface`, exactly like the existing charts.
+
+### Added
+- **`BoxPlotChart`** and its `BoxSummary` value — a horizontal box-and-whisker chart, one row per category, over a
+  caller-supplied five-number summary (`Min`, `Low`, `Mid`, `High`, `Max`; generic names, so the host decides
+  whether "box" means quartiles or a min / avg / p95 / p99 / max quintuple). All rows share one value axis so the
+  boxes are comparable, with a `SetRange(min, max)` override for a fixed scale; `WhiskerColor` / `BoxColor` /
+  `MidColor`, an optional bottom `ShowAxis` tick row, and an optional right-edge `ShowValues` readout. The five
+  values are sorted on construction, a degenerate (all-equal) summary renders a single mid marker, and non-finite
+  samples clamp on the draw path instead of throwing.
+- **`Histogram`** — bins a numeric series into `BucketCount` buckets (default 10, clamped ≥ 1) and draws bucket
+  frequency as vertical columns with the eighth-block ramp scaled to the tallest bucket. `SetValues` for a batch or
+  `Push(value, capacity)` for a live feed (mirroring `Sparkline`), an optional `SetRange` to fix the domain,
+  `BarColor`, an opt-in `ShowCounts`, and a `ComputeBucketCounts()` accessor. Empty renders nothing; all-equal
+  values fall into one bucket; out-of-range samples clamp to the end buckets.
+- **`HeatMap`** — a grid of intensity cells shaded by magnitude (`░▒▓█`) with optional row and column labels, a
+  `SetRange` override, and `CellColor` / `LabelColor`. Empty or zero-size grids render nothing.
+- Three guided-tour pages (box plot, histogram, heat map) seeded with representative latency-style data.
+- 14 new Touchstone cases in a new `DistributionCharts` suite (559 total across console/xUnit/NUnit on
+  net8.0/net10.0).
+
+Additive and fully backward compatible: three new widgets and their supporting types only. No existing API changed.
+
 ## [0.12.0] - 2026-09-12
 
 Mouse everywhere. 0.11.0 let modals receive the mouse; this release completes the pointer story across the

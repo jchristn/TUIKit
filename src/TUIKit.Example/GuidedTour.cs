@@ -740,6 +740,68 @@ namespace TUIKit.Example
                     "  .Add(\"disk\", 61);"
                 }));
 
+            BoxPlotChart distribution = new BoxPlotChart();
+            distribution.ShowValues = true;
+            distribution.Add("latency", 8, 21, 34, 96, 180);
+            distribution.Add("ttft", 12, 30, 44, 120, 240);
+            distribution.Add("stream", 40, 90, 140, 320, 600);
+            pages.Add(new TourPage(
+                "Box plot (distribution)",
+                "[bold]BoxPlotChart[/] renders a five-number summary per row — whiskers, box, and a mid marker — on a shared axis. The five numbers are caller-supplied (here min / avg / p95 / p99 / max).",
+                distribution,
+                new[]
+                {
+                    "new BoxPlotChart()",
+                    "  .Add(\"latency\", 8, 21, 34, 96, 180)",
+                    "  .Add(\"ttft\", 12, 30, 44, 120, 240);",
+                    "// min, low, mid, high, max per row"
+                }));
+
+            double[] samples = new double[240];
+            for (int i = 0; i < samples.Length; i++)
+            {
+                double a = Math.Sin(i * 0.11);
+                double b = Math.Sin(i * 0.37 + 1.7);
+                samples[i] = 50 + 30 * a + 12 * b;
+            }
+
+            Histogram histogram = new Histogram();
+            histogram.BucketCount = 16;
+            histogram.SetValues(samples);
+            pages.Add(new TourPage(
+                "Histogram",
+                "[bold]Histogram[/] bins a series into buckets and draws bucket frequency with the eighth-block ramp — the shape behind the summary.",
+                histogram,
+                new[]
+                {
+                    "Histogram h = new Histogram();",
+                    "h.BucketCount = 16;",
+                    "h.SetValues(samples);",
+                    "// or h.Push(sample, capacity) live"
+                }));
+
+            double[,] activity = new double[5, 12];
+            for (int r = 0; r < 5; r++)
+            {
+                for (int c = 0; c < 12; c++)
+                    activity[r, c] = Math.Abs(Math.Sin((r + 1) * 0.6) * Math.Cos((c + 1) * 0.5)) * 100;
+            }
+
+            HeatMap heatMap = new HeatMap();
+            heatMap.SetCells(activity);
+            heatMap.SetRowLabels(new[] { "mon", "tue", "wed", "thu", "fri" });
+            pages.Add(new TourPage(
+                "Heat map",
+                "[bold]HeatMap[/] shades a grid of cells by magnitude — two-dimensional density such as activity by hour across the week.",
+                heatMap,
+                new[]
+                {
+                    "HeatMap map = new HeatMap();",
+                    "map.SetCells(activity); // double[,]",
+                    "map.SetRowLabels(days);",
+                    "// cells shade from light to dense"
+                }));
+
             MultiProgress progress = new MultiProgress();
             progress.Add("download", 0.72);
             progress.Add("extract", 0.40);

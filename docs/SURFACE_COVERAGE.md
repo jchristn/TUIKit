@@ -50,6 +50,7 @@ Measured with coverlet (`dotnet test src/Test.Xunit --collect:"XPlat Code Covera
 | Input | `KeyEvent`, `KeyChord`, `KeyCode`, `KeyModifiers`, `InputEvent`, `InputParser`, `MouseEvent`, routing table + router, `Link`, `LinkRegistry`, `LinkScanner`, `ClickSynthesizer`, policy enums | Input, MouseLink, Coverage |
 | Modals | `Modal`, `ModalStack`, `MessageModal`, `Notification`, `NotificationCenter`, `NotificationSeverity` | Modal, Coverage |
 | Widgets | `IWidget`, `Label`, `Gauge`, `Sparkline`, `ProgressBar`, `Spinner`, `ListView`, `Table`, `TextEditor`, `TextField`, `Checkbox`, `RadioGroup` | Widget, Coverage |
+| Charts | `BarChart`, `LineChart`, `BrailleCanvas`, `BoxPlotChart` + `BoxSummary`, `Histogram`, `HeatMap` | ChartsIconsColor, DistributionCharts |
 | Theming | `Theme` | Hosting, Coverage |
 | Hosting | `TuiApplication` | Hosting |
 | Diagnostics | `FrameStats`, `InputRecording`, `DebugOverlay` | Diagnostics, Coverage |

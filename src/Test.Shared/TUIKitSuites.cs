@@ -90,7 +90,8 @@ namespace Test.Shared
                     MouseClickSynthesisSuite.Suite(),
                     MouseWidgetSuite.Suite(),
                     ModalMouseRoutingSuite.Suite(),
-                    WidgetMouseCoverageSuite.Suite()
+                    WidgetMouseCoverageSuite.Suite(),
+                    DistributionChartsSuite.Suite()
                 };
             }
         }
