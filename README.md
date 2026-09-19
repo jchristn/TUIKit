@@ -4,7 +4,7 @@
 
 # TUIKit
 
-[![NuGet Version](https://img.shields.io/nuget/v/TUIKit.svg?style=flat)](https://www.nuget.org/packages/TUIKit/) [![NuGet Downloads](https://img.shields.io/nuget/dt/TUIKit.svg)](https://www.nuget.org/packages/TUIKit) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md) [![.NET](https://img.shields.io/badge/.NET-netstandard2.0%20%7C%20net8.0%20%7C%20net10.0-512BD4.svg)](https://dotnet.microsoft.com/)
+[![NuGet Version](https://img.shields.io/nuget/v/TUIKit.svg?style=flat)](https://www.nuget.org/packages/TUIKit/) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md) [![.NET](https://img.shields.io/badge/.NET-netstandard2.0%20%7C%20net8.0%20%7C%20net10.0-512BD4.svg)](https://dotnet.microsoft.com/)
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application — the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
