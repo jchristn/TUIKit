@@ -9,19 +9,24 @@ namespace TUIKit.Example
 
     /// <summary>
     /// A settings form modal that demonstrates the input-widget kit with tab order: a radio group for
-    /// the theme, a checkbox for ASCII borders, and a text field. Tab moves focus between fields, Enter
-    /// applies, Escape cancels. The result is a <see cref="SettingsResult"/> or null when cancelled.
+    /// the theme, a checkbox for ASCII borders, a "fullscreen mode" checkbox that drives the host's
+    /// full-repaint rendering, and a text field. Tab moves focus between fields, Enter applies, Escape
+    /// cancels. The result is a <see cref="SettingsResult"/> or null when cancelled.
     /// </summary>
     internal sealed class SettingsModal : Modal
     {
+        private const int FieldCount = 4;
+
         private readonly RadioGroup _Theme = new RadioGroup(new[] { "Dark", "Light", "HighContrast" });
         private readonly Checkbox _Ascii = new Checkbox("ASCII borders");
+        private readonly Checkbox _Fullscreen = new Checkbox("Fullscreen mode (full repaint)");
         private readonly TextField _Label = new TextField();
         private int _Focus;
 
-        internal SettingsModal(string initialLabel)
+        internal SettingsModal(string initialLabel, bool initialFullscreen)
         {
             _Label.Value = initialLabel ?? string.Empty;
+            _Fullscreen.Checked = initialFullscreen;
             _Theme.HandleKey(default);
         }
 
@@ -35,14 +40,14 @@ namespace TUIKit.Example
 
             if (key.Code == KeyCode.Enter)
             {
-                Close(new SettingsResult(_Theme.SelectedOption, _Ascii.Checked, _Label.Value));
+                Close(new SettingsResult(_Theme.SelectedOption, _Ascii.Checked, _Fullscreen.Checked, _Label.Value));
                 return true;
             }
 
             if (key.Code == KeyCode.Tab)
             {
-                _Focus = (_Focus + 1) % 3;
-                _Label.IsFocused = _Focus == 2;
+                _Focus = (_Focus + 1) % FieldCount;
+                _Label.IsFocused = _Focus == 3;
                 return true;
             }
 
@@ -53,6 +58,9 @@ namespace TUIKit.Example
                     break;
                 case 1:
                     _Ascii.HandleKey(key);
+                    break;
+                case 2:
+                    _Fullscreen.HandleKey(key);
                     break;
                 default:
                     _Label.HandleKey(key);
@@ -68,7 +76,7 @@ namespace TUIKit.Example
                 throw new ArgumentNullException(nameof(surface));
 
             Padding pad = ContentPadding;
-            const int contentRows = 7; // theme label, 3 radio rows, checkbox, label, field
+            const int contentRows = 8; // theme label, 3 radio rows, ascii checkbox, fullscreen checkbox, label, field
             int contentWidth = Math.Min(40, surface.Size.Width - 4 - pad.Horizontal);
             if (contentWidth < 12)
                 return;
@@ -97,8 +105,11 @@ namespace TUIKit.Example
                 surface.DrawText(cx, cy + 4, _Focus == 1 ? "> " : "  ", CellStyle.Default);
                 _Ascii.Render(buffer.CreateView(new Rect(cx + 2, cy + 4, contentWidth - 2, 1)));
 
-                surface.DrawText(cx, cy + 5, "Label:" + (_Focus == 2 ? "  <" : ""), labelStyle);
-                _Label.Render(buffer.CreateView(new Rect(cx, cy + 6, contentWidth, 1)));
+                surface.DrawText(cx, cy + 5, _Focus == 2 ? "> " : "  ", CellStyle.Default);
+                _Fullscreen.Render(buffer.CreateView(new Rect(cx + 2, cy + 5, contentWidth - 2, 1)));
+
+                surface.DrawText(cx, cy + 6, "Label:" + (_Focus == 3 ? "  <" : ""), labelStyle);
+                _Label.Render(buffer.CreateView(new Rect(cx, cy + 7, contentWidth, 1)));
             }
         }
     }

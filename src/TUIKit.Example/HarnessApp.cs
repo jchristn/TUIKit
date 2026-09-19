@@ -264,7 +264,7 @@ namespace TUIKit.Example
 
         private void OpenSettings()
         {
-            SettingsModal settings = new SettingsModal(_App.Theme.Name);
+            SettingsModal settings = new SettingsModal(_App.Theme.Name, _App.ForceFullRepaint);
             _App.Modals.Push(settings);
             settings.Completion.ContinueWith(task =>
             {
@@ -277,7 +277,13 @@ namespace TUIKit.Example
                     else
                         _App.Theme = Theming.Theme.Dark;
 
-                    _App.Notifications.Add("Settings applied", NotificationSeverity.Success, _App.NowMilliseconds, 2000);
+                    _App.ForceFullRepaint = result.FullscreenRepaint;
+
+                    _App.Notifications.Add(
+                        "Settings applied — fullscreen mode " + (result.FullscreenRepaint ? "on" : "off"),
+                        NotificationSeverity.Success,
+                        _App.NowMilliseconds,
+                        2000);
                 }
             }, System.Threading.Tasks.TaskScheduler.Default);
         }

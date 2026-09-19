@@ -9,12 +9,15 @@ namespace TUIKit.Example
 
         internal bool AsciiBorders { get; }
 
+        internal bool FullscreenRepaint { get; }
+
         internal string Label { get; }
 
-        internal SettingsResult(string theme, bool asciiBorders, string label)
+        internal SettingsResult(string theme, bool asciiBorders, bool fullscreenRepaint, string label)
         {
             Theme = theme;
             AsciiBorders = asciiBorders;
+            FullscreenRepaint = fullscreenRepaint;
             Label = label;
         }
     }

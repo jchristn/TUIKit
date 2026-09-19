@@ -140,10 +140,14 @@ namespace TUIKit.Example
         private async void OpenSettings()
         {
             Log("Ctrl+G was pressed, opening the settings menu");
+            string fullscreenLabel = _App.ForceFullRepaint
+                ? "Fullscreen mode: ON (full repaint) — turn off"
+                : "Fullscreen mode: OFF (incremental) — turn on";
             int choice = await _App.SelectAsync(
                 "Settings & actions",
                 "Cycle theme (dark / light / high-contrast)",
                 "Cycle icon mode (Unicode / ASCII / Nerd)",
+                fullscreenLabel,
                 "Show a notification",
                 "Confirmation dialog",
                 "Help").ConfigureAwait(false);
@@ -157,17 +161,31 @@ namespace TUIKit.Example
                     CycleIconMode();
                     break;
                 case 2:
-                    _App.Notify("Settings applied.", NotificationSeverity.Success, 2000);
+                    ToggleFullscreenMode();
                     break;
                 case 3:
-                    ConfirmDemo();
+                    _App.Notify("Settings applied.", NotificationSeverity.Success, 2000);
                     break;
                 case 4:
+                    ConfirmDemo();
+                    break;
+                case 5:
                     _ShowHelp = true;
                     break;
                 default:
                     break;
             }
+        }
+
+        private void ToggleFullscreenMode()
+        {
+            bool on = !_App.ForceFullRepaint;
+            _App.ForceFullRepaint = on;
+            Log("Fullscreen mode " + (on ? "on" : "off") + " (ForceFullRepaint = " + on + ")");
+            _App.Notify(
+                "Fullscreen mode: " + (on ? "ON (full repaint every frame)" : "OFF (incremental diff)"),
+                NotificationSeverity.Success,
+                2500);
         }
 
         private void CycleIconMode()
