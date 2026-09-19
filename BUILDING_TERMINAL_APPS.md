@@ -404,6 +404,35 @@ Setting `MouseCaptureEnabled` after `Start()` emits the enable/disable escape im
 non-interactive backend it is a no-op. Most terminals also let you hold **Shift** (or **Option** on
 macOS) while dragging to force native selection without toggling at all.
 
+### Rendering modes and shelling out
+
+TUIKit renders into the alternate screen and repaints only the cells that changed each frame. Three
+controls tune that, all cross-platform (Windows, macOS, Linux):
+
+- **Synchronized output (mode 2026) — automatic.** When the backend advertises it
+  (`TerminalCapabilities.SynchronizedOutput`, detected for modern terminals such as Windows Terminal,
+  iTerm2, WezTerm, Kitty, Ghostty, Alacritty, foot, and tmux ≥ 3.4), the host wraps each frame in a
+  begin/end pair so the terminal presents it atomically — no tearing or partial-frame flicker on fast
+  streams. Nothing to configure; terminals without the mode simply don't get the wrap.
+- **Full-repaint mode.** Set `app.ForceFullRepaint = true` to repaint every row on every frame instead
+  of diffing. It trades extra output for correctness on backends that drop or corrupt incremental
+  updates — for example some ConPTY / Windows Terminal configurations that leave stale cells behind.
+  Defaults to off; distinct from the one-shot `Invalidate()`.
+- **Shelling out (`SuspendAsync`).** To run an external full-screen program — an editor, a pager, an
+  interactive command — hand the terminal back cleanly and restore afterward:
+  ```csharp
+  await app.SuspendAsync(async () =>
+  {
+      Process editor = Process.Start(new ProcessStartInfo("vim", path) { UseShellExecute = false })!;
+      await editor.WaitForExitAsync();
+  });
+  ```
+  It leaves the alternate screen and raw mode, runs your action, then re-enters and forces a full
+  repaint — restoring even if the action throws. The render and input loops are held inert while
+  suspended (`app.IsSuspended`). Call it on the loop thread (from a command handler or via `Post`).
+  This works identically on all three platforms, unlike a Ctrl+Z / SIGTSTP job-control suspend, which
+  does not exist on Windows.
+
 ---
 
 ## 7. Widgets
@@ -706,6 +735,8 @@ TUIKit is designed to run the same everywhere:
 - **Capability detection.** The backend detects truecolor, enhanced keyboard, SGR mouse, OSC 8, and OSC 52 from the environment. Truecolor degrades to 256/16 colors automatically where needed; borders fall back to ASCII under a high-contrast theme.
 - **SSH.** Everything is standard VT — SGR mouse, bracketed paste, and OSC 52 clipboard all work over a remote session (OSC 52 is specifically why copy works remotely). Raw mode uses the remote pty, so keyboard handling is identical to a local session.
 - **tmux.** TUIKit uses SGR mouse mode (1006) and standard sequences that tmux forwards. For enhanced keys inside tmux, enable `set -g extended-keys on` in your tmux config.
+- **Flicker-free frames.** On terminals that advertise it, the host wraps each frame in a synchronized update (mode 2026) so repaints present atomically and never tear; terminals without it are unaffected. On backends that drop incremental updates (some ConPTY / Windows Terminal setups leave stale cells behind), set `app.ForceFullRepaint = true`. See [§6 — Rendering modes and shelling out](#6-input).
+- **Shelling out.** `app.SuspendAsync(...)` hands the terminal to an external full-screen program and restores the session afterward — identical on Windows, macOS, and Linux, unlike a POSIX Ctrl+Z / SIGTSTP suspend (which does not exist on Windows). See §6.
 - **Not a TTY.** When stdout is redirected or piped (CI, a file), the host degrades to plain line output and emits no escape sequences, so your program stays useful in a pipeline. Raw mode is skipped entirely when standard input is not a terminal.
 
 A practical portability rule: build and assert your UI against `HeadlessBackend` in CI (fully portable), and smoke-test the live `ConsoleBackend` on the terminals you care about.
@@ -724,6 +755,7 @@ Raw-mode keyboard handling depends on a real terminal, so it cannot be asserted 
 | **Ctrl combinations** | `Ctrl+G` settings, `Ctrl+P` palette, `Ctrl+Q` quit, `Ctrl+K Ctrl+T` theme. |
 | **Escape** | Registers promptly (a lone Escape is not swallowed). |
 | **Resize** | Redraws to the new size. |
+| **Fullscreen mode** | `Ctrl+G` → toggle fullscreen mode (full repaint); the screen redraws every frame with no residual artifacts. |
 | **Exit / crash** | On quit the terminal is restored: echo is back on and the cursor is visible. |
 | **Labels** | Footer/help hints read `Ctrl+G` on Windows/Linux and `⌃G` on macOS. |
 
@@ -826,7 +858,7 @@ The table below tracks which capabilities from the original improvement roadmap 
 | 10.28 | Interactive split resize (`SplitView` arrow-key resize) | **Implemented** |
 | 10.29 | Markdown completeness (task/ordered lists, tables, nesting) | **Implemented** |
 | 10.30 | Data binding / reactive layer (`Observable<T>`) | **Implemented** |
-| 10.31 | Suspend/resume + signal restoration (`AppLifecycle`) | **Implemented** |
+| 10.31 | Suspend/resume: cross-platform shell-out (`TuiApplication.SuspendAsync`) + signal component (`AppLifecycle`) | **Implemented** (Ctrl+Z host auto-suspend intentionally not shipped — see notes) |
 | 10.32 | Modal-editing helper (`ModalDispatcher`/`EditMode`) | **Implemented** |
 | 10.33 | Animation / transitions / timers (`Easing`/`Tween`/`FrameTimer`) | **Implemented** |
 | 10.34 | OSC 8 emission + clipboard read + link hints (`Ansi.OpenHyperlink`, `SystemClipboard`, `LinkHints`) | **Implemented** |
@@ -837,12 +869,13 @@ The table below tracks which capabilities from the original improvement roadmap 
 | 10.38 | Box shadows / modal drop shadows (`ISurface.DrawShadow`) | **Implemented** |
 | 10.39 | Backdrop dimming behind modals (`Backdrop.Dim`) | **Implemented** |
 | 10.40 | Image rendering — half-block + sixel + kitty (`HalfBlockImage`/`SixelEncoder`/`KittyImageEncoder`) | **Implemented** |
+| 10.41 | Fullscreen rendering — synchronized output (mode 2026), persistent full-repaint (`ForceFullRepaint`), cross-platform `SuspendAsync` shell-out | **Implemented** |
 | — | Keybinding editor / user-configurable keymap (`KeyBindingEditor`/`KeyBindingSet`) | **Implemented** |
 | — | Guided-tour example (self-describing `TUIKit.Example`) | **Implemented** |
 
 ### Summary: included vs. excluded
 
-**Implemented (39 of the 40 catalogued items, plus the keybinding editor):** 10.1–10.18, 10.20–10.40. Every requested widget, layout, reactivity, animation, testing, terminal-integration, and visual-effect capability now ships with public XML docs and several positive/negative Touchstone tests each (220 cases, all green across the console, xUnit, and NUnit runners on net8.0 and net10.0).
+**Implemented (40 of the 41 catalogued items, plus the keybinding editor and guided tour):** 10.1–10.18, 10.20–10.41. Every requested widget, layout, reactivity, animation, testing, terminal-integration, visual-effect, and fullscreen-rendering capability now ships with public XML docs and several positive/negative Touchstone tests each (580 cases, all green across the console, xUnit, and NUnit runners on net8.0 and net10.0).
 
 **Deliberately excluded:**
 
@@ -851,7 +884,7 @@ The table below tracks which capabilities from the original improvement roadmap 
 **Notes:**
 
 - **10.40 Image rendering** — `HalfBlockImage` draws into the cell grid and works everywhere; `SixelEncoder` and `KittyImageEncoder` emit raw escape sequences for terminals that support the sixel or kitty graphics protocols, written directly to the backend at the cursor.
-- **10.31 Suspend/resume signals** — POSIX signals (SIGTSTP/SIGCONT/SIGWINCH/SIGINT) are wired via `PosixSignalRegistration` on .NET 8+ and via a libc `signal()` compatibility shim on `netstandard2.0`; on Windows the hook is a no-op. The `netstandard2.0` shim invokes managed handlers from a native signal context, so it is documented as best-effort.
+- **10.31 Suspend/resume** — the cross-platform path is `TuiApplication.SuspendAsync(Func<Task>)`, an application-driven shell-out that restores the terminal, runs your action, and re-enters with a full repaint (see [§6 — Rendering modes and shelling out](#6-input)); it works identically on Windows, macOS, and Linux. Separately, `AppLifecycle` surfaces POSIX signals (SIGTSTP/SIGCONT/SIGWINCH/SIGINT) via `PosixSignalRegistration` on .NET 8+ and a libc `signal()` compatibility shim on `netstandard2.0` (on Windows the hook is a no-op; the shim invokes managed handlers from a native signal context, so it is best-effort). Automatically wiring Ctrl+Z / SIGTSTP into the host's suspend/resume is **intentionally not shipped in 1.0** — it is POSIX-only (Windows has no job-control suspend) and touches process-global signal state; the portable `SuspendAsync` covers the shell-out use case for every platform.
 
 **Still outstanding:** none. Running `TUIKit.Example` launches a self-describing guided tour — a header names each feature, the left pane renders the live widget, and the right pane shows the code that builds it (PageUp/PageDown to browse, arrows/Enter to interact). Global keys open live UI: **F1**/**?** help overlay, **Ctrl+G** settings & actions menu, **Ctrl+T** theme cycle, **Ctrl+K** confirmation dialog, **Ctrl+N** notification toast. The original agent-control harness is still available with `--harness`.
 
