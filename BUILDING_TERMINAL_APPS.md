@@ -6,7 +6,7 @@
 
 This is the top-to-bottom guide to building terminal user interfaces with TUIKit. It covers every capability in the library, with runnable examples, and finishes with a worked real-world app. If you have used Spectre.Console or Terminal.Gui, the mental model here is different in one important way: **TUIKit is concurrency-first** — any thread can write to any pane while a background render loop paints — so it fits streaming, agent, and dashboard apps naturally.
 
-> TUIKit is v0.2.0 (alpha). The API is stabilizing; pin your version.
+> TUIKit is v1.0.0 (stable). The API follows semantic versioning; pin your major version.
 
 ## Contents
 

@@ -67,6 +67,8 @@ namespace TUIKit.Hosting
         private bool _Started;
         private bool _Disposed;
         private bool _MouseCaptureEnabled = true;
+        private bool _ForceFullRepaint;
+        private volatile bool _Suspended;
         private MouseTrackingMode _MouseTrackingMode = MouseTrackingMode.AnyMotion;
         private string? _HoverRegionId;
         private IWidget? _HoverWidget;
@@ -358,11 +360,39 @@ namespace TUIKit.Hosting
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether every frame repaints all rows regardless of whether
+        /// their content changed. Defaults to false, so the renderer emits only changed rows. Turn it on
+        /// for backends that drop or corrupt incremental updates — for example some ConPTY / Windows
+        /// Terminal configurations that leave stale cells behind — trading extra output for correctness.
+        /// Setting it after <see cref="Start"/> takes effect on the next frame.
+        /// </summary>
+        public bool ForceFullRepaint
+        {
+            get { return _ForceFullRepaint; }
+            set
+            {
+                _ForceFullRepaint = value;
+                if (_Renderer != null)
+                    _Renderer.ForceFullRepaint = value;
+            }
+        }
+
+        /// <summary>
         /// Gets a value indicating whether the run loop is active.
         /// </summary>
         public bool IsRunning
         {
             get { return _Running; }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the session is currently suspended by
+        /// <see cref="SuspendAsync"/>. While suspended the render and input loops are inert and the
+        /// terminal is handed back to whatever program the caller is running.
+        /// </summary>
+        public bool IsSuspended
+        {
+            get { return _Suspended; }
         }
 
         /// <summary>
@@ -778,27 +808,54 @@ namespace TUIKit.Hosting
                 Math.Max(1, _Backend.Size.Width),
                 Math.Max(1, _Backend.Size.Height),
                 _Backend.Capabilities.ColorDepth);
+            _Renderer.SynchronizedOutput = _Backend.Capabilities.SynchronizedOutput;
+            _Renderer.ForceFullRepaint = _ForceFullRepaint;
 
             if (_Backend.IsInteractive)
             {
-                _Backend.Write(Ansi.EnterAltScreen);
-                _Backend.Write(Ansi.HideCursor);
-                if (_MouseCaptureEnabled)
-                {
-                    string enableMouse = BuildMouseEnableSequence();
-                    if (enableMouse.Length > 0)
-                        _Backend.Write(enableMouse);
-                }
-
-                if (_Backend.Capabilities.FocusReporting)
-                    _Backend.Write(Ansi.EnableFocusReporting);
-                _Backend.Write(Ansi.EnableBracketedPaste);
-                if (_Backend.Capabilities.EnhancedKeyboard)
-                    _Backend.Write(Ansi.PushKittyKeyboard);
+                EnterInteractiveModes();
                 _Backend.Flush();
 
                 InstallSafetyNet();
             }
+        }
+
+        // Writes the escape sequences that put the terminal into the interactive session state:
+        // alternate screen, hidden cursor, and the mouse/focus/paste/enhanced-keyboard modes the
+        // capabilities allow. Shared by Start and the resume half of SuspendAsync. The caller flushes.
+        private void EnterInteractiveModes()
+        {
+            _Backend.Write(Ansi.EnterAltScreen);
+            _Backend.Write(Ansi.HideCursor);
+            if (_MouseCaptureEnabled)
+            {
+                string enableMouse = BuildMouseEnableSequence();
+                if (enableMouse.Length > 0)
+                    _Backend.Write(enableMouse);
+            }
+
+            if (_Backend.Capabilities.FocusReporting)
+                _Backend.Write(Ansi.EnableFocusReporting);
+            _Backend.Write(Ansi.EnableBracketedPaste);
+            if (_Backend.Capabilities.EnhancedKeyboard)
+                _Backend.Write(Ansi.PushKittyKeyboard);
+        }
+
+        // Writes the escape sequences that return the terminal to its pristine, cooked state: it undoes
+        // everything EnterInteractiveModes turned on, in reverse, and closes any synchronized update
+        // that a torn frame might have left open before leaving the alternate screen. Shared by Teardown
+        // and the suspend half of SuspendAsync. The caller flushes.
+        private void ExitInteractiveModes()
+        {
+            if (_Backend.Capabilities.EnhancedKeyboard)
+                _Backend.Write(Ansi.PopKittyKeyboard);
+            _Backend.Write(Ansi.DisableBracketedPaste);
+            if (_Backend.Capabilities.FocusReporting)
+                _Backend.Write(Ansi.DisableFocusReporting);
+            _Backend.Write(Ansi.DisableMouse);
+            _Backend.Write(Ansi.EndSynchronizedUpdate);
+            _Backend.Write(Ansi.ShowCursor);
+            _Backend.Write(Ansi.ExitAltScreen);
         }
 
         // Guarantees the terminal is handed back in a usable state on every exit path — a graceful
@@ -873,14 +930,7 @@ namespace TUIKit.Hosting
             {
                 try
                 {
-                    if (_Backend.Capabilities.EnhancedKeyboard)
-                        _Backend.Write(Ansi.PopKittyKeyboard);
-                    _Backend.Write(Ansi.DisableBracketedPaste);
-                    if (_Backend.Capabilities.FocusReporting)
-                        _Backend.Write(Ansi.DisableFocusReporting);
-                    _Backend.Write(Ansi.DisableMouse);
-                    _Backend.Write(Ansi.ShowCursor);
-                    _Backend.Write(Ansi.ExitAltScreen);
+                    ExitInteractiveModes();
                     _Backend.Flush();
                 }
                 catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException || ex is NotSupportedException)
@@ -940,10 +990,75 @@ namespace TUIKit.Hosting
         }
 
         /// <summary>
+        /// Suspends the session, hands the terminal back in its pristine cooked state, runs
+        /// <paramref name="whileSuspended"/> to completion, then restores the session and forces a full
+        /// repaint. Use this to shell out to an external full-screen program — an editor, a pager, an
+        /// interactive command — that needs the real terminal. Cross-platform: unlike a Ctrl+Z / SIGTSTP
+        /// job-control suspend (which does not exist on Windows), this is driven entirely by the
+        /// application and works identically on Windows, macOS, and Linux.
+        /// </summary>
+        /// <remarks>
+        /// Must be called on the application loop thread — from a command handler or via
+        /// <see cref="Post"/> — so it does not race the render loop. While suspended,
+        /// <see cref="RenderOnce"/> and <see cref="PumpInputOnce"/> are inert, so a running
+        /// <see cref="RunAsync"/> loop idles rather than painting over the external program. On a
+        /// non-interactive backend, or before <see cref="Start"/>, the action simply runs with no
+        /// terminal changes. If <paramref name="whileSuspended"/> throws, the terminal is restored
+        /// before the exception propagates.
+        /// </remarks>
+        /// <param name="whileSuspended">The work to run while the terminal is handed back. Must not be null.</param>
+        /// <param name="cancellationToken">A token observed before the terminal is handed back.</param>
+        /// <returns>A task that completes when the action has run and the session has been restored.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="whileSuspended"/> is null.</exception>
+        /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled before suspending.</exception>
+        public async Task SuspendAsync(Func<Task> whileSuspended, CancellationToken cancellationToken = default)
+        {
+            if (whileSuspended == null)
+                throw new ArgumentNullException(nameof(whileSuspended));
+
+            if (!_Started || !_Backend.IsInteractive)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await whileSuspended().ConfigureAwait(false);
+                return;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            _Suspended = true;
+
+            // Hand the terminal back: undo the session modes, then drop raw mode and stop the reader so
+            // the external program owns stdin/stdout and the console line discipline as it expects.
+            ExitInteractiveModes();
+            _Backend.Flush();
+            _Backend.Stop();
+
+            try
+            {
+                await whileSuspended().ConfigureAwait(false);
+            }
+            finally
+            {
+                // Re-enter raw mode and the session state, then repaint the whole screen from scratch —
+                // the external program left the terminal in an unknown state, so no diff is trustworthy.
+                _Backend.Start();
+                EnterInteractiveModes();
+                _Backend.Flush();
+                _Renderer?.Invalidate();
+                _Suspended = false;
+            }
+        }
+
+        /// <summary>
         /// Reads and dispatches any pending input once. Safe to call from a driving test.
         /// </summary>
         public void PumpInputOnce()
         {
+            // While suspended the terminal belongs to whatever program the caller is running; the
+            // backend's input path is torn down, so reading or dispatching would be meaningless.
+            if (_Suspended)
+                return;
+
             DrainPostQueue();
 
             int read = _Backend.ReadInput(_ReadBuffer, 0, _ReadBuffer.Length);
@@ -965,6 +1080,11 @@ namespace TUIKit.Hosting
         public void RenderOnce()
         {
             if (_Renderer == null)
+                return;
+
+            // Suspended: the terminal is in its cooked state for an external program. Painting a frame
+            // now would corrupt that program's screen, so the loop idles until SuspendAsync resumes.
+            if (_Suspended)
                 return;
 
             DrainPostQueue();

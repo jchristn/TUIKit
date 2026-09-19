@@ -302,7 +302,7 @@ namespace TUIKit.Terminal
             {
                 byte[] reset = Encoding.UTF8.GetBytes(
                     Ansi.DisableMouse + Ansi.DisableFocusReporting + Ansi.DisableBracketedPaste
-                    + Ansi.ShowCursor + Ansi.ExitAltScreen + Ansi.ResetAttributes);
+                    + Ansi.EndSynchronizedUpdate + Ansi.ShowCursor + Ansi.ExitAltScreen + Ansi.ResetAttributes);
                 WriteReset(reset);
             }
             catch (IOException)

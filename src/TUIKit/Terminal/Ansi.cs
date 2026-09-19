@@ -36,6 +36,30 @@ namespace TUIKit.Terminal
         }
 
         /// <summary>
+        /// Gets the sequence that begins a synchronized update (DEC private mode 2026, "BSU"). The
+        /// terminal buffers all subsequent output and holds the displayed frame until
+        /// <see cref="EndSynchronizedUpdate"/> is received, so a repaint is presented atomically with no
+        /// tearing or partial-frame flicker. Terminals that do not implement the mode ignore it, so it
+        /// is safe to emit unconditionally; TUIKit gates it on
+        /// <see cref="TerminalCapabilities.SynchronizedOutput"/> to avoid emitting it where it is known
+        /// to be unhelpful.
+        /// </summary>
+        public static string BeginSynchronizedUpdate
+        {
+            get { return Csi + "?2026h"; }
+        }
+
+        /// <summary>
+        /// Gets the sequence that ends a synchronized update (DEC private mode 2026, "ESU") and lets the
+        /// terminal present the buffered frame. Always paired with <see cref="BeginSynchronizedUpdate"/>.
+        /// Emitting it when no synchronized update is in progress is harmless.
+        /// </summary>
+        public static string EndSynchronizedUpdate
+        {
+            get { return Csi + "?2026l"; }
+        }
+
+        /// <summary>
         /// Gets the sequence that hides the cursor.
         /// </summary>
         public static string HideCursor

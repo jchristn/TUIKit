@@ -20,7 +20,7 @@ namespace TUIKit.Rendering
         private CellBuffer _Front;
         private CellBuffer _Back;
         private Size _Size;
-        private bool _ForceFullRepaint;
+        private bool _RepaintPending;
 
         /// <summary>
         /// Gets the size of the surface the renderer is currently composing.
@@ -29,6 +29,24 @@ namespace TUIKit.Rendering
         {
             get { return _Size; }
         }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether each emitted frame is wrapped in a synchronized
+        /// update (DEC private mode 2026), so the terminal presents the frame atomically without
+        /// tearing. Defaults to false. Only set this when the backend reports
+        /// <see cref="TerminalCapabilities.SynchronizedOutput"/>; an unchanged (empty) frame is never
+        /// wrapped, so no begin/end pair is emitted when there is nothing to present.
+        /// </summary>
+        public bool SynchronizedOutput { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether every frame repaints all rows regardless of whether
+        /// their content changed. Defaults to false, so only changed rows are emitted. Turn it on for
+        /// backends that drop or corrupt incremental updates (for example some ConPTY/Windows Terminal
+        /// configurations that leave stale cells behind), trading extra output for correctness. This is
+        /// a persistent setting; the one-shot <see cref="Invalidate"/> forces only the next frame.
+        /// </summary>
+        public bool ForceFullRepaint { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TerminalRenderer"/> class.
@@ -48,7 +66,7 @@ namespace TUIKit.Rendering
             _Size = new Size(width, height);
             _Front = new CellBuffer(width, height);
             _Back = new CellBuffer(width, height);
-            _ForceFullRepaint = true;
+            _RepaintPending = true;
         }
 
         /// <summary>
@@ -77,23 +95,32 @@ namespace TUIKit.Rendering
 
             string output = BuildDiff();
             _Front.CopyFrom(_Back);
-            _ForceFullRepaint = false;
+            _RepaintPending = false;
 
             if (output.Length == 0)
                 return false;
 
-            backend.Write(output);
+            // A begin/end synchronized-update pair wraps the whole frame in a single buffered write so
+            // the terminal presents it atomically. Emitting the pair only around a non-empty diff means
+            // an unchanged frame stays a true no-op. The pair is always balanced within one write, so a
+            // frame can never leave the terminal in a held state between frames.
+            if (SynchronizedOutput)
+                backend.Write(Ansi.BeginSynchronizedUpdate + output + Ansi.EndSynchronizedUpdate);
+            else
+                backend.Write(output);
+
             backend.Flush();
             return true;
         }
 
         /// <summary>
         /// Forces the next frame to repaint every row, regardless of whether content changed. Used
-        /// after a screen clear or a return from a suspended state.
+        /// after a screen clear or a return from a suspended state. For an always-on full repaint see
+        /// <see cref="ForceFullRepaint"/>.
         /// </summary>
         public void Invalidate()
         {
-            _ForceFullRepaint = true;
+            _RepaintPending = true;
         }
 
         private void SyncSize(Size size)
@@ -107,16 +134,17 @@ namespace TUIKit.Rendering
             _Size = size;
             _Front.Resize(size.Width, size.Height);
             _Back.Resize(size.Width, size.Height);
-            _ForceFullRepaint = true;
+            _RepaintPending = true;
         }
 
         private string BuildDiff()
         {
             StringBuilder builder = new StringBuilder();
+            bool full = _RepaintPending || ForceFullRepaint;
 
             for (int row = 0; row < _Size.Height; row++)
             {
-                if (!_ForceFullRepaint && RowsEqual(row))
+                if (!full && RowsEqual(row))
                     continue;
 
                 EmitRow(builder, row);

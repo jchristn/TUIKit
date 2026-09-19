@@ -55,6 +55,15 @@ namespace TUIKit.Terminal
         public bool FocusReporting { get; }
 
         /// <summary>
+        /// Gets a value indicating whether the terminal honors synchronized output (DEC private mode
+        /// 2026), which lets the renderer present each frame atomically to eliminate tearing and
+        /// partial-frame flicker. When false, the renderer emits its diff directly; because the mode
+        /// is a private-mode set that unsupporting terminals ignore, a false value only suppresses an
+        /// otherwise-harmless escape rather than changing what is drawn.
+        /// </summary>
+        public bool SynchronizedOutput { get; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="TerminalCapabilities"/> class.
         /// </summary>
         /// <param name="colorDepth">The color depth the terminal can render.</param>
@@ -65,6 +74,7 @@ namespace TUIKit.Terminal
         /// <param name="bracketedPaste">Whether bracketed paste is available.</param>
         /// <param name="anyMotionMouse">Whether any-motion (hover) mouse tracking is available.</param>
         /// <param name="focusReporting">Whether terminal focus reporting is available.</param>
+        /// <param name="synchronizedOutput">Whether synchronized output (mode 2026) is available.</param>
         public TerminalCapabilities(
             TerminalColorDepth colorDepth,
             bool enhancedKeyboard,
@@ -73,7 +83,8 @@ namespace TUIKit.Terminal
             bool clipboardOsc52,
             bool bracketedPaste,
             bool anyMotionMouse,
-            bool focusReporting)
+            bool focusReporting,
+            bool synchronizedOutput)
         {
             ColorDepth = colorDepth;
             EnhancedKeyboard = enhancedKeyboard;
@@ -83,25 +94,26 @@ namespace TUIKit.Terminal
             BracketedPaste = bracketedPaste;
             AnyMotionMouse = anyMotionMouse;
             FocusReporting = focusReporting;
+            SynchronizedOutput = synchronizedOutput;
         }
 
         /// <summary>
         /// Gets a fully featured capability set (truecolor, enhanced keyboard, SGR mouse, hyperlinks,
-        /// OSC 52, bracketed paste, any-motion mouse, focus reporting). Useful for headless rendering
-        /// and modern tier-1 terminals.
+        /// OSC 52, bracketed paste, any-motion mouse, focus reporting, synchronized output). Useful for
+        /// headless rendering and modern tier-1 terminals.
         /// </summary>
         public static TerminalCapabilities Full
         {
-            get { return new TerminalCapabilities(TerminalColorDepth.TrueColor, true, true, true, true, true, true, true); }
+            get { return new TerminalCapabilities(TerminalColorDepth.TrueColor, true, true, true, true, true, true, true, true); }
         }
 
         /// <summary>
-        /// Gets a minimal capability set (16 colors, no enhanced input, no mouse, no clipboard),
-        /// representing a degraded or legacy terminal.
+        /// Gets a minimal capability set (16 colors, no enhanced input, no mouse, no clipboard, no
+        /// synchronized output), representing a degraded or legacy terminal.
         /// </summary>
         public static TerminalCapabilities Minimal
         {
-            get { return new TerminalCapabilities(TerminalColorDepth.Ansi16, false, false, false, false, false, false, false); }
+            get { return new TerminalCapabilities(TerminalColorDepth.Ansi16, false, false, false, false, false, false, false, false); }
         }
     }
 }

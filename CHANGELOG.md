@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-19
+
+First stable release. TUIKit graduates out of alpha: the public API is now considered stable and the
+project follows [Semantic Versioning](https://semver.org/). This release also lands the
+fullscreen-rendering enhancements — the terminal capabilities a full-viewport, flicker-free TUI
+depends on — all of which are cross-platform across Windows, macOS, and Linux.
+
+### Added
+- **Synchronized output (DEC private mode 2026).** `Ansi.BeginSynchronizedUpdate` /
+  `Ansi.EndSynchronizedUpdate` and a new `TerminalRenderer.SynchronizedOutput` flag wrap each emitted
+  frame in a begin/end pair so the terminal presents the repaint atomically, eliminating tearing and
+  partial-frame flicker on fast streams. Gated on a new `TerminalCapabilities.SynchronizedOutput`
+  capability that `CapabilityDetector` infers for modern tier-1 terminals (Windows Terminal, iTerm2,
+  WezTerm, Kitty, Ghostty, Alacritty, foot, tmux ≥ 3.4) and withholds from GNU screen. An unchanged
+  (empty) frame is never wrapped, and the closing ESU is folded into every terminal-restore path
+  (`TuiApplication` teardown and the `ConsoleBackend` process-exit net) so a torn frame can never
+  leave the terminal in a held state. The host wires the renderer flag from the backend's capabilities
+  automatically.
+- **Persistent full-repaint mode.** `TerminalRenderer.ForceFullRepaint`, surfaced as
+  `TuiApplication.ForceFullRepaint`, repaints every row on every frame regardless of whether content
+  changed — insurance for backends that drop or corrupt incremental updates, such as some ConPTY /
+  Windows Terminal configurations that leave stale cells behind. Defaults to off (incremental
+  diffing); distinct from the one-shot `Invalidate()`, which forces only the next frame.
+- **Cross-platform `TuiApplication.SuspendAsync(Func<Task>)`.** Hands the terminal back in its
+  pristine cooked state, runs the supplied action to completion, then restores the session and forces
+  a full repaint — the vim/pager shell-out pattern. Works identically on Windows, macOS, and Linux
+  (unlike a Ctrl+Z / SIGTSTP job-control suspend, which does not exist on Windows). The render and
+  input loops are held inert (`TuiApplication.IsSuspended`) while the external program owns the
+  terminal, and the terminal is restored even if the action throws.
+
+### Changed
+- **`TerminalCapabilities` constructor gained a ninth parameter, `synchronizedOutput`.** The `Full`
+  and `Minimal` presets and `CapabilityDetector` are updated accordingly. This is the only source-level
+  break; everything else in this release is additive and backward compatible.
+
+### Tests
+- 17 new Touchstone cases, positive and negative, across a new **Fullscreen** suite covering the mode
+  2026 sequences, capability detection, synchronized-frame wrapping (including the empty-frame and
+  disabled negatives), full-repaint behavior, the host passthroughs, and `SuspendAsync` (restore/
+  resume, loop-inert guard, null-argument, non-interactive, and throwing-action paths). 580 total
+  across console/xUnit/NUnit on net8.0/net10.0.
+
 ## [0.13.2] - 2026-09-17
 
 ### Added

@@ -35,11 +35,11 @@ namespace TUIKit.Terminal
                 throw new ArgumentNullException(nameof(getEnvironmentVariable));
 
             if (!interactive)
-                return new TerminalCapabilities(TerminalColorDepth.None, false, false, false, false, false, false, false);
+                return new TerminalCapabilities(TerminalColorDepth.None, false, false, false, false, false, false, false, false);
 
             string? term = getEnvironmentVariable("TERM");
             if (string.Equals(term, "dumb", StringComparison.OrdinalIgnoreCase))
-                return new TerminalCapabilities(TerminalColorDepth.None, false, false, false, false, false, false, false);
+                return new TerminalCapabilities(TerminalColorDepth.None, false, false, false, false, false, false, false, false);
 
             string? colorTerm = getEnvironmentVariable("COLORTERM");
             string? termProgram = getEnvironmentVariable("TERM_PROGRAM");
@@ -73,7 +73,14 @@ namespace TUIKit.Terminal
             bool anyMotionMouse = sgrMouse && !isGnuScreen && !isAppleTerminal;
             bool focusReporting = sgrMouse && !isGnuScreen && !isAppleTerminal;
 
-            return new TerminalCapabilities(depth, enhancedKeyboard, sgrMouse, hyperlinks, clipboard, bracketedPaste, anyMotionMouse, focusReporting);
+            // Synchronized output (mode 2026) is implemented by the modern tier-1 emulators (Windows
+            // Terminal, iTerm2, WezTerm, Kitty, Ghostty, Alacritty, foot, contour) and by tmux >= 3.4.
+            // It rides the same "modern" signal used above; GNU screen is the known holdout and does not
+            // pass the private mode through. Emitting 2026 is harmless where unsupported (the terminal
+            // ignores the private-mode set), so this heuristic errs toward enabling it.
+            bool synchronizedOutput = modern && !isGnuScreen;
+
+            return new TerminalCapabilities(depth, enhancedKeyboard, sgrMouse, hyperlinks, clipboard, bracketedPaste, anyMotionMouse, focusReporting, synchronizedOutput);
         }
 
         /// <summary>

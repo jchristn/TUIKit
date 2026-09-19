@@ -91,7 +91,8 @@ namespace Test.Shared
                     MouseWidgetSuite.Suite(),
                     ModalMouseRoutingSuite.Suite(),
                     WidgetMouseCoverageSuite.Suite(),
-                    DistributionChartsSuite.Suite()
+                    DistributionChartsSuite.Suite(),
+                    FullscreenSuite.Suite()
                 };
             }
         }
