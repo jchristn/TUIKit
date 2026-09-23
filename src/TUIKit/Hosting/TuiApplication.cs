@@ -78,6 +78,17 @@ namespace TUIKit.Hosting
         private int _TornDown;
         private ConsoleCancelEventHandler? _CancelKeyHandler;
         private EventHandler? _ProcessExitHandler;
+        private bool _MouseTextSelectionEnabled;
+        private bool _SelActive;
+        private bool _SelDragging;
+        private bool _SelMoved;
+        private Rect _SelRegionRect;
+        private int _SelAnchorX;
+        private int _SelAnchorY;
+        private int _SelFocusX;
+        private int _SelFocusY;
+        private BufferSurface? _LastRoot;
+        private Size _LastComposeSize;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TuiApplication"/> class.
@@ -319,6 +330,103 @@ namespace TUIKit.Hosting
         {
             MouseCaptureEnabled = !_MouseCaptureEnabled;
             return _MouseCaptureEnabled;
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the built-in mouse text-selection layer is active.
+        /// When on, a left click-drag while the mouse is captured selects text within the region where
+        /// the drag began (the selection is clamped to that region's rectangle), and Ctrl+C copies the
+        /// selection to the clipboard. Selection reads back from the composited cell buffer, so it works
+        /// over any bound widget without per-widget cooperation. Defaults to <c>false</c>, so existing
+        /// hosts are unaffected. Has no effect while <see cref="MouseCaptureEnabled"/> is <c>false</c>
+        /// (the terminal performs its own native selection then). Setting it to <c>false</c> clears any
+        /// active selection.
+        /// </summary>
+        public bool MouseTextSelectionEnabled
+        {
+            get { return _MouseTextSelectionEnabled; }
+            set
+            {
+                _MouseTextSelectionEnabled = value;
+                if (!value)
+                    ClearTextSelection();
+            }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether a non-empty text selection currently exists. Thread-safety:
+        /// read on the application loop thread, the same thread that mutates the selection.
+        /// </summary>
+        public bool HasTextSelection
+        {
+            get { return _SelActive; }
+        }
+
+        /// <summary>
+        /// Gets or sets the style used to paint selected cells. When <c>null</c> (the default) selected
+        /// cells keep their existing content drawn with reverse video, which reads correctly on any
+        /// background. Set a style to override the highlight appearance.
+        /// </summary>
+        public CellStyle? SelectionStyle { get; set; }
+
+        /// <summary>
+        /// Raised on the application loop thread after Ctrl+C copies a selection, carrying the copied
+        /// text. Use it for host feedback such as a toast. Never raised with null or empty text.
+        /// </summary>
+        public event Action<string>? TextCopied;
+
+        /// <summary>
+        /// Returns the plain text of the current selection, read from the last composed frame's cell
+        /// buffer. Rows are joined with '\n' and trailing spaces are trimmed per row, matching how
+        /// terminals copy selected lines. Returns an empty string when nothing is selected or no frame
+        /// has been composed yet (for example on a non-interactive backend). Call on the application
+        /// loop thread.
+        /// </summary>
+        /// <returns>The selected text, or an empty string. Never null.</returns>
+        public string GetSelectedText()
+        {
+            if (!_SelActive || _LastRoot == null)
+                return string.Empty;
+
+            System.Text.StringBuilder builder = new System.Text.StringBuilder();
+            int top = Math.Min(_SelAnchorY, _SelFocusY);
+            int bottom = Math.Max(_SelAnchorY, _SelFocusY);
+            int rightExclusive = _SelRegionRect.Right;
+
+            for (int y = top; y <= bottom; y++)
+            {
+                System.Text.StringBuilder row = new System.Text.StringBuilder();
+                ComputeSelectionRowSpan(y, out int startX, out int endX);
+                int x = startX;
+                while (x <= endX && x < rightExclusive)
+                {
+                    Cell cell = _LastRoot.Get(x, y);
+                    if (cell.IsContinuation)
+                    {
+                        x++;
+                        continue;
+                    }
+
+                    row.Append(string.IsNullOrEmpty(cell.Grapheme) ? " " : cell.Grapheme);
+                    x += cell.Width > 1 ? cell.Width : 1;
+                }
+
+                if (y != top)
+                    builder.Append('\n');
+                builder.Append(TrimTrailingSpaces(row.ToString()));
+            }
+
+            return builder.ToString();
+        }
+
+        /// <summary>
+        /// Clears any active text selection and schedules a repaint so the highlight is removed. Safe to
+        /// call when nothing is selected. Call on the application loop thread.
+        /// </summary>
+        public void ClearTextSelection()
+        {
+            ClearSelectionState();
+            _Renderer?.Invalidate();
         }
 
         /// <summary>
@@ -1103,6 +1211,16 @@ namespace TUIKit.Hosting
             Size size = root.Size;
             _HitMap.Clear();
 
+            if (_MouseTextSelectionEnabled)
+            {
+                // Keep the composited root so GetSelectedText can read cells back. A resize invalidates
+                // the stored screen-cell rectangle, so drop any selection when the surface changes size.
+                _LastRoot = root as BufferSurface;
+                if (_SelActive && size != _LastComposeSize)
+                    ClearSelectionState();
+                _LastComposeSize = size;
+            }
+
             if (_Layout != null && !_Layout.FitsIn(size))
             {
                 LayoutBlockScreen.Render(root, _Layout.MinimumSize, size, _Theme.Text);
@@ -1154,6 +1272,11 @@ namespace TUIKit.Hosting
                     }
                 }
             }
+
+            // Paint the highlight over the composed regions but under the overlay and modal layers, so
+            // dialogs and overlays still draw on top of a selection.
+            if (_MouseTextSelectionEnabled && _SelActive && root is BufferSurface selectionSurface)
+                PaintSelection(selectionSurface);
 
             _OnRenderOverlay?.Invoke(root);
 
@@ -1264,6 +1387,17 @@ namespace TUIKit.Hosting
         {
             if (IsCtrlC(key) && _CtrlCPolicy != CtrlCPolicy.Custom)
             {
+                // With the selection layer on and a selection present, Ctrl+C copies and clears it
+                // instead of following the exit policy. Resetting the double-tap timer keeps a prior
+                // lone Ctrl+C from combining with a later one across a copy.
+                if (_MouseTextSelectionEnabled && _SelActive)
+                {
+                    CopyTextSelection();
+                    ClearTextSelection();
+                    _LastCtrlC = long.MinValue;
+                    return;
+                }
+
                 HandleCtrlC();
                 return;
             }
@@ -1367,6 +1501,13 @@ namespace TUIKit.Hosting
                 return;
             }
 
+            // Built-in text selection runs before widget routing so a drag over a widget that consumes
+            // mouse (a TextEditor, a scrollable pane) is still captured as a selection. It is inert
+            // unless enabled and the mouse is captured; a press is never consumed, so click-to-focus and
+            // caret placement still work.
+            if (_MouseTextSelectionEnabled && _MouseCaptureEnabled && HandleSelectionMouse(mouse))
+                return;
+
             if (_EnableMouseRouting && RouteMouse(mouse))
                 return;
 
@@ -1393,6 +1534,159 @@ namespace TUIKit.Hosting
             }
 
             return false;
+        }
+
+        // Drives the built-in selection state machine. Returns true only when it consumes the event: a
+        // drag move that updates the selection, or the release that ends one. A press is never consumed
+        // so click-to-focus and caret placement still route normally.
+        private bool HandleSelectionMouse(MouseEvent mouse)
+        {
+            // A wheel scrolls content out from under a screen-cell selection, so its highlighted cells
+            // would no longer mean what they did. Drop the selection but let the wheel scroll.
+            if (mouse.Kind == MouseEventKind.Wheel)
+            {
+                if (_SelActive)
+                    ClearTextSelection();
+                return false;
+            }
+
+            if (mouse.Button != MouseButton.Left && mouse.Kind != MouseEventKind.Release)
+                return false;
+
+            switch (mouse.Kind)
+            {
+                case MouseEventKind.Press:
+                    // A new gesture discards the previous selection, whether in the same region or another.
+                    ClearSelectionState();
+                    HitTestEntry? hit = HitTest(mouse.X, mouse.Y);
+                    if (hit == null)
+                        return false;
+
+                    _SelRegionRect = hit.Rect;
+                    _SelAnchorX = ClampInt(mouse.X, hit.Rect.Left, hit.Rect.Right - 1);
+                    _SelAnchorY = ClampInt(mouse.Y, hit.Rect.Top, hit.Rect.Bottom - 1);
+                    _SelFocusX = _SelAnchorX;
+                    _SelFocusY = _SelAnchorY;
+                    _SelDragging = true;
+                    _SelMoved = false;
+                    _SelActive = false;
+                    return false;
+
+                case MouseEventKind.Move:
+                    if (!_SelDragging || mouse.Button != MouseButton.Left)
+                        return false;
+
+                    int focusX = ClampInt(mouse.X, _SelRegionRect.Left, _SelRegionRect.Right - 1);
+                    int focusY = ClampInt(mouse.Y, _SelRegionRect.Top, _SelRegionRect.Bottom - 1);
+                    if (!_SelMoved && (focusX != _SelAnchorX || focusY != _SelAnchorY))
+                        _SelMoved = true;
+
+                    _SelFocusX = focusX;
+                    _SelFocusY = focusY;
+                    _SelActive = _SelMoved;
+                    if (_SelActive)
+                    {
+                        _Renderer?.Invalidate();
+                        return true;
+                    }
+
+                    return false;
+
+                case MouseEventKind.Release:
+                    if (_SelDragging && _SelActive)
+                    {
+                        // Finalize; keep the selection active so a later Ctrl+C can copy it.
+                        _SelDragging = false;
+                        return true;
+                    }
+
+                    // A plain click with no drag: drop the pending anchor and let the release route.
+                    _SelDragging = false;
+                    _SelActive = false;
+                    return false;
+
+                default:
+                    return false;
+            }
+        }
+
+        private void ClearSelectionState()
+        {
+            _SelActive = false;
+            _SelDragging = false;
+            _SelMoved = false;
+        }
+
+        // Computes the inclusive [startX, endX] column span selected on a given row, wrapping within the
+        // anchor region's horizontal bounds. Shared by PaintSelection and GetSelectedText so they agree.
+        private void ComputeSelectionRowSpan(int y, out int startX, out int endX)
+        {
+            int sx = _SelAnchorX;
+            int sy = _SelAnchorY;
+            int ex = _SelFocusX;
+            int ey = _SelFocusY;
+            if (sy > ey || (sy == ey && sx > ex))
+            {
+                int swapX = sx;
+                sx = ex;
+                ex = swapX;
+                int swapY = sy;
+                sy = ey;
+                ey = swapY;
+            }
+
+            startX = (y == sy) ? sx : _SelRegionRect.Left;
+            endX = (y == ey) ? ex : _SelRegionRect.Right - 1;
+        }
+
+        private void PaintSelection(BufferSurface surface)
+        {
+            int top = Math.Min(_SelAnchorY, _SelFocusY);
+            int bottom = Math.Max(_SelAnchorY, _SelFocusY);
+            int rightExclusive = _SelRegionRect.Right;
+
+            for (int y = top; y <= bottom; y++)
+            {
+                ComputeSelectionRowSpan(y, out int startX, out int endX);
+                for (int x = startX; x <= endX && x < rightExclusive; x++)
+                {
+                    Cell under = surface.Get(x, y);
+
+                    // The leading cell of a wide glyph carries the whole two-column glyph and its reverse
+                    // attribute covers both columns; painting the continuation would double the grapheme.
+                    if (under.IsContinuation)
+                        continue;
+
+                    string grapheme = string.IsNullOrEmpty(under.Grapheme) ? " " : under.Grapheme;
+                    int width = under.Width > 0 ? under.Width : 1;
+                    CellStyle style = SelectionStyle ?? under.Style.WithAttribute(CellAttributes.Reverse, true);
+                    surface.Set(x, y, Cell.Glyph(grapheme, style, width));
+                }
+            }
+        }
+
+        private void CopyTextSelection()
+        {
+            string text = GetSelectedText();
+            if (text.Length == 0)
+                return;
+
+            if (_Backend.IsInteractive)
+            {
+                _Backend.Write(ClipboardWriter.BuildSequence(text));
+                _Backend.Flush();
+            }
+
+            TextCopied?.Invoke(text);
+        }
+
+        private static string TrimTrailingSpaces(string value)
+        {
+            int end = value.Length;
+            while (end > 0 && value[end - 1] == ' ')
+                end--;
+
+            return value.Substring(0, end);
         }
 
         // Synthesizes hover transitions from hit-test changes. The contract, in order: Leave to the
@@ -1583,7 +1877,10 @@ namespace TUIKit.Hosting
                     break;
                 case CtrlCPolicy.DoubleTapToExit:
                     long now = NowMilliseconds;
-                    if (now - _LastCtrlC <= 500)
+                    // Guard against the sentinel: with no prior press, _LastCtrlC is long.MinValue and
+                    // (now - long.MinValue) overflows to a small value that would spuriously satisfy the
+                    // window, exiting on the very first Ctrl+C. Only a real prior timestamp counts.
+                    if (_LastCtrlC != long.MinValue && now - _LastCtrlC <= 500)
                         RequestStop();
                     else
                         _Notifications.Add("Press Ctrl+C again to exit", NotificationSeverity.Info, now, 1500);

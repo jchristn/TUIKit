@@ -37,6 +37,7 @@ namespace Test.Shared
                     InputSuite.Suite(),
                     MouseLinkSuite.Suite(),
                     SelectionSuite.Suite(),
+                    MouseSelectionSuite.Suite(),
                     ModalSuite.Suite(),
                     DialogModalSuite.Suite(),
                     MultiSelectSuite.Suite(),

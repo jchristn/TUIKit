@@ -83,6 +83,22 @@ namespace Test.Shared.Suites
                             return Task.CompletedTask;
                         }),
 
+                    new TestCaseDescriptor("BufferSurface", "GetReadsBackAndClamps", "Get reads a cell through a view and returns Empty out of bounds",
+                        _ =>
+                        {
+                            CellBuffer buffer = new CellBuffer(10, 5);
+                            BufferSurface surface = new BufferSurface(buffer);
+                            surface.Set(4, 2, Cell.Glyph("G", CellStyle.Default, 1));
+                            Check.Equal("G", surface.Get(4, 2).Grapheme, "Reads back the written cell");
+
+                            BufferSurface view = surface.CreateView(new Rect(2, 1, 3, 2));
+                            Check.Equal("G", view.Get(2, 1).Grapheme, "View (2,1) maps to buffer (4,2)");
+                            Check.Equal(Cell.Empty, view.Get(-1, 0), "Negative column returns Empty");
+                            Check.Equal(Cell.Empty, view.Get(3, 0), "Column past the view returns Empty");
+                            Check.Equal(Cell.Empty, view.Get(0, 2), "Row past the view returns Empty");
+                            return Task.CompletedTask;
+                        }),
+
                     new TestCaseDescriptor("BufferSurface", "ViewTranslation", "A view translates and clips writes",
                         _ =>
                         {

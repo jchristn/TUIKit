@@ -3,6 +3,7 @@
     using System;
     using System.Collections.Generic;
     using System.Text;
+    using System.Threading;
     using System.Threading.Tasks;
     using Touchstone.Core;
     using TUIKit;
@@ -98,6 +99,57 @@
                             }
 
                             return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Hosting", "CtrlCFirstTapDoesNotExit", "The first Ctrl+C under DoubleTapToExit posts the notice and does not stop",
+                        _ =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(20, 5);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                app.CtrlCPolicy = CtrlCPolicy.DoubleTapToExit;
+                                app.Start();
+
+                                backend.FeedInput(new byte[] { 0x03 }); // Ctrl+C
+                                app.PumpInputOnce();
+
+                                bool noticed = false;
+                                foreach (Notification notification in app.Notifications.Active(0))
+                                {
+                                    if (notification.Text.Contains("again"))
+                                        noticed = true;
+                                }
+
+                                Check.True(noticed, "First tap posts the double-tap notice");
+                                app.Stop();
+                            }
+
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Hosting", "CtrlCDoubleTapExits", "Two quick Ctrl+C presses stop under DoubleTapToExit",
+                        async _ =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(20, 5);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                app.CtrlCPolicy = CtrlCPolicy.DoubleTapToExit;
+                                app.Start();
+
+                                // Queue both taps before the loop runs so they drain in one pump, well
+                                // within the 500 ms window regardless of scheduling.
+                                backend.FeedInput(new byte[] { 0x03, 0x03 });
+                                using (CancellationTokenSource cts = new CancellationTokenSource())
+                                {
+                                    Task run = app.RunAsync(cts.Token);
+                                    Task finished = await Task.WhenAny(run, Task.Delay(3000)).ConfigureAwait(false);
+                                    Check.True(ReferenceEquals(finished, run) && run.IsCompleted, "The double tap stopped the run loop");
+                                    cts.Cancel();
+                                    await run.ConfigureAwait(false);
+                                }
+
+                                app.Stop();
+                            }
                         }),
 
                     new TestCaseDescriptor("Hosting", "KeyFallthrough", "Unbound keys fall through to text input",

@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-23
+
+### Fixed
+- **`CtrlCPolicy.DoubleTapToExit` exited on the first Ctrl+C.** With no prior press the internal
+  timestamp was `long.MinValue`, so the elapsed-time check (`now - last <= 500` ms) overflowed to a
+  small value and spuriously satisfied the double-tap window - the very first `Ctrl+C` quit the app
+  instead of posting the "Press Ctrl+C again to exit" notice. The check now requires a real prior
+  timestamp. Affects any host using `DoubleTapToExit`; `Kill`, `InterruptFocusedPane`, and `Custom`
+  were unaffected. No API change.
+
+### Tests
+- 2 new Touchstone cases in the `Hosting` suite: the first tap posts the notice without stopping, and
+  two quick taps genuinely exit (596 total across console/xUnit/NUnit on net8.0/net10.0).
+
+## [1.1.0] - 2026-09-23
+
+Built-in mouse text selection. TUIKit gains an application-wide, opt-in layer that lets the user
+select text with the mouse and copy it - across any bound widget, with no per-widget cooperation -
+by reading back from the composited cell buffer.
+
+### Added
+- **Application-wide mouse text selection.** `TuiApplication.MouseTextSelectionEnabled` (default
+  `false`, so existing hosts are unaffected) turns on a built-in selection layer. While the mouse is
+  captured, a left click-drag selects text within the region where the drag began; the selection is
+  **clamped to that region's rectangle**, so dragging past its edges stops at the bounds. A drag in a
+  different region discards the previous selection - there is always at most one active selection. It
+  works over any widget type (transcript `Pane`, composer `TextEditor`, sidebars, lists) because it
+  reads the composed grid rather than cooperating with each widget, and it extracts wide (CJK/emoji)
+  glyphs correctly.
+- **Copy on Ctrl+C.** With a selection present, `Ctrl+C` copies it to the system clipboard over OSC 52
+  (which works over SSH), clears the selection, and raises the new `TextCopied` event for host
+  feedback such as a toast. With nothing selected, `Ctrl+C` keeps its existing policy behavior
+  unchanged.
+- **Selection API.** `TuiApplication.HasTextSelection`, `GetSelectedText()` (rows joined with `\n`,
+  trailing spaces trimmed per row), `ClearTextSelection()`, a `SelectionStyle` override (reverse video
+  by default), and the `TextCopied` event.
+- **`BufferSurface.Get(int x, int y)`.** Reads a cell back through a view, returning `Cell.Empty` out
+  of bounds - the read-back primitive the selection layer extracts text with.
+
+### Behavior
+- The selection layer is inert while `MouseCaptureEnabled` is `false` (the terminal performs native
+  selection then) and while a modal is active (modals own the mouse). The highlight paints beneath
+  overlays and modals. A terminal resize or a scroll-wheel event drops the current screen-cell
+  selection, since the cells beneath it have moved.
+
+### Tests
+- 14 new Touchstone cases across a new `MouseSelection` suite plus a `BufferSurface.Get` case (594
+  total across console/xUnit/NUnit on net8.0/net10.0).
+
 ## [1.0.0] - 2026-09-19
 
 First stable release. TUIKit graduates out of alpha: the public API is now considered stable and the

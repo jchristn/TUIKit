@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application - the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v1.0.0 - stable.** TUIKit is out of alpha: the API is now stable and follows [semantic versioning](https://semver.org/). This release lands the **fullscreen-rendering** capabilities a full-viewport, flicker-free TUI depends on, all cross-platform across Windows, macOS, and Linux: **synchronized output** (DEC mode 2026) presents each frame atomically so fast streams never tear, a persistent **full-repaint mode** covers terminals that drop incremental updates (some ConPTY / Windows Terminal setups), and a cross-platform **`SuspendAsync`** shell-out hands the terminal to an external editor or pager and restores the session cleanly. The one source-level break is a new ninth `TerminalCapabilities` constructor parameter (`synchronizedOutput`). See the [**changelog**](CHANGELOG.md) for the full release history.
+> **v1.1.1 - stable.** Adds a built-in, opt-in **mouse text-selection** layer (`MouseTextSelectionEnabled`): click-drag to select within a region, `Ctrl+C` to copy over OSC 52 - works over any widget, off by default. Fixes a `CtrlCPolicy.DoubleTapToExit` bug where the first `Ctrl+C` quit immediately. See the [**changelog**](CHANGELOG.md) for the full history.
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -95,7 +95,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.0.0" />
+<PackageReference Include="TUIKit" Version="1.1.1" />
 ```
 
 ## Quick start
@@ -214,6 +214,21 @@ Deliberately out of scope, and why:
 | Pointer cursor shape changes on hover | No standardized escape sequence with wide enough support to build API on. |
 | Pre-Windows-10 consoles | No `ENABLE_VIRTUAL_TERMINAL_INPUT`, so no VT mouse translation exists to consume. |
 
+### Text selection and copy
+
+Set `TuiApplication.MouseTextSelectionEnabled = true` (off by default) to turn on a built-in
+selection layer. While the mouse is captured, a left click-drag selects text within the region the
+drag started in - the selection is clamped to that region, and a drag in another region replaces it,
+so there is always at most one selection. `Ctrl+C` copies the selection to the clipboard over OSC 52
+(so it works over SSH), clears it, and raises `TextCopied`; with nothing selected, `Ctrl+C` keeps
+its configured policy. Selection reads back from the composited cell buffer, so it spans any bound
+widget (transcript pane, text editor, sidebar, list) with no per-widget code and extracts wide
+(CJK/emoji) glyphs correctly. Read the current selection with `GetSelectedText()`, inspect
+`HasTextSelection`, restyle the highlight with `SelectionStyle` (reverse video by default), and clear
+it with `ClearTextSelection()`. The layer is inert while mouse capture is off - so the F12 pattern
+below hands the mouse back to the terminal for its own native selection - and while a modal is
+active; a resize or scroll drops the selection.
+
 ## Building and testing
 
 ```bash
@@ -229,10 +244,6 @@ dotnet test src/Test.Nunit
 ```
 
 Tests are written with [Touchstone](https://github.com/jchristn/touchstone): one set of descriptors in `Test.Shared` runs identically through the console runner, xUnit, and NUnit. See [`docs/SURFACE_COVERAGE.md`](docs/SURFACE_COVERAGE.md) for the coverage audit.
-
-## Project status
-
-**Stable - 1.0.** The core - plus the full widget, layout, reactive, animation, testing, and terminal-integration surface - is implemented and covered by an extensive suite of [Touchstone](https://github.com/jchristn/touchstone) cases that run identically through the console, xUnit, and NUnit runners on `net8.0` and `net10.0` (363 cases in the console runner as of 0.6.0). The 0.6 line added per-region background colors and a batch of horizontal components - a `DialogModal` base, `CheckList<T>`/`MultiSelectModal<T>`, generic `ListView<T>`/`FuzzyList<T>`, `ActionListView<T>`, `ReorderableList<T>`, `DefinitionList`, `ActivityIndicator`, `StreamingTranscript`, a `CommandRegistry`, focus-following `ScrollView`, and small text/input utilities - and shipped **autocomplete/typeahead** (`AutocompleteOverlay`), the one capability the original build plan had held back, so every catalogued capability now ships. The host owns an interaction contract: a focus ring, an explicit key-precedence chain with focused-widget first refusal, mouse hit-testing for click-to-focus and wheel routing, typed modals, and application-shell dock helpers - so a standard interactive app is "bind widgets, set focus, run." The 0.8 line adds a text-to-ASCII-art font engine (`TUIKit.Ascii`): `AsciiArt.Render` with faithful FIGlet layout (full-width, kerning, and the six horizontal smushing rules), a thread-safe `AsciiFontLibrary` manager whose `Default` ships 84 built-in fonts, a `FigletFontLoader` for `.flf`/`.tlf` files, and the `AsciiArtText` widget - with per-font attribution bundled and a licensing gate that would exclude any restrictive font; v0.8.1 hardens terminal restore on exit so Ctrl+C or an unhandled exception can no longer leave the shell with mouse reporting or raw input mode enabled, and v0.8.2–0.8.3 add uniform PageUp/PageDown and Home/End navigation across every list and scroll widget; v0.9.0 fixes bracketed paste into a focused prompt or inline add field so an Access key, Secret key, password, or token pastes instead of being silently dropped; and v0.10.0 completes mouse support - hover with synthesized Enter/Leave, tracking-mode control, horizontal wheel, terminal focus reporting, host-stamped multi-click counts, link hover, widget hover styles, and the conhost QuickEdit fix; and v1.0.0 lands the fullscreen-rendering capabilities - synchronized output (DEC mode 2026), a persistent full-repaint mode, and a cross-platform `SuspendAsync` shell-out - and takes the project stable (580 console cases as of 1.0.0). Still outstanding: a benchmark suite. The platform-specific `ConsoleBackend` and the interactive run loop are validated by manual smoke testing rather than headless tests, and have been confirmed working on Windows, macOS, and Linux, including over SSH. See [`CHANGELOG.md`](CHANGELOG.md) and [`archive/TUIKIT_PLAN.md`](archive/TUIKIT_PLAN.md) for detail.
 
 ## Contributing, issues, and discussions
 

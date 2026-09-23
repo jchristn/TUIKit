@@ -62,6 +62,22 @@ namespace TUIKit
                 new Size(clipped.Width, clipped.Height));
         }
 
+        /// <summary>
+        /// Reads the cell at a coordinate local to this view, translating it into the backing buffer.
+        /// Coordinates outside the view's bounds return <see cref="Cell.Empty"/> so callers may read
+        /// freely without clipping. Not thread-safe; intended for use on the render thread.
+        /// </summary>
+        /// <param name="x">The zero-based column local to this view.</param>
+        /// <param name="y">The zero-based row local to this view.</param>
+        /// <returns>The cell at that coordinate, or <see cref="Cell.Empty"/> when out of bounds.</returns>
+        public Cell Get(int x, int y)
+        {
+            if (x < 0 || x >= _Size.Width || y < 0 || y >= _Size.Height)
+                return Cell.Empty;
+
+            return _Buffer.Get(_OffsetX + x, _OffsetY + y);
+        }
+
         /// <inheritdoc/>
         public void Set(int x, int y, Cell cell)
         {
