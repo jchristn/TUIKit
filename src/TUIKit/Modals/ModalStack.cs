@@ -2,7 +2,10 @@ namespace TUIKit.Modals
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Threading.Tasks;
     using TUIKit;
+    using TUIKit.Diagnostics;
     using TUIKit.Input;
 
     /// <summary>
@@ -58,6 +61,8 @@ namespace TUIKit.Modals
 
             lock (_Sync)
                 _Modals.Add(modal);
+
+            TrackShown(modal);
         }
 
         /// <summary>
@@ -122,14 +127,63 @@ namespace TUIKit.Modals
         /// </summary>
         public void RemoveClosed()
         {
+            List<Modal>? removed = null;
             lock (_Sync)
             {
                 for (int i = _Modals.Count - 1; i >= 0; i--)
                 {
                     if (_Modals[i].IsClosed)
+                    {
+                        if (removed == null)
+                            removed = new List<Modal>();
+                        removed.Add(_Modals[i]);
                         _Modals.RemoveAt(i);
+                    }
                 }
             }
+
+            if (removed != null)
+            {
+                for (int i = 0; i < removed.Count; i++)
+                    TrackRemoved(removed[i]);
+            }
+        }
+
+        private static void TrackShown(Modal modal)
+        {
+            if (modal.TelemetryTracked)
+                return;
+
+            string type = modal.GetType().Name;
+            modal.TelemetryTracked = true;
+            modal.TelemetryShownTimestamp = TuiKitInstruments.Timestamp();
+            modal.TelemetrySpan = TuiKitInstruments.StartDetachedActivity(TuiKitTelemetryNames.SpanModal);
+            TuiKitInstruments.SetTag(modal.TelemetrySpan, TuiKitTelemetryNames.AttrModalType, type);
+            TuiKitInstruments.Add(TuiKitInstruments.ModalShown, 1, TuiKitTelemetryNames.AttrModalType, type);
+            TuiKitInstruments.Add(TuiKitInstruments.ModalActive, 1);
+        }
+
+        private static void TrackRemoved(Modal modal)
+        {
+            if (!modal.TelemetryTracked)
+                return;
+
+            modal.TelemetryTracked = false;
+            Task<object?> completion = modal.Completion;
+            bool completed = completion.Status == TaskStatus.RanToCompletion && completion.Result != null;
+            string outcome = completed ? TuiKitTelemetryNames.ModalCompleted : TuiKitTelemetryNames.ModalDismissed;
+
+            TagList tags = new TagList();
+            tags.Add(TuiKitTelemetryNames.AttrModalType, modal.GetType().Name);
+            tags.Add(TuiKitTelemetryNames.AttrModalOutcome, outcome);
+            TuiKitInstruments.Record(TuiKitInstruments.ModalDuration, TuiKitInstruments.SecondsSince(modal.TelemetryShownTimestamp), in tags);
+            TuiKitInstruments.Add(TuiKitInstruments.ModalActive, -1);
+
+            Activity? span = modal.TelemetrySpan;
+            modal.TelemetrySpan = null;
+            TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrModalOutcome, outcome);
+            TuiKitInstruments.MarkOk(span);
+            TuiKitInstruments.Stop(span);
         }
 
         /// <summary>

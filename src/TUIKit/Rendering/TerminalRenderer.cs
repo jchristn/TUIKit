@@ -1,7 +1,9 @@
 namespace TUIKit.Rendering
 {
     using System;
+    using System.Diagnostics;
     using System.Text;
+    using TUIKit.Diagnostics;
     using TUIKit.Terminal;
 
     /// <summary>
@@ -87,30 +89,70 @@ namespace TUIKit.Rendering
             if (draw == null)
                 throw new ArgumentNullException(nameof(draw));
 
-            SyncSize(backend.Size);
+            long frameStart = TuiKitInstruments.Timestamp();
+            Activity? frameSpan = TuiKitTelemetry.TraceFrames ? TuiKitInstruments.StartActivity(TuiKitTelemetryNames.SpanFrame) : null;
+            string stage = TuiKitTelemetryNames.StageCompose;
+            long stageStart = frameStart;
+            Activity? stageSpan = null;
 
-            _Back.Clear(CellStyle.Default);
-            BufferSurface surface = new BufferSurface(_Back);
-            draw(surface);
+            try
+            {
+                SyncSize(backend.Size);
+                if (frameSpan != null)
+                    TuiKitInstruments.SetTag(frameSpan, TuiKitTelemetryNames.AttrTerminalSize, _Size.Width + "x" + _Size.Height);
 
-            string output = BuildDiff();
-            _Front.CopyFrom(_Back);
-            _RepaintPending = false;
+                stageSpan = StartStage(frameSpan, stage);
+                _Back.Clear(CellStyle.Default);
+                BufferSurface surface = new BufferSurface(_Back);
+                draw(surface);
+                EndStage(stage, stageStart, ref stageSpan);
 
-            if (output.Length == 0)
-                return false;
+                stage = TuiKitTelemetryNames.StageDiff;
+                stageStart = TuiKitInstruments.Timestamp();
+                stageSpan = StartStage(frameSpan, stage);
+                string output = BuildDiff(out int rowsRepainted);
+                _Front.CopyFrom(_Back);
+                _RepaintPending = false;
+                EndStage(stage, stageStart, ref stageSpan);
+                TuiKitInstruments.Record(TuiKitInstruments.FrameRowsRepainted, rowsRepainted);
 
-            // A begin/end synchronized-update pair wraps the whole frame in a single buffered write so
-            // the terminal presents it atomically. Emitting the pair only around a non-empty diff means
-            // an unchanged frame stays a true no-op. The pair is always balanced within one write, so a
-            // frame can never leave the terminal in a held state between frames.
-            if (SynchronizedOutput)
-                backend.Write(Ansi.BeginSynchronizedUpdate + output + Ansi.EndSynchronizedUpdate);
-            else
-                backend.Write(output);
+                if (output.Length == 0)
+                {
+                    EndFrame(TuiKitTelemetryNames.FrameUnchanged, frameStart, frameSpan);
+                    return false;
+                }
 
-            backend.Flush();
-            return true;
+                stage = TuiKitTelemetryNames.StageWrite;
+                stageStart = TuiKitInstruments.Timestamp();
+                stageSpan = StartStage(frameSpan, stage);
+
+                // A begin/end synchronized-update pair wraps the whole frame in a single buffered write so
+                // the terminal presents it atomically. Emitting the pair only around a non-empty diff means
+                // an unchanged frame stays a true no-op. The pair is always balanced within one write, so a
+                // frame can never leave the terminal in a held state between frames.
+                if (SynchronizedOutput)
+                    backend.Write(Ansi.BeginSynchronizedUpdate + output + Ansi.EndSynchronizedUpdate);
+                else
+                    backend.Write(output);
+
+                backend.Flush();
+                EndStage(stage, stageStart, ref stageSpan);
+                TuiKitInstruments.Record(TuiKitInstruments.FrameOutputSize, output.Length);
+
+                EndFrame(TuiKitTelemetryNames.FrameEmitted, frameStart, frameSpan);
+                return true;
+            }
+            catch (Exception ex) when (RecordFrameFailure(ex, stage, stageStart, stageSpan, frameStart, frameSpan))
+            {
+                // Unreachable: the filter records the failure and returns false so the exception
+                // propagates with its original stack.
+                throw;
+            }
+            finally
+            {
+                TuiKitInstruments.Stop(stageSpan);
+                TuiKitInstruments.Stop(frameSpan);
+            }
         }
 
         /// <summary>
@@ -137,8 +179,53 @@ namespace TUIKit.Rendering
             _RepaintPending = true;
         }
 
-        private string BuildDiff()
+        private static Activity? StartStage(Activity? frameSpan, string stage)
         {
+            return frameSpan == null ? null : TuiKitInstruments.StartActivity(TuiKitTelemetryNames.SpanStagePrefix + stage);
+        }
+
+        private static void EndStage(string stage, long stageStart, ref Activity? stageSpan)
+        {
+            RecordStage(stage, TuiKitTelemetryNames.OutcomeOk, stageStart);
+            TuiKitInstruments.MarkOk(stageSpan);
+            TuiKitInstruments.Stop(stageSpan);
+            stageSpan = null;
+        }
+
+        private static void RecordStage(string stage, string outcome, long stageStart)
+        {
+            TagList tags = new TagList();
+            tags.Add(TuiKitTelemetryNames.AttrStage, stage);
+            tags.Add(TuiKitTelemetryNames.AttrOutcome, outcome);
+            TuiKitInstruments.Record(TuiKitInstruments.FrameStageDuration, TuiKitInstruments.SecondsSince(stageStart), in tags);
+            TuiKitInstruments.Add(TuiKitInstruments.FrameStageRuns, 1, in tags);
+        }
+
+        private static void EndFrame(string outcome, long frameStart, Activity? frameSpan)
+        {
+            TuiKitInstruments.Record(TuiKitInstruments.FrameDuration, TuiKitInstruments.SecondsSince(frameStart), TuiKitTelemetryNames.AttrFrameOutcome, outcome);
+            TuiKitInstruments.Add(TuiKitInstruments.Frames, 1, TuiKitTelemetryNames.AttrFrameOutcome, outcome);
+            TuiKitInstruments.SetTag(frameSpan, TuiKitTelemetryNames.AttrFrameOutcome, outcome);
+            TuiKitInstruments.MarkOk(frameSpan);
+            if (outcome != TuiKitTelemetryNames.OutcomeError)
+                TuiKitInstruments.MarkFrameSuccess();
+        }
+
+        private static bool RecordFrameFailure(Exception ex, string stage, long stageStart, Activity? stageSpan, long frameStart, Activity? frameSpan)
+        {
+            RecordStage(stage, TuiKitTelemetryNames.OutcomeError, stageStart);
+            TuiKitInstruments.Record(TuiKitInstruments.FrameDuration, TuiKitInstruments.SecondsSince(frameStart), TuiKitTelemetryNames.AttrFrameOutcome, TuiKitTelemetryNames.OutcomeError);
+            TuiKitInstruments.Add(TuiKitInstruments.Frames, 1, TuiKitTelemetryNames.AttrFrameOutcome, TuiKitTelemetryNames.OutcomeError);
+            TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentRender, ex);
+            TuiKitInstruments.MarkError(stageSpan, ex);
+            TuiKitInstruments.SetTag(frameSpan, TuiKitTelemetryNames.AttrFrameOutcome, TuiKitTelemetryNames.OutcomeError);
+            TuiKitInstruments.MarkError(frameSpan, ex);
+            return false;
+        }
+
+        private string BuildDiff(out int rowsRepainted)
+        {
+            rowsRepainted = 0;
             StringBuilder builder = new StringBuilder();
             bool full = _RepaintPending || ForceFullRepaint;
 
@@ -148,6 +235,7 @@ namespace TUIKit.Rendering
                     continue;
 
                 EmitRow(builder, row);
+                rowsRepainted++;
             }
 
             if (builder.Length > 0)

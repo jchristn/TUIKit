@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-02
+
+Built-in observability. TUIKit now emits metrics and traces through the BCL
+`System.Diagnostics.Metrics.Meter` and `System.Diagnostics.ActivitySource`, both named `TUIKit`. It
+has no exporter or SDK dependency, and its cost is near zero when nothing subscribes. See
+[TELEMETRY.md](TELEMETRY.md) for the full catalog.
+
+### Added
+- **`TUIKit.Diagnostics.TuiKitTelemetry`.** The process-wide `Meter` and `ActivitySource`, plus
+  `Enabled` (master switch, default `true`) and `TraceFrames` (per-frame spans, default `false`).
+- **`TUIKit.Diagnostics.TuiKitTelemetryNames`.** Every meter, metric, span, attribute key, and
+  well-known label value as stable public constants.
+- **Render pipeline metrics.** Frame duration and count by outcome
+  (`emitted`/`unchanged`/`line_mode`/`error`), per-stage duration and runs (`compose`, `diff`,
+  `write`), rows repainted, output size, and a last-success timestamp gauge. Optional `tuikit.frame`
+  spans have one child span per stage.
+- **Input and command metrics.** Bytes read, events by kind, coalesced pointer moves, dispatch
+  latency, key-routing decisions, and command invocations/latency by outcome and `error.type`. A
+  `tuikit.command` span carries the command id.
+- **Post-queue metrics.** Depth, enqueue count, queue wait (the "queued" stage), and run time. Each
+  `tuikit.post` span is parented to the posting thread's `Activity.Current`, which carries W3C trace
+  context across the hand-off to the loop thread.
+- **Modal, notification, session, and suspend metrics.** Modals shown/active/duration by type and
+  outcome; notifications by severity, plus evictions at the cap; session starts (including rejected
+  second sessions), active sessions, and lifetime; suspend duration. Gauges report target FPS,
+  terminal size, and build info.
+- **Integration metrics.** The clipboard-read subprocess and `FileSystemProvider` listings record
+  counters and latency by service, operation, outcome, and `error.type`, each with a client span.
+  FIGlet font loads are counted and timed.
+- **`tuikit.errors`.** Counts every failure TUIKit observes, by component and `error.type`. This
+  includes failures it previously swallowed silently: teardown I/O, clipboard tool failures, and
+  file-system permission errors.
+
+### Changed
+- The `netstandard2.0` target now references `System.Diagnostics.DiagnosticSource` 10.0.11, which
+  supplies `Meter` and `ActivitySource`. The `net8.0` and `net10.0` targets add no dependency.
+- Exceptions from command handlers, posted actions, compose callbacks, and `SuspendAsync` actions
+  still propagate unchanged. They are recorded through exception filters, so stacks are preserved.
+
+### Tests
+- New `Telemetry` Touchstone suite with 19 cases, using an in-memory `MeterListener` and
+  `ActivityListener`. It covers every category above, plus the failure paths, the no-listener path, a
+  throwing listener, and `Enabled = false`.
+
 ## [1.1.1] - 2026-09-23
 
 ### Fixed

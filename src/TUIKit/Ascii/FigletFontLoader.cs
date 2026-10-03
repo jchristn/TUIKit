@@ -2,10 +2,12 @@ namespace TUIKit.Ascii
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Globalization;
     using System.IO;
     using System.Reflection;
     using System.Text;
+    using TUIKit.Diagnostics;
 
     /// <summary>
     /// Parses FIGlet font files (<c>.flf</c>) into an <see cref="IAsciiFont"/>. Consumers use this to
@@ -37,7 +39,7 @@ namespace TUIKit.Ascii
             using (StreamReader reader = new StreamReader(stream, Encoding.UTF8, true, 1024, true))
                 content = reader.ReadToEnd();
 
-            return new FigletFont(ParseContent(content, name));
+            return LoadCore(content, name);
         }
 
         /// <summary>
@@ -55,7 +57,42 @@ namespace TUIKit.Ascii
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
 
-            return new FigletFont(ParseContent(content, name));
+            return LoadCore(content, name);
+        }
+
+        private static IAsciiFont LoadCore(string content, string? name)
+        {
+            long start = TuiKitInstruments.Timestamp();
+            string outcome = TuiKitTelemetryNames.OutcomeError;
+            Activity? span = TuiKitInstruments.StartActivity(TuiKitTelemetryNames.SpanFontLoad);
+            if (name != null)
+                TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrFontName, name);
+
+            try
+            {
+                IAsciiFont font = new FigletFont(ParseContent(content, name));
+                outcome = TuiKitTelemetryNames.OutcomeOk;
+                TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrFontName, font.Name);
+                TuiKitInstruments.MarkOk(span);
+                return font;
+            }
+            catch (Exception ex) when (RecordLoadFailure(ex, span))
+            {
+                throw;
+            }
+            finally
+            {
+                TuiKitInstruments.Add(TuiKitInstruments.FontLoads, 1, TuiKitTelemetryNames.AttrOutcome, outcome);
+                TuiKitInstruments.Record(TuiKitInstruments.FontLoadDuration, TuiKitInstruments.SecondsSince(start), TuiKitTelemetryNames.AttrOutcome, outcome);
+                TuiKitInstruments.Stop(span);
+            }
+        }
+
+        private static bool RecordLoadFailure(Exception ex, Activity? span)
+        {
+            TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentFont, ex);
+            TuiKitInstruments.MarkError(span, ex);
+            return false;
         }
 
         internal static FigletFontData LoadEmbedded(string resourceName, string registeredName)

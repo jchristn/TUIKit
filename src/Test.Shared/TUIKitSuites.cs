@@ -45,6 +45,7 @@ namespace Test.Shared
                     WidgetStyleSuite.Suite(),
                     HostingSuite.Suite(),
                     DiagnosticsSuite.Suite(),
+                    TelemetrySuite.Suite(),
                     CoverageSuite.Suite(),
                     MarkupThemeSuite.Suite(),
                     HostErgonomicsSuite.Suite(),

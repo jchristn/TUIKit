@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application - the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v1.1.1 - stable.** Adds a built-in, opt-in **mouse text-selection** layer (`MouseTextSelectionEnabled`): click-drag to select within a region, `Ctrl+C` to copy over OSC 52 - works over any widget, off by default. Fixes a `CtrlCPolicy.DoubleTapToExit` bug where the first `Ctrl+C` quit immediately. See the [**changelog**](CHANGELOG.md) for the full history.
+> **v1.2.0 - stable.** Adds built-in **observability**: TUIKit now emits metrics and traces on a BCL `Meter` and `ActivitySource` named `TUIKit` (render pipeline per stage, input routing, commands, the cross-thread post queue, modals, session lifecycle, clipboard/file-system integrations, and errors), with no exporter dependency and near-zero cost when nobody listens. See [**TELEMETRY.md**](TELEMETRY.md) and the [**changelog**](CHANGELOG.md).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -95,7 +95,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.1.1" />
+<PackageReference Include="TUIKit" Version="1.2.0" />
 ```
 
 ## Quick start
@@ -228,6 +228,40 @@ widget (transcript pane, text editor, sidebar, list) with no per-widget code and
 it with `ClearTextSelection()`. The layer is inert while mouse capture is off - so the F12 pattern
 below hands the mouse back to the terminal for its own native selection - and while a modal is
 active; a resize or scroll drops the selection.
+
+## Observability
+
+TUIKit emits metrics and traces through the standard .NET `System.Diagnostics` APIs. The meter and
+activity source are both named `TUIKit`. The library has no exporter or SDK dependency and writes
+nothing to the console; with no listener attached, emission is effectively free. Subscribe from your
+host to send the data to Prometheus, Tempo, Grafana, or any OTLP backend:
+
+```csharp
+// Radiant (in your application, not the library)
+RadiantSettings settings = new RadiantSettings("my-tui-app");
+settings.Sources.AddMeter("TUIKit");
+settings.Sources.AddActivitySource("TUIKit");
+using (RadiantHost host = RadiantHost.Start(settings)) { /* run the app */ }
+
+// or the OpenTelemetry SDK
+Sdk.CreateMeterProviderBuilder().AddMeter("TUIKit") /* ... */;
+Sdk.CreateTracerProviderBuilder().AddSource("TUIKit") /* ... */;
+```
+
+You get the following:
+
+- Frame duration and per-stage time (`compose`, `diff`, `write`), with a last-success timestamp for stall alerts.
+- Input events and key-routing decisions.
+- Command outcomes, with spans that carry the command id.
+- Post-queue depth and wait. A posted action's span joins the trace of the thread that posted it.
+- Modal and toast counts.
+- Session lifecycle and suspension.
+- Clipboard and file-system integration calls.
+- Errors grouped by component and type.
+
+Per-frame spans are opt-in (`TuiKitTelemetry.TraceFrames`). There is also a master switch
+(`TuiKitTelemetry.Enabled`). [`TELEMETRY.md`](TELEMETRY.md) has the full catalog of metrics, spans,
+and labels, plus PromQL alerts and dashboard guidance.
 
 ## Building and testing
 

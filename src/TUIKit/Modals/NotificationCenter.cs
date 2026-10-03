@@ -3,6 +3,7 @@ namespace TUIKit.Modals
     using System;
     using System.Collections.Generic;
     using TUIKit;
+    using TUIKit.Diagnostics;
 
     /// <summary>
     /// Collects and renders transient notifications (toasts). Toasts stack in the top-right corner,
@@ -68,9 +69,13 @@ namespace TUIKit.Modals
                 int timeout = timeoutMilliseconds ?? _DefaultTimeoutMilliseconds;
                 Notification notification = new Notification(text, severity, nowMilliseconds, timeout);
                 _Items.Add(notification);
+                TuiKitInstruments.Add(TuiKitInstruments.Notifications, 1, TuiKitTelemetryNames.AttrSeverity, SeverityName(severity));
 
                 while (_Items.Count > _MaxConcurrent)
+                {
                     _Items.RemoveAt(0);
+                    TuiKitInstruments.Add(TuiKitInstruments.NotificationsEvicted, 1);
+                }
 
                 return notification;
             }
@@ -154,6 +159,23 @@ namespace TUIKit.Modals
                 return text;
 
             return width <= 1 ? text.Substring(0, width) : text.Substring(0, width - 1) + "…";
+        }
+
+        private static string SeverityName(NotificationSeverity severity)
+        {
+            switch (severity)
+            {
+                case NotificationSeverity.Info:
+                    return "info";
+                case NotificationSeverity.Success:
+                    return "success";
+                case NotificationSeverity.Warning:
+                    return "warning";
+                case NotificationSeverity.Error:
+                    return "error";
+                default:
+                    return "other";
+            }
         }
     }
 }

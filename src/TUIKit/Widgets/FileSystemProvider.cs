@@ -2,7 +2,9 @@ namespace TUIKit.Widgets
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.IO;
+    using TUIKit.Diagnostics;
 
     /// <summary>
     /// The default <see cref="IFileSystemProvider"/> backed by the real disk. Roots are the machine's
@@ -24,6 +26,9 @@ namespace TUIKit.Widgets
         /// <inheritdoc/>
         public IReadOnlyList<string> GetRoots()
         {
+            long start = TuiKitInstruments.Timestamp();
+            Activity? span = TuiKitInstruments.StartActivity(TuiKitTelemetryNames.ServiceFileSystem + " " + TuiKitTelemetryNames.OperationGetRoots, ActivityKind.Client);
+            string? errorType = null;
             List<string> roots = new List<string>();
             try
             {
@@ -35,16 +40,17 @@ namespace TUIKit.Widgets
                         roots.Add(drive.RootDirectory.FullName);
                 }
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
-            }
-            catch (UnauthorizedAccessException)
-            {
+                errorType = TuiKitInstruments.ErrorType(ex);
+                TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentIntegration, ex);
+                TuiKitInstruments.MarkError(span, ex);
             }
 
             if (roots.Count == 0)
                 roots.Add(_Windows ? "C:\\" : "/");
 
+            EndCall(TuiKitTelemetryNames.OperationGetRoots, start, span, errorType, roots.Count);
             return roots;
         }
 
@@ -54,6 +60,8 @@ namespace TUIKit.Widgets
             if (string.IsNullOrEmpty(path))
                 return Array.Empty<string>();
 
+            long start = TuiKitInstruments.Timestamp();
+            Activity? span = TuiKitInstruments.StartActivity(TuiKitTelemetryNames.ServiceFileSystem + " " + TuiKitTelemetryNames.OperationGetChildren, ActivityKind.Client);
             List<string> directories = new List<string>();
             List<string> files = new List<string>();
             try
@@ -62,16 +70,11 @@ namespace TUIKit.Widgets
                 if (includeFiles)
                     files.AddRange(Directory.GetFiles(path));
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException || ex is ArgumentException)
             {
-                return Array.Empty<string>();
-            }
-            catch (IOException)
-            {
-                return Array.Empty<string>();
-            }
-            catch (ArgumentException)
-            {
+                TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentIntegration, ex);
+                TuiKitInstruments.MarkError(span, ex);
+                EndCall(TuiKitTelemetryNames.OperationGetChildren, start, span, TuiKitInstruments.ErrorType(ex), 0);
                 return Array.Empty<string>();
             }
 
@@ -91,7 +94,20 @@ namespace TUIKit.Widgets
                     result.Add(files[i]);
             }
 
+            EndCall(TuiKitTelemetryNames.OperationGetChildren, start, span, null, result.Count);
             return result;
+        }
+
+        private static void EndCall(string operation, long start, Activity? span, string? errorType, int resultCount)
+        {
+            string outcome = errorType == null ? TuiKitTelemetryNames.OutcomeOk : TuiKitTelemetryNames.OutcomeError;
+            TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrIntegrationService, TuiKitTelemetryNames.ServiceFileSystem);
+            TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrIntegrationOperation, operation);
+            TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrResultCount, resultCount);
+            if (errorType == null)
+                TuiKitInstruments.MarkOk(span);
+            TuiKitInstruments.RecordIntegration(TuiKitTelemetryNames.ServiceFileSystem, operation, outcome, errorType, TuiKitInstruments.SecondsSince(start));
+            TuiKitInstruments.Stop(span);
         }
 
         /// <inheritdoc/>

@@ -1,5 +1,6 @@
 namespace TUIKit.Modals
 {
+    using System.Diagnostics;
     using System.Threading.Tasks;
     using TUIKit;
     using TUIKit.Input;
@@ -14,6 +15,12 @@ namespace TUIKit.Modals
     {
         private readonly TaskCompletionSource<object?> _Completion =
             new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        internal long TelemetryShownTimestamp { get; set; }
+
+        internal Activity? TelemetrySpan { get; set; }
+
+        internal bool TelemetryTracked { get; set; }
 
         /// <summary>
         /// Gets the task that completes with the modal's result when it closes.

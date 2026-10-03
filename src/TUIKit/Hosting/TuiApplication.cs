@@ -9,6 +9,7 @@ namespace TUIKit.Hosting
     using System.Threading.Tasks;
     using TUIKit;
     using TUIKit.Content;
+    using TUIKit.Diagnostics;
     using TUIKit.Input;
     using TUIKit.Layout;
     using TUIKit.Modals;
@@ -45,7 +46,7 @@ namespace TUIKit.Hosting
         private readonly Stopwatch _Clock = new Stopwatch();
         private readonly byte[] _ReadBuffer = new byte[4096];
         private readonly List<string> _FocusOrder = new List<string>();
-        private readonly ConcurrentQueue<Action> _PostQueue = new ConcurrentQueue<Action>();
+        private readonly ConcurrentQueue<PostedAction> _PostQueue = new ConcurrentQueue<PostedAction>();
         private readonly List<HitTestEntry> _HitMap = new List<HitTestEntry>();
 
         private TerminalRenderer? _Renderer;
@@ -89,6 +90,7 @@ namespace TUIKit.Hosting
         private int _SelFocusY;
         private BufferSurface? _LastRoot;
         private Size _LastComposeSize;
+        private long _SessionStartTimestamp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TuiApplication"/> class.
@@ -819,7 +821,11 @@ namespace TUIKit.Hosting
             if (action == null)
                 throw new ArgumentNullException(nameof(action));
 
-            _PostQueue.Enqueue(action);
+            Activity? current = Activity.Current;
+            ActivityContext parent = current != null ? current.Context : default(ActivityContext);
+            _PostQueue.Enqueue(new PostedAction(action, parent, TuiKitInstruments.Timestamp()));
+            TuiKitInstruments.Add(TuiKitInstruments.PostEnqueued, 1);
+            TuiKitInstruments.Add(TuiKitInstruments.PostQueueDepth, 1);
         }
 
         /// <summary>
@@ -904,6 +910,7 @@ namespace TUIKit.Hosting
             if (Interlocked.Increment(ref _ActiveCount) != 1)
             {
                 Interlocked.Decrement(ref _ActiveCount);
+                TuiKitInstruments.Add(TuiKitInstruments.SessionStarts, 1, TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeRejected);
                 throw new InvalidOperationException("The terminal is a singleton resource; only one TuiApplication may run at a time.");
             }
 
@@ -918,6 +925,11 @@ namespace TUIKit.Hosting
                 _Backend.Capabilities.ColorDepth);
             _Renderer.SynchronizedOutput = _Backend.Capabilities.SynchronizedOutput;
             _Renderer.ForceFullRepaint = _ForceFullRepaint;
+
+            _SessionStartTimestamp = TuiKitInstruments.Timestamp();
+            TuiKitInstruments.Add(TuiKitInstruments.SessionStarts, 1, TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeOk);
+            TuiKitInstruments.Add(TuiKitInstruments.SessionsActive, 1);
+            TuiKitInstruments.SetSessionShape(_TargetFps, _Renderer.Size.Width, _Renderer.Size.Height);
 
             if (_Backend.IsInteractive)
             {
@@ -1043,6 +1055,8 @@ namespace TUIKit.Hosting
                 }
                 catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException || ex is NotSupportedException)
                 {
+                    TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentTeardown, ex);
+
                     // Best effort during teardown: the output stream may already be closed or
                     // non-writable on process exit (disposed → ObjectDisposedException, closed for
                     // writing → NotSupportedException, transient I/O failure → IOException). A
@@ -1054,6 +1068,10 @@ namespace TUIKit.Hosting
             _Backend.Stop();
             _Started = false;
             Interlocked.Decrement(ref _ActiveCount);
+
+            TuiKitInstruments.Add(TuiKitInstruments.SessionsActive, -1);
+            TuiKitInstruments.Record(TuiKitInstruments.SessionDuration, TuiKitInstruments.SecondsSince(_SessionStartTimestamp));
+            TuiKitInstruments.SetSessionShape(0, 0, 0);
         }
 
         /// <summary>
@@ -1133,6 +1151,9 @@ namespace TUIKit.Hosting
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            long suspendStart = TuiKitInstruments.Timestamp();
+            Activity? suspendSpan = TuiKitInstruments.StartActivity(TuiKitTelemetryNames.SpanSuspend);
+            string suspendOutcome = TuiKitTelemetryNames.OutcomeOk;
             _Suspended = true;
 
             // Hand the terminal back: undo the session modes, then drop raw mode and stop the reader so
@@ -1144,6 +1165,11 @@ namespace TUIKit.Hosting
             try
             {
                 await whileSuspended().ConfigureAwait(false);
+                TuiKitInstruments.MarkOk(suspendSpan);
+            }
+            catch (Exception ex) when (RecordFailure(TuiKitTelemetryNames.ComponentSuspend, ex, suspendSpan, ref suspendOutcome))
+            {
+                throw;
             }
             finally
             {
@@ -1154,6 +1180,8 @@ namespace TUIKit.Hosting
                 _Backend.Flush();
                 _Renderer?.Invalidate();
                 _Suspended = false;
+                TuiKitInstruments.Record(TuiKitInstruments.SuspendDuration, TuiKitInstruments.SecondsSince(suspendStart), TuiKitTelemetryNames.AttrOutcome, suspendOutcome);
+                TuiKitInstruments.Stop(suspendSpan);
             }
         }
 
@@ -1172,6 +1200,7 @@ namespace TUIKit.Hosting
             int read = _Backend.ReadInput(_ReadBuffer, 0, _ReadBuffer.Length);
             if (read > 0)
             {
+                TuiKitInstruments.Add(TuiKitInstruments.InputBytes, read);
                 _Parser.Feed(_ReadBuffer, read);
                 DispatchAll(_Parser.Drain());
             }
@@ -1199,11 +1228,16 @@ namespace TUIKit.Hosting
 
             if (!_Backend.IsInteractive)
             {
+                long lineStart = TuiKitInstruments.Timestamp();
                 RenderLineMode();
+                TuiKitInstruments.Record(TuiKitInstruments.FrameDuration, TuiKitInstruments.SecondsSince(lineStart), TuiKitTelemetryNames.AttrFrameOutcome, TuiKitTelemetryNames.FrameLineMode);
+                TuiKitInstruments.Add(TuiKitInstruments.Frames, 1, TuiKitTelemetryNames.AttrFrameOutcome, TuiKitTelemetryNames.FrameLineMode);
+                TuiKitInstruments.MarkFrameSuccess();
                 return;
             }
 
             _Renderer.Render(_Backend, Compose);
+            TuiKitInstruments.SetSessionShape(_TargetFps, _Renderer.Size.Width, _Renderer.Size.Height);
         }
 
         private void Compose(ISurface root)
@@ -1328,7 +1362,10 @@ namespace TUIKit.Hosting
                 if (IsCoalescableMove(events[i]))
                 {
                     while (i + 1 < events.Count && IsCoalescableMove(events[i + 1]))
+                    {
                         i++;
+                        TuiKitInstruments.Add(TuiKitInstruments.InputCoalesced, 1);
+                    }
                 }
 
                 Dispatch(events[i]);
@@ -1343,6 +1380,72 @@ namespace TUIKit.Hosting
         }
 
         private void Dispatch(InputEvent inputEvent)
+        {
+            string kind = InputKindName(inputEvent.Kind);
+            long start = TuiKitInstruments.Timestamp();
+            TuiKitInstruments.Add(TuiKitInstruments.InputEvents, 1, TuiKitTelemetryNames.AttrInputKind, kind);
+
+            try
+            {
+                DispatchCore(inputEvent);
+            }
+            catch (Exception ex) when (RecordDispatchFailure(ex, kind, start))
+            {
+                throw;
+            }
+
+            TagList tags = new TagList();
+            tags.Add(TuiKitTelemetryNames.AttrInputKind, kind);
+            tags.Add(TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeOk);
+            TuiKitInstruments.Record(TuiKitInstruments.InputDispatchDuration, TuiKitInstruments.SecondsSince(start), in tags);
+        }
+
+        private static bool RecordDispatchFailure(Exception ex, string kind, long start)
+        {
+            TagList tags = new TagList();
+            tags.Add(TuiKitTelemetryNames.AttrInputKind, kind);
+            tags.Add(TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeError);
+            tags.Add(TuiKitTelemetryNames.AttrErrorType, TuiKitInstruments.ErrorType(ex));
+            TuiKitInstruments.Record(TuiKitInstruments.InputDispatchDuration, TuiKitInstruments.SecondsSince(start), in tags);
+            TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentInput, ex);
+            return false;
+        }
+
+        private static string InputKindName(InputEventKind kind)
+        {
+            switch (kind)
+            {
+                case InputEventKind.Key:
+                    return "key";
+                case InputEventKind.Mouse:
+                    return "mouse";
+                case InputEventKind.Paste:
+                    return "paste";
+                case InputEventKind.FocusGained:
+                    return "focus_gained";
+                case InputEventKind.FocusLost:
+                    return "focus_lost";
+                default:
+                    return "other";
+            }
+        }
+
+        private static void RouteKey(string route)
+        {
+            TuiKitInstruments.Add(TuiKitInstruments.KeyRoutes, 1, TuiKitTelemetryNames.AttrKeyRoute, route);
+        }
+
+        // Records a failure observed while running user or library code on the loop, marks the span,
+        // and returns false so the caller's exception filter lets the exception propagate unchanged.
+        private static bool RecordFailure(string component, Exception ex, Activity? span, ref string outcome)
+        {
+            outcome = TuiKitTelemetryNames.OutcomeError;
+            TuiKitInstruments.RecordError(component, ex);
+            TuiKitInstruments.MarkError(span, ex);
+            return false;
+        }
+
+        private void DispatchCore(InputEvent inputEvent)
         {
             switch (inputEvent.Kind)
             {
@@ -1392,12 +1495,14 @@ namespace TUIKit.Hosting
                 // lone Ctrl+C from combining with a later one across a copy.
                 if (_MouseTextSelectionEnabled && _SelActive)
                 {
+                    RouteKey("selection_copy");
                     CopyTextSelection();
                     ClearTextSelection();
                     _LastCtrlC = long.MinValue;
                     return;
                 }
 
+                RouteKey("ctrl_c");
                 HandleCtrlC();
                 return;
             }
@@ -1405,6 +1510,7 @@ namespace TUIKit.Hosting
             // 1. Modal trap.
             if (_Modals.IsActive)
             {
+                RouteKey("modal");
                 _Modals.HandleKey(key);
                 return;
             }
@@ -1412,7 +1518,10 @@ namespace TUIKit.Hosting
             // 2. Optional application pre-filter.
             Func<KeyEvent, bool>? filter = KeyFilter;
             if (filter != null && filter(key))
+            {
+                RouteKey("filter");
                 return;
+            }
 
             // Expire a stale pending sequence prefix so it never swallows a later key.
             if (_Router.HasPending && _PendingSinceMs != long.MinValue
@@ -1432,6 +1541,7 @@ namespace TUIKit.Hosting
                 _PendingSinceMs = long.MinValue;
                 if (completion.Status == CommandResolutionStatus.Command)
                 {
+                    RouteKey("sequence_command");
                     InvokeCommand(completion.CommandId);
                     return;
                 }
@@ -1441,6 +1551,7 @@ namespace TUIKit.Hosting
             string? scoped = _Routing.ResolveFocusScoped(chord, _FocusContext);
             if (scoped != null)
             {
+                RouteKey("scoped_command");
                 InvokeCommand(scoped);
                 return;
             }
@@ -1448,11 +1559,15 @@ namespace TUIKit.Hosting
             // 4. Focused widget gets first refusal on its own keys (fixes global-vs-widget collisions).
             IFocusable? focused = FocusedWidget;
             if (focused != null && focused.HandleKey(key))
+            {
+                RouteKey("widget");
                 return;
+            }
 
             // 5. Host focus traversal when the focused widget did not consume Tab.
             if (_FocusOrder.Count > 0 && key.Code == KeyCode.Tab)
             {
+                RouteKey("focus_traversal");
                 if ((key.Modifiers & KeyModifiers.Shift) != 0)
                     FocusPrevious();
                 else
@@ -1463,6 +1578,7 @@ namespace TUIKit.Hosting
             // 6. Global commands: a sequence prefix begins a pending sequence; otherwise a single chord.
             if (_Routing.IsSequencePrefix(chord))
             {
+                RouteKey("sequence_prefix");
                 _Router.BeginPending(chord);
                 _PendingSinceMs = NowMilliseconds;
                 return;
@@ -1471,11 +1587,13 @@ namespace TUIKit.Hosting
             string? global = _Routing.ResolveGlobalSingle(chord);
             if (global != null)
             {
+                RouteKey("global_command");
                 InvokeCommand(global);
                 return;
             }
 
             // 7. Fallback for unconsumed keys.
+            RouteKey("unhandled");
             KeyReceived?.Invoke(key);
         }
 
@@ -1675,6 +1793,7 @@ namespace TUIKit.Hosting
             {
                 _Backend.Write(ClipboardWriter.BuildSequence(text));
                 _Backend.Flush();
+                TuiKitInstruments.Add(TuiKitInstruments.ClipboardWrites, 1);
             }
 
             TextCopied?.Invoke(text);
@@ -1861,8 +1980,35 @@ namespace TUIKit.Hosting
 
         private void DrainPostQueue()
         {
-            while (_PostQueue.TryDequeue(out Action? action))
-                action();
+            while (_PostQueue.TryDequeue(out PostedAction? posted))
+                RunPosted(posted);
+        }
+
+        private static void RunPosted(PostedAction posted)
+        {
+            TuiKitInstruments.Add(TuiKitInstruments.PostQueueDepth, -1);
+            TuiKitInstruments.Record(TuiKitInstruments.PostQueueWait, TuiKitInstruments.SecondsSince(posted.EnqueuedTimestamp));
+
+            long start = TuiKitInstruments.Timestamp();
+            string outcome = TuiKitTelemetryNames.OutcomeOk;
+            Activity? span = posted.ParentContext != default(ActivityContext)
+                ? TuiKitInstruments.StartActivity(TuiKitTelemetryNames.SpanPost, ActivityKind.Internal, posted.ParentContext)
+                : TuiKitInstruments.StartActivity(TuiKitTelemetryNames.SpanPost);
+
+            try
+            {
+                posted.Action();
+                TuiKitInstruments.MarkOk(span);
+            }
+            catch (Exception ex) when (RecordFailure(TuiKitTelemetryNames.ComponentPost, ex, span, ref outcome))
+            {
+                throw;
+            }
+            finally
+            {
+                TuiKitInstruments.Record(TuiKitInstruments.PostDuration, TuiKitInstruments.SecondsSince(start), TuiKitTelemetryNames.AttrOutcome, outcome);
+                TuiKitInstruments.Stop(span);
+            }
         }
 
         private void HandleCtrlC()
@@ -1896,8 +2042,42 @@ namespace TUIKit.Hosting
             if (commandId == null)
                 return;
 
-            if (_Commands.TryGetValue(commandId, out Action? handler))
+            if (!_Commands.TryGetValue(commandId, out Action? handler))
+            {
+                TuiKitInstruments.Add(TuiKitInstruments.CommandInvocations, 1, TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeUnregistered);
+                return;
+            }
+
+            long start = TuiKitInstruments.Timestamp();
+            string outcome = TuiKitTelemetryNames.OutcomeOk;
+            Activity? span = TuiKitInstruments.StartActivity(TuiKitTelemetryNames.SpanCommand);
+            TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrCommandId, commandId);
+
+            try
+            {
                 handler();
+                TuiKitInstruments.MarkOk(span);
+            }
+            catch (Exception ex) when (RecordCommandFailure(ex, span, ref outcome))
+            {
+                throw;
+            }
+            finally
+            {
+                TuiKitInstruments.Record(TuiKitInstruments.CommandDuration, TuiKitInstruments.SecondsSince(start), TuiKitTelemetryNames.AttrOutcome, outcome);
+                if (outcome == TuiKitTelemetryNames.OutcomeOk)
+                    TuiKitInstruments.Add(TuiKitInstruments.CommandInvocations, 1, TuiKitTelemetryNames.AttrOutcome, outcome);
+                TuiKitInstruments.Stop(span);
+            }
+        }
+
+        private static bool RecordCommandFailure(Exception ex, Activity? span, ref string outcome)
+        {
+            TagList tags = new TagList();
+            tags.Add(TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeError);
+            tags.Add(TuiKitTelemetryNames.AttrErrorType, TuiKitInstruments.ErrorType(ex));
+            TuiKitInstruments.Add(TuiKitInstruments.CommandInvocations, 1, in tags);
+            return RecordFailure(TuiKitTelemetryNames.ComponentCommand, ex, span, ref outcome);
         }
 
         private static bool IsCtrlC(KeyEvent key)

@@ -3,6 +3,7 @@ namespace TUIKit.Content
     using System;
     using System.Diagnostics;
     using System.Runtime.InteropServices;
+    using TUIKit.Diagnostics;
 
     /// <summary>
     /// Reads and writes the host clipboard. Writing is terminal-native: <see cref="BuildWriteSequence"/>
@@ -66,7 +67,35 @@ namespace TUIKit.Content
 
         private static bool TryRun(string fileName, string arguments, out string output)
         {
+            long start = TuiKitInstruments.Timestamp();
+            Activity? span = TuiKitInstruments.StartActivity(TuiKitTelemetryNames.ServiceClipboard + " " + TuiKitTelemetryNames.OperationRead, ActivityKind.Client);
+            TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrIntegrationService, TuiKitTelemetryNames.ServiceClipboard);
+            TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrIntegrationOperation, TuiKitTelemetryNames.OperationRead);
+            TuiKitInstruments.SetTag(span, TuiKitTelemetryNames.AttrProcessExecutable, fileName);
+
+            string outcome = TuiKitTelemetryNames.OutcomeError;
+            string? errorType = null;
+            try
+            {
+                bool succeeded = TryRunCore(fileName, arguments, out output, out outcome, out errorType);
+                if (succeeded)
+                    TuiKitInstruments.MarkOk(span);
+                else
+                    TuiKitInstruments.MarkError(span, errorType ?? outcome, "Clipboard tool " + fileName + " did not return text (" + outcome + ").");
+                return succeeded;
+            }
+            finally
+            {
+                TuiKitInstruments.RecordIntegration(TuiKitTelemetryNames.ServiceClipboard, TuiKitTelemetryNames.OperationRead, outcome, errorType, TuiKitInstruments.SecondsSince(start));
+                TuiKitInstruments.Stop(span);
+            }
+        }
+
+        private static bool TryRunCore(string fileName, string arguments, out string output, out string outcome, out string? errorType)
+        {
             output = string.Empty;
+            outcome = TuiKitTelemetryNames.OutcomeError;
+            errorType = null;
             try
             {
                 ProcessStartInfo info = new ProcessStartInfo
@@ -82,7 +111,10 @@ namespace TUIKit.Content
                 using (Process? process = Process.Start(info))
                 {
                     if (process == null)
+                    {
+                        errorType = "process_not_started";
                         return false;
+                    }
 
                     string result = process.StandardOutput.ReadToEnd();
                     if (!process.WaitForExit(1000))
@@ -91,22 +123,31 @@ namespace TUIKit.Content
                         {
                             process.Kill();
                         }
-                        catch (InvalidOperationException)
+                        catch (InvalidOperationException ex)
                         {
+                            TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentIntegration, ex);
                         }
 
+                        outcome = TuiKitTelemetryNames.OutcomeTimeout;
+                        errorType = "timeout";
                         return false;
                     }
 
                     if (process.ExitCode != 0)
+                    {
+                        errorType = "process_exit_nonzero";
                         return false;
+                    }
 
                     output = result.TrimEnd('\r', '\n');
+                    outcome = TuiKitTelemetryNames.OutcomeOk;
                     return true;
                 }
             }
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException || ex is System.IO.IOException)
             {
+                errorType = TuiKitInstruments.ErrorType(ex);
+                TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentIntegration, ex);
                 return false;
             }
         }
