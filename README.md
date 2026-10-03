@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application - the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v1.2.0 - stable.** Adds built-in **observability**: TUIKit now emits metrics and traces on a BCL `Meter` and `ActivitySource` named `TUIKit` (render pipeline per stage, input routing, commands, the cross-thread post queue, modals, session lifecycle, clipboard/file-system integrations, and errors), with no exporter dependency and near-zero cost when nobody listens. See [**TELEMETRY.md**](TELEMETRY.md) and the [**changelog**](CHANGELOG.md).
+> **v1.2.1 - stable.** Dependency refresh on top of v1.2.0, which added built-in **observability**: TUIKit now emits metrics and traces on a BCL `Meter` and `ActivitySource` named `TUIKit` (render pipeline per stage, input routing, commands, the cross-thread post queue, modals, session lifecycle, clipboard/file-system integrations, and errors), with no exporter dependency and near-zero cost when nobody listens. See [**TELEMETRY.md**](TELEMETRY.md) and the [**changelog**](CHANGELOG.md).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -95,7 +95,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.2.0" />
+<PackageReference Include="TUIKit" Version="1.2.1" />
 ```
 
 ## Quick start

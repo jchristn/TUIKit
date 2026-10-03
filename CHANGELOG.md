@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-03
+
+Dependency maintenance release. No public API or behavior changes.
+
+### Changed
+- **Library dependencies (`netstandard2.0` only).** `Microsoft.Bcl.AsyncInterfaces`,
+  `System.Diagnostics.DiagnosticSource`, and `System.Threading.Channels` 10.0.11 -> 10.0.12.
+- **Test dependencies.** Touchstone (`Core`, `Cli`, `XunitAdapter`, `NunitAdapter`) 0.1.12 -> 0.2.0,
+  `Microsoft.NET.Test.Sdk` 18.9.0 -> 18.10.1, `coverlet.collector` 10.0.1 -> 10.1.0, `NUnit`
+  4.6.1 -> 5.0.0, `NUnit.Analyzers` 4.14.0 -> 4.15.0, `NUnit3TestAdapter` 6.2.0 -> 6.3.0. All 615
+  suite descriptors pass under the console, xUnit, and NUnit runners on `net8.0` and `net10.0`.
+
 ## [1.2.0] - 2026-10-02
 
 Built-in observability. TUIKit now emits metrics and traces through the BCL
