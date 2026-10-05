@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.2.1</Version>
-    <AssemblyVersion>1.2.1.0</AssemblyVersion>
-    <FileVersion>1.2.1.0</FileVersion>
+    <Version>1.3.0</Version>
+    <AssemblyVersion>1.3.0.0</AssemblyVersion>
+    <FileVersion>1.3.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -32,7 +32,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
     <PackageTags>tui;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.2.1 - built-in observability: metrics and traces on a BCL Meter and ActivitySource named "TUIKit" (render stages, input routing, commands, post queue, modals, session lifecycle, clipboard/file-system integrations, errors). No exporter dependency. See TELEMETRY.md. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.3.0 - hierarchical focus (IFocusContainer, FocusScope), change events and disabled/read-only state across widgets, DataTable selection/sort/marking, command palette and key help, multi-series and stacked charts, cell-width-correct layout for CJK and emoji, 50 more ASCII-art fonts (134 total, including TAAG's Isometric1-4, Epic, Star Wars, and the TheDraw fonts FateGate and Bleach), and a FIGlet endmark fix for 14 built-in TOIlet fonts. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

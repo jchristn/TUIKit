@@ -152,8 +152,6 @@ namespace TUIKit.Ascii
             if (index + height > lines.Length)
                 throw new AsciiFontException("Truncated FIGlet font: not enough lines for the comment header.");
 
-            char endMark = DetectEndMark(lines[index]);
-
             Dictionary<char, AsciiGlyph> glyphs = new Dictionary<char, AsciiGlyph>(_LastChar - _FirstChar + 1);
             for (int code = _FirstChar; code <= _LastChar; code++)
             {
@@ -165,7 +163,7 @@ namespace TUIKit.Ascii
                 int maxWidth = 0;
                 for (int r = 0; r < height; r++)
                 {
-                    string row = StripEndMarks(lines[index++], endMark);
+                    string row = StripEndMarks(lines[index++]);
                     rawRows[r] = row;
                     if (row.Length > maxWidth)
                         maxWidth = row.Length;
@@ -226,17 +224,17 @@ namespace TUIKit.Ascii
             }
         }
 
-        private static char DetectEndMark(string firstGlyphLine)
+        private static string StripEndMarks(string line)
         {
-            if (firstGlyphLine.Length == 0)
-                return '@';
-
-            return firstGlyphLine[firstGlyphLine.Length - 1];
-        }
-
-        private static string StripEndMarks(string line, char endMark)
-        {
+            // Mirrors FIGlet's reader: trailing whitespace is ignored, and the endmark is whatever the
+            // last remaining character of this line is, so fonts may vary it per line or per glyph.
             int end = line.Length;
+            while (end > 0 && (line[end - 1] == ' ' || line[end - 1] == '\t'))
+                end--;
+            if (end == 0)
+                return string.Empty;
+
+            char endMark = line[end - 1];
             while (end > 0 && line[end - 1] == endMark)
                 end--;
 

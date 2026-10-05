@@ -543,7 +543,7 @@ var img  = new HalfBlockImage(pixels);                       // works on any ter
 string sixel = SixelEncoder.Encode(pixels);                 // capable terminals
 var banner = new BannerText("READY");                       // big block letters
 
-// Text-to-ASCII-art in any of 84 built-in fonts (TUIKit.Ascii).
+// Text-to-ASCII-art in any of 134 built-in fonts (TUIKit.Ascii).
 using TUIKit.Ascii;
 IAsciiFont slant = AsciiFontLibrary.Default.Get("Slant");   // case-insensitive lookup
 var art = new AsciiArtText("TUIKit") { Font = slant };      // font-aware IWidget
@@ -864,7 +864,7 @@ The table below tracks which capabilities from the original improvement roadmap 
 | 10.34 | OSC 8 emission + clipboard read + link hints (`Ansi.OpenHyperlink`, `SystemClipboard`, `LinkHints`) | **Implemented** |
 | 10.35 | File browser / open dialog widget (`FileBrowser`) | **Implemented** |
 | 10.36 | FIGlet / banner text (`Banner`/`BannerText`) | **Implemented** |
-| 10.36a | Multi-font text-to-ASCII-art engine (`TUIKit.Ascii`: `AsciiArt`/`AsciiFontLibrary`/`FigletFontLoader`/`AsciiArtText`, 84 built-in fonts) | **Implemented** |
+| 10.36a | Multi-font text-to-ASCII-art engine (`TUIKit.Ascii`: `AsciiArt`/`AsciiFontLibrary`/`FigletFontLoader`/`AsciiArtText`, 134 built-in fonts) | **Implemented** |
 | 10.37 | Color picker widget (`ColorPicker`) | **Implemented** |
 | 10.38 | Box shadows / modal drop shadows (`ISurface.DrawShadow`) | **Implemented** |
 | 10.39 | Backdrop dimming behind modals (`Backdrop.Dim`) | **Implemented** |

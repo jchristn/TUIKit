@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-04
+
 Widget, focus, theming, and notification upgrades driven by a large dashboard-parity client. All
 changes are additive; defaults keep the 1.2.1 behavior except where noted under "Changed".
 
@@ -68,6 +70,19 @@ changes are additive; defaults keep the 1.2.1 behavior except where noted under 
 - **Testing.** `KeySequenceEncoder` and `HeadlessBackend.FeedKey` encode any key (F1-F12, modified
   arrows, Ctrl and Alt chords) for headless input.
 - `DialogModal.ContentBounds` for mouse hit-testing in derived modals.
+- **50 more ASCII-art fonts** (`AsciiFontLibrary.Default` now has 134). These are the fonts from
+  patorjk TAAG's curated Featured, ANSI, and TOIlet lists that TUIKit lacked, including
+  `Isometric1`-`Isometric4`, `Epic`, `StarWars`, `Alpha`, `Electronic`, `Elite`, `ThreeDAscii`,
+  `Emboss`, and `Circle`. TAAG's two featured TheDraw fonts, `FateGate` and `Bleach`, are included
+  as monochrome FIGlet conversions that match TAAG's plain-text output. `Efti Wall` is left out
+  because its header claims copyright without granting permission (see `REMOVED.txt`).
+
+### Fixed
+- **FIGlet endmarks.** `FigletFontLoader` now handles endmarks the way FIGlet does: it ignores
+  trailing whitespace and reads the endmark from the end of each line. Before, it took one endmark
+  from the first glyph line for the whole file. As a result, 14 built-in TOIlet fonts (`Mono9`,
+  `Mono12`, `Ascii9`, `Ascii12`, the `Small` and `Big` variants of those, `Future`, `FutureSmooth`,
+  `FutureThin`, and `SmallBraille`) drew stray `@` columns or repeated letters.
 
 ### Changed
 - **Modals closed without input are pruned.** `ModalStack` drops closed modals whenever it is

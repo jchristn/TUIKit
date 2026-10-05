@@ -4,8 +4,15 @@ TUIKit — Bundled ASCII-Art Font Attribution
 The .flf files in this directory are FIGlet and TOIlet fonts drawn from the
 patorjk/figlet.js distribution (https://github.com/patorjk/figlet.js). Each is
 included under its own font-author terms. None of the bundled fonts carry
-restrictive licensing. All requested fonts cleared a header-text license scan
-and are bundled below.
+restrictive licensing. Every bundled font cleared a header-text license scan;
+fonts that did not are listed in REMOVED.txt.
+
+FateGate and Bleach are TheDraw (.tdf) fonts served by patorjk TAAG
+(https://patorjk.com/software/taag/tdf-font-sets/). TheDraw font files carry
+no license text. TUIKit converts them to FIGlet: CP437 characters are mapped to
+Unicode, color attributes are dropped, and letter spacing and space width match
+TAAG's plain-text TheDraw renderer. FateGate is the "FateGate Blu" variant; the
+other color variants share its glyph shapes.
 
 TUIKit itself is MIT-licensed. Font glyph data remains the property of the
 respective font authors credited below.
@@ -95,3 +102,53 @@ Cricket                Cricket                Cricket by Leslie Bates        Jan
 Bright                 Bright                 Bright Font by Dennis Monk  7/94
 Jazmine                Jazmine                (no attribution in header)
 Graffiti               Graffiti               This figlet font designed by Leigh Purdie (purdie@zeus.usq.edu.au)
+ThreeDDiagonal         3D Diagonal            Author : nabis, LG Beard, Markus Gebhard and others
+Alpha                  Alpha                  Alpha font by Lennert Stock
+Acrobatic              Acrobatic              Acrobatic by Randy Ransom 8/94 <ransom@scf.usc.edu>
+Avatar                 Avatar                 Avatar by Claude Martins 02/95
+BabyfaceLame           Babyface Lame          BABYFACE Lame by cat, v0.8 2019
+BabyfaceLeet           Babyface Leet          BABYFACE Leet by cat, v0.8 2019
+Bulbhead               Bulbhead               Bulbhead by Jef Poskanzer, 23jun94
+Cards                  Cards                  Author : myflix
+Crazy                  Crazy                  Author : myflix
+DancingFont            Dancing Font           Author : Myflix
+DiamFont               DiamFont               Font Author: Diamond Planet
+Epic                   Epic                   Epic by Claude Martins 12/94
+FlowerPower            Flower Power           Authors : Myflix, LG Beard
+FunFace                Fun Face               Author : MJP
+FunFaces               Fun Faces              Author : MJP (AKA MikeChat)
+Ghost                  Ghost                  Author : myflix
+Graceful               Graceful               Graceful-6x4 by Mikhael Goikhman, http://migo.n3.net/, 20/Jan/2002.
+Impossible             Impossible             Author : LG Beard
+Isometric1             Isometric1             Figlet conversion by Kent Nassen 8-10-94, from fonts posted by Lennert Stock
+Isometric2             Isometric2             Figlet conversion by Kent Nassen 8-10-94, from fonts posted by Lennert Stock
+Isometric3             Isometric3             Figlet conversion by Kent Nassen 8-10-94, from fonts posted by Lennert Stock
+Isometric4             Isometric4             Figlet conversion by Kent Nassen 8-10-94, from fonts posted by Lennert Stock
+JsBracketLetters       JS Bracket Letters     Bracket Letters By Joan Stark
+LilDevil               Lil Devil              Author : myflix
+Merlin1                Merlin1                Author : LG Beard
+Miniwi                 miniwi                 miniwi font, after the miniwi bitmap font (http://github.com/sshbio/miniwi)
+Modular                Modular                Author :myflix
+PatorjksCheese         Patorjk's Cheese       "Patorjk's Cheese" font by patorjk (patorjk@gmail.com) and x98.
+PatorjkHex             Patorjk-HeX            "Patorjk-HeX" font by patorjk (patorjk@gmail.com) and HeX.
+RubiFont               RubiFont               Font Author: RubixTW
+StarWars               Star Wars              starwars.flf by Ryan Youck (youck@cs.uregina.ca) Dec 25/1994
+SwampLand              Swamp Land             Author : bpg
+Sweet                  Sweet                  Author : myflix
+Twisted                Twisted                Author : LG Beard
+Wavescape              Wavescape              Font Author: SCA
+WetLetter              Wet Letter             Author : MJP
+ThreeDAscii            3D-ASCII               Font Author: ?
+Electronic             Electronic             Font Author: Derek Lemay <THe PHaRCYDe>
+Elite                  Elite                  Font Author: ?
+StrongerThanAll        Stronger Than All      Font Author: pC wIZARd
+This                   THIS                   Font Author: ?
+TheEdge                The Edge               Font Author: ?
+BigAscii9              Big ASCII 9            Generated with caca2tlf (TOIlet) from "Monospace 9"
+BigAscii12             Big ASCII 12           Generated with caca2tlf (TOIlet) from "Monospace Bold 12"
+Circle                 Circle                 Circle by Sam Hocevar <sam@hocevar.net>, 2006 -- WTFPL v2 (TOIlet distribution)
+Emboss                 Emboss                 Emboss by Sam Hocevar <sam@hocevar.net>, 2006 -- WTFPL v2 (TOIlet distribution)
+Emboss2                Emboss 2               Emboss by Sam Hocevar <sam@hocevar.net>, 2006 -- WTFPL v2 (TOIlet distribution)
+Letter                 Letter                 Letter, Copyright (c) 2008 Francesco Poli -- WTFPL v2 (TOIlet distribution)
+FateGate               FateGate (TheDraw)     TheDraw font, author unknown; converted from .tdf (CP437 to Unicode, color dropped)
+Bleach                 Bleach (TheDraw)       TheDraw font, author unknown; converted from .tdf (CP437 to Unicode, color dropped)

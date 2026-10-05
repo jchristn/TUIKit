@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application - the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v1.2.1 - stable.** Dependency refresh on top of v1.2.0, which added built-in **observability**: TUIKit now emits metrics and traces on a BCL `Meter` and `ActivitySource` named `TUIKit` (render pipeline per stage, input routing, commands, the cross-thread post queue, modals, session lifecycle, clipboard/file-system integrations, and errors), with no exporter dependency and near-zero cost when nobody listens. See [**TELEMETRY.md**](TELEMETRY.md) and the [**changelog**](CHANGELOG.md).
+> **v1.3.0 - stable.** Hierarchical focus scopes, change events and disabled/read-only state across widgets, a richer `DataTable`, a command palette and key help, multi-series and stacked charts, and cell-width-correct layout for CJK and emoji. The ASCII-art library grows to **134 fonts**, adding the rest of patorjk TAAG's curated set (Isometric1-4, Epic, Star Wars, and others) and the TheDraw fonts FateGate and Bleach, and a FIGlet loader fix repairs 14 built-in TOIlet fonts. Built-in **observability** (v1.2.0) is unchanged: metrics and traces on a BCL `Meter` and `ActivitySource` named `TUIKit`. See [**TELEMETRY.md**](TELEMETRY.md) and the [**changelog**](CHANGELOG.md).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -57,7 +57,7 @@ It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`. The modern targets a
 - **Command surfaces and typeahead.** A `CommandRegistry` drives key bindings, a grouped menu bar, a fuzzy command palette, and a `/slash` router from one command list, and an `AutocompleteOverlay` (with a pluggable `ISuggestionProvider`) shows caret-anchored suggestions for any text input.
 - **Streaming and text helpers.** A `StreamingTranscript` that projects streamed text and keyed in-place status lines onto a pane (finalizing each block as Markdown), plus `HintText` footer wrapping, `ColumnFormatter` column alignment, and a `SubmitKeyResolver` that settles the cross-terminal Enter-vs-newline question for multi-line editors.
 - **Charts, diffs, and images.** Braille line and bar charts, a sparkline, and three distribution widgets - a `BoxPlotChart` (horizontal box-and-whisker over a caller-supplied five-number summary such as min / avg / p95 / p99 / max), a `Histogram` (bucketed frequency with the eighth-block ramp, live via `Push`), and a `HeatMap` (a grid of cells shaded by magnitude) - plus a diff viewer with syntax highlighting, FIGlet-style banners, a color picker, and image rendering - half-block on any terminal, sixel or kitty where supported.
-- **Text-to-ASCII-art.** A font engine (`TUIKit.Ascii`) that turns text into large multi-row art with faithful FIGlet layout - full-width, kerning, and the six horizontal smushing rules. `AsciiFontLibrary.Default` ships 84 built-in fonts (Standard, Slant, the Small family, Doom, Colossal, ANSI Shadow, Sub-Zero, and more); `AsciiArtText` drops any of them into a layout, and `FigletFontLoader` loads your own `.flf`/`.tlf` files. Fonts with restrictive licensing are not bundled.
+- **Text-to-ASCII-art.** A font engine (`TUIKit.Ascii`) that turns text into large multi-row art with faithful FIGlet layout - full-width, kerning, and the six horizontal smushing rules. `AsciiFontLibrary.Default` ships 134 built-in fonts (Standard, Slant, the Small family, Doom, Colossal, ANSI Shadow, Sub-Zero, and more); `AsciiArtText` drops any of them into a layout, and `FigletFontLoader` loads your own `.flf`/`.tlf` files. Fonts with restrictive licensing are not bundled.
 - **Reactive and animated.** Thread-safe `Observable<T>` one-way data binding, and deterministic, tick-driven animation (`Easing`, `Tween`, `FrameTimer`) that replays identically in tests.
 - **Theming and diagnostics.** Dark, light, and high-contrast themes with an ASCII-border fallback; a debug overlay; frame statistics; and input record/replay.
 - **Full-viewport, flicker-free rendering.** A double-buffered diff renderer repaints only changed rows and coalesces SGR runs; **synchronized output** (DEC mode 2026) presents each frame atomically so fast streams never tear; a persistent **full-repaint mode** covers backends that drop incremental updates; and a cross-platform **`SuspendAsync`** shell-out hands the terminal to an external editor or pager and restores the alternate screen afterward. The terminal is restored on every exit path - clean quit, Ctrl+C, or unhandled exception.
@@ -97,7 +97,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.2.1" />
+<PackageReference Include="TUIKit" Version="1.3.0" />
 ```
 
 ## Quick start

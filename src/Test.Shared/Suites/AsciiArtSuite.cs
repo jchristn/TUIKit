@@ -47,6 +47,8 @@ namespace Test.Shared.Suites
                     LoaderRoundTrip(),
                     LoaderStandardFixture(),
                     LoaderNegative(),
+                    LoaderEndMarksPerLine(),
+                    LoaderToiletFontsHaveNoEndMarks(),
                     LoaderRenderAsync(),
                     LibraryRegisterAndResolve(),
                     LibraryCaseInsensitive(),
@@ -57,6 +59,7 @@ namespace Test.Shared.Suites
                     LibraryConcurrency(),
                     LibraryDisposed(),
                     LibraryLicenseGate(),
+                    TheDrawFateGateRenders(),
                     WidgetRendersAndSwitchesFont(),
                     WidgetMeasureAndAlignment(),
                     WidgetGuards()
@@ -324,6 +327,57 @@ namespace Test.Shared.Suites
                 });
         }
 
+        private static TestCaseDescriptor LoaderEndMarksPerLine()
+        {
+            return new TestCaseDescriptor("AsciiArt", "EndMarksPerLine", "Loader strips per-line endmarks and trailing whitespace",
+                _ =>
+                {
+                    StringBuilder builder = new StringBuilder("flf2a$ 1 1 20 -1 0\n");
+                    for (int code = 32; code <= 126; code++)
+                    {
+                        if (code == 'A')
+                            builder.Append("xy#  \t\n");
+                        else if (code == 'B')
+                            builder.Append("zBB\n");
+                        else
+                            builder.Append((char)code).Append("@@\n");
+                    }
+
+                    IAsciiFont font = FigletFontLoader.Load(builder.ToString(), "Test");
+
+                    Check.True(font.TryGetGlyph('A', out AsciiGlyph a), "A glyph present");
+                    Check.Equal("xy", a.Row(0), "endmark before trailing whitespace is stripped");
+                    Check.True(font.TryGetGlyph('B', out AsciiGlyph b), "B glyph present");
+                    Check.Equal("z", b.Row(0), "endmark that differs from the first glyph's is stripped");
+                    return Task.CompletedTask;
+                });
+        }
+
+        private static TestCaseDescriptor LoaderToiletFontsHaveNoEndMarks()
+        {
+            return new TestCaseDescriptor("AsciiArt", "ToiletNoEndMarks", "TOIlet fonts render without endmark residue",
+                _ =>
+                {
+                    // These fonts end each line with '@' followed by whitespace.
+                    string[] atMarked = { "Mono9", "Ascii12", "BigAscii9" };
+                    foreach (string name in atMarked)
+                    {
+                        foreach (string row in AsciiArt.Render("Hi", AsciiFontLibrary.Default.Get(name)))
+                            Check.False(row.Contains("@"), name + " has no '@' endmark residue");
+                    }
+
+                    // These fonts use each glyph's own character as its endmark.
+                    string[] selfMarked = { "Future", "SmallBraille", "Emboss" };
+                    foreach (string name in selfMarked)
+                    {
+                        foreach (string row in AsciiArt.Render("Hi", AsciiFontLibrary.Default.Get(name)))
+                            Check.False(row.Contains("H") || row.Contains("i"), name + " has no letter endmark residue");
+                    }
+
+                    return Task.CompletedTask;
+                });
+        }
+
         private static TestCaseDescriptor LoaderRenderAsync()
         {
             return new TestCaseDescriptor("AsciiArt", "RenderAsync", "RenderAsync mirrors Render and honors cancellation",
@@ -535,7 +589,27 @@ namespace Test.Shared.Suites
                     Check.True(library.Contains("Slant"), "Slant present");
                     Check.True(library.Contains("Doom"), "Doom present");
                     Check.True(library.Contains("Graffiti"), "Graffiti present");
+                    Check.True(library.Contains("Isometric1"), "Isometric1 present");
+                    Check.True(library.Contains("FateGate"), "FateGate present");
+                    Check.False(library.Contains("EftiWall"), "Efti Wall excluded");
                     Check.True(library.Count > 50, "expansive roster registered");
+                    return Task.CompletedTask;
+                });
+        }
+
+        private static TestCaseDescriptor TheDrawFateGateRenders()
+        {
+            return new TestCaseDescriptor("AsciiArt", "TheDrawFateGate", "Converted TheDraw fonts render block art",
+                _ =>
+                {
+                    IAsciiFont font = AsciiFontLibrary.Default.Get("FateGate");
+                    Check.Equal(12, font.Metrics.Height, "FateGate is twelve rows tall");
+                    Check.Equal(AsciiLayoutMode.FullWidth, font.Metrics.DefaultLayout, "TheDraw fonts are full width");
+
+                    IReadOnlyList<string> rows = AsciiArt.Render("Hi", font);
+                    Check.Equal(12, rows.Count, "rendered height matches the font");
+                    Check.True(rows[0].StartsWith("▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄", StringComparison.Ordinal), "H top row matches TAAG");
+                    Check.True(AsciiFontLibrary.Default.Contains("Bleach"), "Bleach present");
                     return Task.CompletedTask;
                 });
         }

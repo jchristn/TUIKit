@@ -1,9 +1,14 @@
 TUIKit — ASCII-Art Fonts Excluded From the Library
 ==================================================
 
-No fonts are currently excluded. Every requested font was scanned for
-restrictive license text; none was found, so the full set is bundled and
-registered in AsciiFontLibrary.Default (see ASCII_ART_FONTS.md section 9).
+Every candidate font was scanned for license text. A font is excluded when its
+header asserts rights without granting permission to redistribute or modify.
+
+TAAG name              Reason
+---------              ------
+Efti Wall              Header reads "This font is (c) Michel Eftimakis 1995" with
+                       no permission grant. Excluded under the "when in doubt,
+                       remove it" rule.
 
 Consumers can still load any additional font they hold the rights to at
 runtime via FigletFontLoader.
