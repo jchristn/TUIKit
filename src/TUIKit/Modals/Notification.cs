@@ -1,6 +1,7 @@
 namespace TUIKit.Modals
 {
     using System;
+    using System.Threading;
 
     /// <summary>
     /// A transient notification (toast). Notifications never take focus; they appear, optionally time
@@ -15,6 +16,8 @@ namespace TUIKit.Modals
         private static readonly NotificationAction[] _NoActions = new NotificationAction[0];
         private volatile bool _Dismissed;
         private volatile bool _Read;
+        private int _RepeatCount = 1;
+        private long _LastRaisedAtMilliseconds;
 
         /// <summary>
         /// Gets the identifier assigned by the <see cref="NotificationCenter"/> that added the notification,
@@ -73,6 +76,26 @@ namespace TUIKit.Modals
         public int TimeoutMilliseconds { get; }
 
         /// <summary>
+        /// Gets how many times this notification has been raised. Starts at 1; when
+        /// <see cref="NotificationCenter.CoalesceRepeats"/> is on, each identical raise while this
+        /// notification is still showing increments it instead of adding a duplicate toast. Thread-safe.
+        /// </summary>
+        public int RepeatCount
+        {
+            get { return Volatile.Read(ref _RepeatCount); }
+        }
+
+        /// <summary>
+        /// Gets the clock time, in milliseconds, of the most recent raise. Equals
+        /// <see cref="CreatedAtMilliseconds"/> until a repeat is coalesced into this notification, which
+        /// moves it forward and restarts the timeout. Expiry is measured from this value. Thread-safe.
+        /// </summary>
+        public long LastRaisedAtMilliseconds
+        {
+            get { return Interlocked.Read(ref _LastRaisedAtMilliseconds); }
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Notification"/> class.
         /// </summary>
         /// <param name="text">The text. Must not be null.</param>
@@ -91,6 +114,7 @@ namespace TUIKit.Modals
             Text = text;
             Severity = severity;
             CreatedAtMilliseconds = createdAtMilliseconds;
+            _LastRaisedAtMilliseconds = createdAtMilliseconds;
             TimeoutMilliseconds = timeoutMilliseconds;
             Actions = _NoActions;
         }
@@ -128,7 +152,8 @@ namespace TUIKit.Modals
         /// Determines whether the notification has expired at the supplied time.
         /// </summary>
         /// <param name="nowMilliseconds">The current time in milliseconds.</param>
-        /// <returns><c>true</c> when the toast was dismissed or its timeout has elapsed; otherwise <c>false</c>.</returns>
+        /// <returns><c>true</c> when the toast was dismissed or its timeout has elapsed since
+        /// <see cref="LastRaisedAtMilliseconds"/>; otherwise <c>false</c>.</returns>
         public bool IsExpired(long nowMilliseconds)
         {
             if (_Dismissed)
@@ -137,7 +162,14 @@ namespace TUIKit.Modals
             if (TimeoutMilliseconds <= 0)
                 return false;
 
-            return nowMilliseconds - CreatedAtMilliseconds >= TimeoutMilliseconds;
+            return nowMilliseconds - LastRaisedAtMilliseconds >= TimeoutMilliseconds;
+        }
+
+        internal void RecordRepeat(long nowMilliseconds)
+        {
+            Interlocked.Increment(ref _RepeatCount);
+            Interlocked.Exchange(ref _LastRaisedAtMilliseconds, nowMilliseconds);
+            _Read = false;
         }
     }
 }

@@ -9,7 +9,7 @@ namespace TUIKit.Example
     /// highlights, swatches) are passed through unchanged. The guided tour uses this to give demo
     /// panes a black background regardless of how each widget draws.
     /// </summary>
-    internal sealed class SolidBackgroundSurface : ISurface
+    internal sealed class SolidBackgroundSurface : IReadableSurface
     {
         private readonly ISurface _Inner;
         private readonly Color _Background;
@@ -23,6 +23,11 @@ namespace TUIKit.Example
         public Size Size
         {
             get { return _Inner.Size; }
+        }
+
+        public Cell Get(int x, int y)
+        {
+            return _Inner is IReadableSurface readable ? readable.Get(x, y) : Cell.Empty;
         }
 
         public void Set(int x, int y, Cell cell)

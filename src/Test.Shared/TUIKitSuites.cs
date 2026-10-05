@@ -100,7 +100,16 @@ namespace Test.Shared
                     DataTableUpgradeSuite.Suite(),
                     FormControlsSuite.Suite(),
                     ThemeNotificationsSuite.Suite(),
-                    UpstreamRenderingSuite.Suite()
+                    UpstreamRenderingSuite.Suite(),
+                    HeadlessMouseSuite.Suite(),
+                    NotificationCoalescingSuite.Suite(),
+                    FocusFrameSuite.Suite(),
+                    TabFocusSuite.Suite(),
+                    KeyHintsSuite.Suite(),
+                    TailFollowSuite.Suite(),
+                    ClickRegionSuite.Suite(),
+                    FocusAuditSuite.Suite(),
+                    FocusFollowUpSuite.Suite()
                 };
             }
         }

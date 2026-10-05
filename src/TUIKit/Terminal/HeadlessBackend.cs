@@ -199,6 +199,115 @@ namespace TUIKit.Terminal
         }
 
         /// <summary>
+        /// Queues the SGR terminal report for a mouse event, encoded with
+        /// <see cref="Input.MouseSequenceEncoder"/>. The host decodes it with its real parser and routes
+        /// it through the hit map, click synthesis, hover, and focus-on-click, exactly as it would a
+        /// user's pointer. Render a frame first (for example <c>TuiApplication.RenderOnce</c>) so the hit
+        /// map reflects the current layout, then pump input.
+        /// </summary>
+        /// <param name="mouse">The event, in zero-based screen coordinates. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the position lies outside the backend's
+        /// current size.</exception>
+        /// <exception cref="ArgumentException">Thrown when the event has no wire encoding (see
+        /// <see cref="Input.MouseSequenceEncoder.Encode"/>).</exception>
+        public void FeedMouse(Input.MouseEvent mouse)
+        {
+            if (mouse == null)
+                throw new ArgumentNullException(nameof(mouse));
+
+            RequireOnScreen(mouse.X, mouse.Y);
+            FeedInput(Input.MouseSequenceEncoder.Encode(mouse));
+        }
+
+        /// <summary>
+        /// Queues a press and release at one cell: a single click.
+        /// </summary>
+        /// <param name="x">The zero-based column. Must lie within the backend's width.</param>
+        /// <param name="y">The zero-based row. Must lie within the backend's height.</param>
+        /// <param name="button">The button. Defaults to <see cref="Input.MouseButton.Left"/>; must be left,
+        /// middle, or right.</param>
+        /// <param name="modifiers">Modifier keys held during the click. Defaults to none.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the position lies outside the screen.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="button"/> is not a click button.</exception>
+        public void FeedClick(int x, int y, Input.MouseButton button = Input.MouseButton.Left, Input.KeyModifiers modifiers = Input.KeyModifiers.None)
+        {
+            RequireOnScreen(x, y);
+            FeedInput(Input.MouseSequenceEncoder.EncodeClick(x, y, button, modifiers));
+        }
+
+        /// <summary>
+        /// Queues two left clicks at one cell. Pumped together, the host's click synthesizer stamps the
+        /// second press with a click count of two.
+        /// </summary>
+        /// <param name="x">The zero-based column. Must lie within the backend's width.</param>
+        /// <param name="y">The zero-based row. Must lie within the backend's height.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the position lies outside the screen.</exception>
+        public void FeedDoubleClick(int x, int y)
+        {
+            RequireOnScreen(x, y);
+            string click = Input.MouseSequenceEncoder.EncodeClick(x, y);
+            FeedInput(click + click);
+        }
+
+        /// <summary>
+        /// Queues wheel notches at one cell.
+        /// </summary>
+        /// <param name="x">The zero-based column. Must lie within the backend's width.</param>
+        /// <param name="y">The zero-based row. Must lie within the backend's height.</param>
+        /// <param name="delta">The notch count: negative scrolls up, positive scrolls down. Must not be zero.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the position lies outside the screen or
+        /// <paramref name="delta"/> is zero.</exception>
+        public void FeedWheel(int x, int y, int delta)
+        {
+            if (delta == 0)
+                throw new ArgumentOutOfRangeException(nameof(delta), delta, "Wheel delta must not be zero.");
+
+            RequireOnScreen(x, y);
+            Input.MouseButton button = delta < 0 ? Input.MouseButton.WheelUp : Input.MouseButton.WheelDown;
+            int notches = Math.Abs(delta);
+            StringBuilder builder = new StringBuilder();
+            for (int i = 0; i < notches; i++)
+                builder.Append(Input.MouseSequenceEncoder.Encode(new Input.MouseEvent(Input.MouseEventKind.Wheel, button, x, y, Input.KeyModifiers.None, 0)));
+
+            FeedInput(builder.ToString());
+        }
+
+        /// <summary>
+        /// Queues a pointer move with no button held (hover).
+        /// </summary>
+        /// <param name="x">The zero-based column. Must lie within the backend's width.</param>
+        /// <param name="y">The zero-based row. Must lie within the backend's height.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the position lies outside the screen.</exception>
+        public void FeedMove(int x, int y)
+        {
+            RequireOnScreen(x, y);
+            FeedInput(Input.MouseSequenceEncoder.Encode(new Input.MouseEvent(Input.MouseEventKind.Move, Input.MouseButton.None, x, y, Input.KeyModifiers.None, 0)));
+        }
+
+        /// <summary>
+        /// Queues a drag: a press at the start cell, a button-held move to the end cell, and a release
+        /// there.
+        /// </summary>
+        /// <param name="fromX">The zero-based start column. Must lie within the backend's width.</param>
+        /// <param name="fromY">The zero-based start row. Must lie within the backend's height.</param>
+        /// <param name="toX">The zero-based end column. Must lie within the backend's width.</param>
+        /// <param name="toY">The zero-based end row. Must lie within the backend's height.</param>
+        /// <param name="button">The button held. Defaults to <see cref="Input.MouseButton.Left"/>; must be
+        /// left, middle, or right.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when either position lies outside the screen.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="button"/> is not a click button.</exception>
+        public void FeedDrag(int fromX, int fromY, int toX, int toY, Input.MouseButton button = Input.MouseButton.Left)
+        {
+            RequireOnScreen(fromX, fromY);
+            RequireOnScreen(toX, toY);
+            FeedInput(
+                Input.MouseSequenceEncoder.Encode(new Input.MouseEvent(Input.MouseEventKind.Press, button, fromX, fromY, Input.KeyModifiers.None, 1))
+                + Input.MouseSequenceEncoder.Encode(new Input.MouseEvent(Input.MouseEventKind.Move, button, toX, toY, Input.KeyModifiers.None, 0))
+                + Input.MouseSequenceEncoder.Encode(new Input.MouseEvent(Input.MouseEventKind.Release, button, toX, toY, Input.KeyModifiers.None, 0)));
+        }
+
+        /// <summary>
         /// Simulates a terminal resize.
         /// </summary>
         /// <param name="width">The new width in cells. Must be greater than zero.</param>
@@ -218,6 +327,15 @@ namespace TUIKit.Terminal
         public void Dispose()
         {
             Stop();
+        }
+
+        private void RequireOnScreen(int x, int y)
+        {
+            Size size = Size;
+            if (x < 0 || x >= size.Width)
+                throw new ArgumentOutOfRangeException(nameof(x), x, "Column must lie within the screen width of " + size.Width + ".");
+            if (y < 0 || y >= size.Height)
+                throw new ArgumentOutOfRangeException(nameof(y), y, "Row must lie within the screen height of " + size.Height + ".");
         }
     }
 }

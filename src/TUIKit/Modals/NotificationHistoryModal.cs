@@ -82,6 +82,7 @@ namespace TUIKit.Modals
 
             BorderStyleColor = theme.Accent;
             BackgroundStyle = theme.Text;
+            ApplyBorderTheme(theme);
             HighlightStyle = theme.Selection;
         }
 
@@ -171,8 +172,8 @@ namespace TUIKit.Modals
                 CellStyle style = selected ? HighlightStyle : BackgroundStyle;
                 content.Fill(new Rect(0, r, width, 1), Cell.Blank(style));
                 string severity = "[" + SeverityLabel(item.Severity) + "] ";
-                string age = now == long.MinValue ? string.Empty : " " + Age(now - item.CreatedAtMilliseconds);
-                string text = (item.Title != null ? item.Title + ": " : string.Empty) + item.Text;
+                string age = now == long.MinValue ? string.Empty : " " + Age(now - item.LastRaisedAtMilliseconds);
+                string text = (item.Title != null ? item.Title + ": " : string.Empty) + item.Text + _Center.RepeatSuffix(item);
                 if (item.Actions.Count > 0)
                     text += "  (" + item.Actions[0].Label + ")";
                 int ageWidth = TextFit.Width(age);

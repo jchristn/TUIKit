@@ -12,7 +12,7 @@ namespace TUIKit.Widgets
     /// line up), and a value wider than the field scrolls horizontally to keep the caret visible.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class TextField : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable
+    public sealed class TextField : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry
     {
         private string _Value = string.Empty;
         private int _Caret;
@@ -77,6 +77,15 @@ namespace TUIKit.Widgets
         /// pastes. Programmatic sets of <see cref="Value"/> still apply. Defaults to false.
         /// </summary>
         public bool IsReadOnly { get; set; }
+
+        /// <summary>
+        /// Gets a value indicating whether printable keys are inserted as text: true while enabled and not
+        /// read-only. Part of <see cref="ITextEntry"/>.
+        /// </summary>
+        public bool AcceptsText
+        {
+            get { return _Enabled && !IsReadOnly; }
+        }
 
         /// <summary>
         /// Gets or sets the character used to obscure the value when rendering, for secret input such
@@ -335,7 +344,15 @@ namespace TUIKit.Widgets
                 {
                     string underGlyph = " ";
                     int glyphWidth = 1;
-                    if (_Caret < display.Length)
+                    if (display.Length == 0 && !string.IsNullOrEmpty(Placeholder))
+                    {
+                        // An empty field shows its placeholder; keep its first letter visible under the caret.
+                        string placeholder = Placeholder!;
+                        string first = placeholder.Substring(0, TextFit.NextBoundary(placeholder, 0));
+                        if (TextFit.Width(first) == 1)
+                            underGlyph = first;
+                    }
+                    else if (_Caret < display.Length)
                     {
                         int end = TextFit.NextBoundary(display, _Caret);
                         underGlyph = display.Substring(_Caret, end - _Caret);

@@ -96,6 +96,46 @@ namespace TUIKit.Theming
             get { return "button.focused"; }
         }
 
+        /// <summary>
+        /// Gets the named-style role for the border of the frame that holds keyboard focus (see
+        /// <see cref="Widgets.FocusFrame"/> and <c>TuiApplication.HighlightFocusedRegion</c>). The built-in
+        /// presets register a bright, bold style: yellow on <see cref="Dark"/>, deep blue on
+        /// <see cref="Light"/>, and yellow on <see cref="HighContrast"/>. When not registered, focus frames
+        /// use <see cref="Accent"/> in bold.
+        /// </summary>
+        public static string FocusBorderRole
+        {
+            get { return "focus.border"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for the title of the frame that holds keyboard focus. When not
+        /// registered, the title uses the <see cref="FocusBorderRole"/> style.
+        /// </summary>
+        public static string FocusTitleRole
+        {
+            get { return "focus.title"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for the selected tab of a <see cref="Widgets.TabView"/> while its tab
+        /// strip holds keyboard focus. When not registered, the tab view adds bold and underline to its
+        /// active-tab style, so the cue never relies on color alone.
+        /// </summary>
+        public static string TabFocusedRole
+        {
+            get { return "tab.focused"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for an inline button under the mouse pointer (see
+        /// <see cref="Widgets.InlineButton"/>). When not registered, hovered inline buttons are underlined.
+        /// </summary>
+        public static string InlineButtonHoverRole
+        {
+            get { return "inline-button.hover"; }
+        }
+
         private readonly Dictionary<string, CellStyle> _Named = new Dictionary<string, CellStyle>(StringComparer.Ordinal);
 
         /// <summary>
@@ -228,7 +268,7 @@ namespace TUIKit.Theming
                     Styled(Color.FromRgb(0x4F, 0xC1, 0xE9), background),
                     Styled(Color.FromRgb(0x5A, 0x5A, 0x6A), background),
                     Styled(Color.FromRgb(0x8A, 0x8A, 0x9A), background));
-                return WithConventionalRoles(theme, Color.FromRgb(0x18, 0x18, 0x1B), Color.FromRgb(0x2D, 0x2D, 0x30));
+                return WithConventionalRoles(theme, Color.FromRgb(0x18, 0x18, 0x1B), Color.FromRgb(0x2D, 0x2D, 0x30), Color.FromRgb(0xFF, 0xD7, 0x5F));
             }
         }
 
@@ -246,7 +286,7 @@ namespace TUIKit.Theming
                     Styled(Color.FromRgb(0x0A, 0x5C, 0xA0), background),
                     Styled(Color.FromRgb(0x90, 0x90, 0x90), background),
                     Styled(Color.FromRgb(0x55, 0x55, 0x55), background));
-                return WithConventionalRoles(theme, Color.FromRgb(0xD8, 0xD8, 0xD8), Color.FromRgb(0xCE, 0xCE, 0xCE));
+                return WithConventionalRoles(theme, Color.FromRgb(0xD8, 0xD8, 0xD8), Color.FromRgb(0xCE, 0xCE, 0xCE), Color.FromRgb(0x00, 0x47, 0xAB));
             }
         }
 
@@ -265,7 +305,7 @@ namespace TUIKit.Theming
                     Styled(Color.FromRgb(0xFF, 0xFF, 0xFF), background),
                     Styled(Color.FromRgb(0xC0, 0xC0, 0xC0), background),
                     true);
-                return WithConventionalRoles(theme, Color.FromRgb(0x00, 0x00, 0x00), Color.FromRgb(0x00, 0x00, 0x00));
+                return WithConventionalRoles(theme, Color.FromRgb(0x00, 0x00, 0x00), Color.FromRgb(0x00, 0x00, 0x00), Color.FromRgb(0xFF, 0xFF, 0x00));
             }
         }
 
@@ -274,10 +314,15 @@ namespace TUIKit.Theming
             return CellStyle.Default.WithForeground(foreground).WithBackground(background);
         }
 
-        private static Theme WithConventionalRoles(Theme theme, Color sidebar, Color statusBar)
+        private static Theme WithConventionalRoles(Theme theme, Color sidebar, Color statusBar, Color focus)
         {
             theme.SetStyle(SidebarRole, theme.Text.WithBackground(sidebar));
             theme.SetStyle(StatusBarRole, theme.Text.WithBackground(statusBar));
+            CellStyle focusBorder = theme.Text.WithForeground(focus).WithAttribute(CellAttributes.Bold, true);
+            theme.SetStyle(FocusBorderRole, focusBorder);
+            theme.SetStyle(FocusTitleRole, focusBorder);
+            theme.SetStyle(TabFocusedRole, theme.Selection.WithAttribute(CellAttributes.Bold, true).WithAttribute(CellAttributes.Underline, true));
+            theme.SetStyle(InlineButtonHoverRole, theme.Accent.WithAttribute(CellAttributes.Underline, true));
             return theme;
         }
 

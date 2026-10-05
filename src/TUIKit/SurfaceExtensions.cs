@@ -172,6 +172,23 @@ namespace TUIKit
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
         public static void DrawBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title = null)
         {
+            DrawBox(surface, rect, style, border, title, style);
+        }
+
+        /// <summary>
+        /// Draws a single-cell box (border) around the supplied rectangle, with an optional title centered
+        /// on the top edge drawn in its own style. Use this when the title should stand out from the
+        /// border, for example a bold title on a focused frame.
+        /// </summary>
+        /// <param name="surface">The target surface. Must not be null.</param>
+        /// <param name="rect">The rectangle to outline, in local coordinates.</param>
+        /// <param name="style">The style for the border glyphs.</param>
+        /// <param name="border">The border style. <see cref="BorderStyle.None"/> draws nothing.</param>
+        /// <param name="title">An optional title drawn on the top edge, or null.</param>
+        /// <param name="titleStyle">The style for the title text.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
+        public static void DrawBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title, CellStyle titleStyle)
+        {
             if (surface == null)
                 throw new ArgumentNullException(nameof(surface));
             if (border == BorderStyle.None || rect.Width < 2 || rect.Height < 2)
@@ -207,17 +224,128 @@ namespace TUIKit
                 surface.Set(right, y, Cell.Glyph(vertical, style, 1));
             }
 
-            if (!string.IsNullOrEmpty(title))
-            {
-                string label = " " + title + " ";
-                int available = right - left - 1;
-                if (available > 1 && label.Length > available)
-                    label = label.Substring(0, available);
+            DrawBoxTitle(surface, left, right, top, title, titleStyle);
+        }
 
-                int titleWidth = TUIKit.Unicode.Graphemes.MeasureWidth(label);
-                int start = left + 1 + Math.Max(0, ((right - left - 1) - titleWidth) / 2);
-                surface.DrawText(start, top, label, style);
+        /// <summary>
+        /// Draws a box that joins with box lines already on the surface: where its border meets or
+        /// crosses an existing line, the cell gets the matching tee, corner, or cross glyph (light, heavy,
+        /// double, and their mixes, or <c>+</c>/<c>#</c> with ASCII borders) instead of overwriting it.
+        /// Adjacent boxes that share an edge, and boxes nested inside one another, therefore draw as one
+        /// connected frame. Where both have a line, this box's weight wins, so drawing the focused box last
+        /// keeps it whole over a shared edge. On a surface that is not an <see cref="IReadableSurface"/>
+        /// this draws a plain box.
+        /// </summary>
+        /// <param name="surface">The target surface. Must not be null.</param>
+        /// <param name="rect">The rectangle to outline, in local coordinates. Smaller than 2x2 draws nothing.</param>
+        /// <param name="style">The style for the border glyphs.</param>
+        /// <param name="border">The border style. <see cref="BorderStyle.None"/> draws nothing.</param>
+        /// <param name="title">An optional title drawn on the top edge, or null.</param>
+        /// <param name="titleStyle">The style for the title text.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
+        public static void DrawJoinedBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title, CellStyle titleStyle)
+        {
+            if (surface == null)
+                throw new ArgumentNullException(nameof(surface));
+            if (border == BorderStyle.None || rect.Width < 2 || rect.Height < 2)
+                return;
+
+            if (!(surface is IReadableSurface readable))
+            {
+                DrawBox(surface, rect, style, border, title, titleStyle);
+                return;
             }
+
+            int left = rect.Left;
+            int right = rect.Right - 1;
+            int top = rect.Top;
+            int bottom = rect.Bottom - 1;
+
+            JoinCell(readable, left, top, style, border, BoxJunctions.Pack(0, 1, 0, 1), true);
+            JoinCell(readable, right, top, style, border, BoxJunctions.Pack(0, 1, 1, 0), true);
+            JoinCell(readable, left, bottom, style, border, BoxJunctions.Pack(1, 0, 0, 1), true);
+            JoinCell(readable, right, bottom, style, border, BoxJunctions.Pack(1, 0, 1, 0), true);
+
+            for (int x = left + 1; x < right; x++)
+            {
+                JoinCell(readable, x, top, style, border, BoxJunctions.Pack(0, 0, 1, 1), false);
+                JoinCell(readable, x, bottom, style, border, BoxJunctions.Pack(0, 0, 1, 1), false);
+            }
+
+            for (int y = top + 1; y < bottom; y++)
+            {
+                JoinCell(readable, left, y, style, border, BoxJunctions.Pack(1, 1, 0, 0), false);
+                JoinCell(readable, right, y, style, border, BoxJunctions.Pack(1, 1, 0, 0), false);
+            }
+
+            DrawBoxTitle(surface, left, right, top, title, titleStyle);
+        }
+
+        /// <summary>
+        /// Draws a joined box whose title uses the border style. See
+        /// <see cref="DrawJoinedBox(ISurface, Rect, CellStyle, BorderStyle, string?, CellStyle)"/>.
+        /// </summary>
+        /// <param name="surface">The target surface. Must not be null.</param>
+        /// <param name="rect">The rectangle to outline, in local coordinates.</param>
+        /// <param name="style">The style for the border and title.</param>
+        /// <param name="border">The border style. <see cref="BorderStyle.None"/> draws nothing.</param>
+        /// <param name="title">An optional title drawn on the top edge, or null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
+        public static void DrawJoinedBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title = null)
+        {
+            DrawJoinedBox(surface, rect, style, border, title, style);
+        }
+
+        private static void JoinCell(IReadableSurface surface, int x, int y, CellStyle style, BorderStyle border, int unitArms, bool corner)
+        {
+            string existing = surface.Get(x, y).Grapheme;
+            string glyph;
+            if (border == BorderStyle.Ascii || border == BorderStyle.AsciiHeavy)
+            {
+                bool heavy = border == BorderStyle.AsciiHeavy;
+                string junction = heavy ? "#" : "+";
+                bool horizontal = BoxJunctions.Arm(unitArms, 2) != 0;
+                bool existingLine = existing == "+" || existing == "#" || existing == "-" || existing == "=" || existing == "|";
+                bool existingHorizontal = existing == "-" || existing == "=";
+                bool existingVertical = existing == "|";
+                if (corner)
+                    glyph = junction;
+                else if (existingLine && ((horizontal && !existingHorizontal) || (!horizontal && !existingVertical)))
+                    glyph = junction;
+                else
+                    glyph = horizontal ? (heavy ? "=" : "-") : (heavy ? "#" : "|");
+            }
+            else
+            {
+                int weight = border == BorderStyle.Thick ? 2 : (border == BorderStyle.Double ? 3 : 1);
+                int arms = 0;
+                for (int shift = 0; shift <= 6; shift += 2)
+                {
+                    if (BoxJunctions.Arm(unitArms, shift) != 0)
+                        arms |= weight << shift;
+                }
+
+                glyph = BoxJunctions.Merge(existing, arms);
+                if (border == BorderStyle.Rounded && corner && BoxJunctions.TryGetArms(glyph, out int result) && result == arms)
+                    glyph = BoxJunctions.RoundedCorner(arms);
+            }
+
+            surface.Set(x, y, Cell.Glyph(glyph, style, 1));
+        }
+
+        private static void DrawBoxTitle(ISurface surface, int left, int right, int top, string? title, CellStyle titleStyle)
+        {
+            if (string.IsNullOrEmpty(title))
+                return;
+
+            string label = " " + title + " ";
+            int available = right - left - 1;
+            if (available > 1 && label.Length > available)
+                label = label.Substring(0, available);
+
+            int titleWidth = TUIKit.Unicode.Graphemes.MeasureWidth(label);
+            int start = left + 1 + Math.Max(0, ((right - left - 1) - titleWidth) / 2);
+            surface.DrawText(start, top, label, titleStyle);
         }
 
         private static void SelectGlyphs(BorderStyle border, out string horizontal, out string vertical, out string topLeft, out string topRight, out string bottomLeft, out string bottomRight)
@@ -231,6 +359,14 @@ namespace TUIKit
                     topRight = "+";
                     bottomLeft = "+";
                     bottomRight = "+";
+                    break;
+                case BorderStyle.AsciiHeavy:
+                    horizontal = "=";
+                    vertical = "#";
+                    topLeft = "#";
+                    topRight = "#";
+                    bottomLeft = "#";
+                    bottomRight = "#";
                     break;
                 case BorderStyle.Rounded:
                     horizontal = "─";

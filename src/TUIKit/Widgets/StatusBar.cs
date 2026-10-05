@@ -3,11 +3,13 @@ namespace TUIKit.Widgets
     using System;
     using System.Collections.Generic;
     using TUIKit;
+    using TUIKit.Input;
 
     /// <summary>
     /// A single-row widget that renders contextual keybinding hints as <c>key label</c> pairs across
     /// the width, the footer bar most good TUIs carry. Hints are added fluently and truncate when the
-    /// width runs out.
+    /// width runs out. Set <see cref="HintSource"/> (or call <c>TuiApplication.BindKeyHints</c>) to have
+    /// the bar list the keys of whatever holds focus, ahead of the fixed hints.
     /// </summary>
     public sealed class StatusBar : IWidget
     {
@@ -25,8 +27,19 @@ namespace TUIKit.Widgets
         public CellStyle LabelStyle { get; set; } = CellStyle.Default;
 
         /// <summary>
+        /// Gets or sets a callback that supplies hints at render time, drawn before the fixed hints added
+        /// with <see cref="Add"/> (which then act as always-shown, pinned hints). Use it to make the bar
+        /// follow focus: <c>TuiApplication.BindKeyHints</c> sets it to resolve the current
+        /// <c>FocusPath</c>. Null entries in the returned list are skipped. Defaults to null (fixed hints
+        /// only, as in earlier versions). A supplied hint that does not fit in the remaining width is
+        /// dropped whole, together with the rest of the list. Called on the render thread.
+        /// </summary>
+        public Func<IReadOnlyList<KeyHint>>? HintSource { get; set; }
+
+        /// <summary>
         /// Gets the number of hints.
         /// </summary>
+
         public int Count
         {
             get { return _Keys.Count; }
@@ -77,6 +90,25 @@ namespace TUIKit.Widgets
                 return;
 
             int cursor = 0;
+            IReadOnlyList<KeyHint>? hints = HintSource?.Invoke();
+            if (hints != null)
+            {
+                for (int i = 0; i < hints.Count && cursor < width; i++)
+                {
+                    KeyHint? hint = hints[i];
+                    if (hint == null)
+                        continue;
+
+                    // A dynamic hint is drawn whole or not at all, so a narrow bar never shows half a key.
+                    int needed = TUIKit.Unicode.TextFit.Width(hint.Key) + 1 + TUIKit.Unicode.TextFit.Width(hint.Description);
+                    if (cursor + needed > width)
+                        break;
+
+                    cursor += surface.DrawText(cursor, 0, hint.Key, KeyStyle);
+                    cursor += surface.DrawText(cursor, 0, " " + hint.Description + "   ", LabelStyle);
+                }
+            }
+
             for (int i = 0; i < _Keys.Count && cursor < width; i++)
             {
                 cursor += surface.DrawText(cursor, 0, _Keys[i], KeyStyle);

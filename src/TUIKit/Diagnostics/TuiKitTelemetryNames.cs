@@ -89,6 +89,12 @@ namespace TUIKit.Diagnostics
         /// <summary>Counter ({notification}): notifications evicted early because the concurrency cap was reached.</summary>
         public const string NotificationsEvicted = "tuikit.notifications.evicted";
 
+        /// <summary>Counter ({notification}): raises merged into an identical toast still on screen (see <c>NotificationCenter.CoalesceRepeats</c>), labeled by <see cref="AttrSeverity"/>.</summary>
+        public const string NotificationsCoalesced = "tuikit.notifications.coalesced";
+
+        /// <summary>Counter ({click}): inline click regions invoked (see <c>Widgets.ClickRegionMap</c>).</summary>
+        public const string ClickRegionsInvoked = "tuikit.click_regions.invoked";
+
         /// <summary>Counter ({session}): session start attempts, labeled by <see cref="AttrOutcome"/> (<see cref="OutcomeOk"/> or <see cref="OutcomeRejected"/>).</summary>
         public const string SessionStarts = "tuikit.session.starts";
 

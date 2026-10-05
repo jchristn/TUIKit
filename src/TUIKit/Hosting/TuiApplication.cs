@@ -104,6 +104,12 @@ namespace TUIKit.Hosting
         private int _PointerY = -1;
         private long _PointerStillSinceMs;
         private readonly Tooltip _Tooltip = new Tooltip();
+        private readonly List<object> _FocusScratch = new List<object>();
+        private FocusPath _FocusPath = FocusPath.Empty;
+        private bool _HighlightFocusedRegion;
+        private FocusFrameOptions _FocusFrameOptions = new FocusFrameOptions();
+        private bool _JoinRegionBorders;
+        private Size _FrameSize;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TuiApplication"/> class.
@@ -310,6 +316,115 @@ namespace TUIKit.Hosting
         public string? FocusedRegion
         {
             get { return _FocusedRegion; }
+        }
+
+        /// <summary>
+        /// Gets where keyboard focus is right now: the focused region and the chain of widgets from that
+        /// region's bound widget down to the focused leaf, through every nested container (see
+        /// <see cref="FocusPath"/>). Updated after every input event, focus change, and posted action, and
+        /// before every frame, so it reflects focus moves made inside containers as well as between
+        /// regions. Never null; <see cref="FocusPath.Empty"/> when nothing holds focus. Read on the UI thread.
+        /// </summary>
+        public FocusPath CurrentFocusPath
+        {
+            get { return _FocusPath; }
+        }
+
+        /// <summary>
+        /// Raised on the UI thread when <see cref="CurrentFocusPath"/> changes, whether focus moved between
+        /// regions or within a container. The argument is the new path. Use it to update anything that
+        /// depends on what holds focus, such as a breadcrumb; a <see cref="StatusBar"/> bound with
+        /// <see cref="BindKeyHints"/> updates itself.
+        /// </summary>
+        public event Action<FocusPath>? FocusPathChanged;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether every bordered region shows when it holds focus: its
+        /// border is drawn with heavy lines (heavy ASCII when the theme uses ASCII borders) in the
+        /// <see cref="Theme.FocusBorderRole"/> style, and its title gains
+        /// <see cref="FocusFrameOptions.TitleMarker"/>. Border cells are reserved whether or not a region
+        /// is focused, so focus never shifts content. Regions without a border are unaffected. A region
+        /// built with <see cref="RegionBuilder.WithFocusedBorder"/> shows focus even when this is off.
+        /// Defaults to false, which keeps the plain borders of earlier versions.
+        /// </summary>
+        public bool HighlightFocusedRegion
+        {
+            get { return _HighlightFocusedRegion; }
+            set
+            {
+                _HighlightFocusedRegion = value;
+                _RenderRequested = true;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether bordered regions that share an edge (overlap by one
+        /// cell) join into one connected frame, meeting in tee, corner, and cross glyphs instead of drawing
+        /// two separate lines. When on, the host draws every region background first, then every border
+        /// (the focused region's frame last, so it stays whole over a shared edge), then every region's
+        /// content. Lay regions out so neighbours overlap by one column or row to share it. Defaults to
+        /// false, which keeps the per-region drawing order of earlier versions.
+        /// </summary>
+        public bool JoinRegionBorders
+        {
+            get { return _JoinRegionBorders; }
+            set
+            {
+                _JoinRegionBorders = value;
+                _RenderRequested = true;
+            }
+        }
+
+        /// <summary>
+        /// Gets a region's outer rectangle (including its border) as of the most recent frame, so a
+        /// <see cref="RenderOverlay"/> callback or a test can draw or hit-test against a region without
+        /// repeating layout math.
+        /// </summary>
+        /// <param name="regionId">The region id. Must not be null or empty.</param>
+        /// <returns>The rectangle in screen cells, or null when there is no such region or no frame has
+        /// been rendered yet.</returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="regionId"/> is null or empty.</exception>
+        public Rect? GetRegionBounds(string regionId)
+        {
+            Region? region = FindRegion(regionId);
+            if (region == null || _FrameSize.Width <= 0 || _FrameSize.Height <= 0)
+                return null;
+
+            return region.Resolve(_FrameSize).Intersect(new Rect(0, 0, _FrameSize.Width, _FrameSize.Height));
+        }
+
+        /// <summary>
+        /// Gets a region's content rectangle (inside its border and padding, where its widget renders) as
+        /// of the most recent frame.
+        /// </summary>
+        /// <param name="regionId">The region id. Must not be null or empty.</param>
+        /// <returns>The rectangle in screen cells, or null when there is no such region or no frame has
+        /// been rendered yet.</returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="regionId"/> is null or empty.</exception>
+        public Rect? GetRegionContentBounds(string regionId)
+        {
+            Region? region = FindRegion(regionId);
+            if (region == null || _FrameSize.Width <= 0 || _FrameSize.Height <= 0)
+                return null;
+
+            return region.ContentRect(_FrameSize).Intersect(new Rect(0, 0, _FrameSize.Width, _FrameSize.Height));
+        }
+
+        /// <summary>
+        /// Gets or sets the options for focused region frames: the focused border style, the title marker,
+        /// and the narrow-space fallback (see <see cref="FocusFrameOptions"/>). A region's own
+        /// <see cref="Region.FocusedBorder"/> overrides <see cref="FocusFrameOptions.FocusedBorder"/>; its
+        /// <see cref="Region.Border"/> is always used while unfocused. Never null.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        public FocusFrameOptions FocusFrameOptions
+        {
+            get { return _FocusFrameOptions; }
+            set
+            {
+                _FocusFrameOptions = value ?? throw new ArgumentNullException(nameof(value));
+                _RenderRequested = true;
+            }
         }
 
         /// <summary>
@@ -555,8 +670,12 @@ namespace TUIKit.Hosting
         }
 
         /// <summary>
-        /// Gets or sets a callback invoked after panes are rendered so the host application can draw
-        /// overlays (status bars, hints, link decorations).
+        /// Gets or sets a callback invoked after every region, border, and widget has rendered (and before
+        /// tooltips, modals, and toasts), so the application can draw on top of the finished layout:
+        /// status decorations, link hints, or its own focus boxes around panes. Use
+        /// <see cref="GetRegionBounds"/> and <see cref="GetRegionContentBounds"/> for region geometry and
+        /// <see cref="CurrentFocusPath"/> for what holds focus. Several callbacks can be combined with
+        /// <c>+=</c>.
         /// </summary>
         public Action<ISurface>? RenderOverlay
         {
@@ -852,6 +971,27 @@ namespace TUIKit.Hosting
             _Routing.Unregister(parsed);
             _Commands[id] = action;
             _Routing.Register(parsed, id);
+        }
+
+        /// <summary>
+        /// Makes a status bar list the keys that work for whatever holds focus: on every frame it resolves
+        /// <see cref="CurrentFocusPath"/> with <paramref name="resolver"/> and draws those hints ahead of the
+        /// bar's fixed hints, which stay pinned at the end. While a text field has focus, keys that would
+        /// type are hidden and the bar leads with how to leave the field (see <see cref="KeyHintResolver"/>).
+        /// </summary>
+        /// <param name="statusBar">The status bar. Must not be null.</param>
+        /// <param name="resolver">The resolver to use, or null to create one with default settings.</param>
+        /// <returns>The resolver in use, so application-wide hints and commands can be added to it.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="statusBar"/> is null.</exception>
+        public KeyHintResolver BindKeyHints(StatusBar statusBar, KeyHintResolver? resolver = null)
+        {
+            if (statusBar == null)
+                throw new ArgumentNullException(nameof(statusBar));
+
+            KeyHintResolver active = resolver ?? new KeyHintResolver();
+            statusBar.HintSource = () => active.Resolve(_FocusPath);
+            _RenderRequested = true;
+            return active;
         }
 
         /// <summary>
@@ -1443,6 +1583,22 @@ namespace TUIKit.Hosting
             TuiKitInstruments.SetSessionShape(_TargetFps, _Renderer.Size.Width, _Renderer.Size.Height);
         }
 
+        /// <summary>
+        /// Returns a copy of the most recently rendered frame as cells, so a test can assert on the
+        /// glyphs and styles the user would see (for example, that the focused region's border is drawn
+        /// with heavy glyphs in the focus style) instead of matching raw terminal output. Call
+        /// <see cref="RenderOnce"/> first. Read on the thread that renders.
+        /// </summary>
+        /// <returns>A copy of the last frame, or null before <see cref="Start"/> or when the backend is
+        /// not interactive (line mode composes no frame).</returns>
+        public CellBuffer? CaptureFrame()
+        {
+            if (_Renderer == null || !_Backend.IsInteractive)
+                return null;
+
+            return _Renderer.CopyLastFrame();
+        }
+
         // Decides whether the run loop composes this frame. Without idle throttling every frame renders
         // (the original behavior). With it, a frame renders on activity, on a pane write, on request, or
         // once per idle interval.
@@ -1521,7 +1677,9 @@ namespace TUIKit.Hosting
         private void Compose(ISurface root)
         {
             Size size = root.Size;
+            _FrameSize = size;
             _HitMap.Clear();
+            RefreshFocusPath();
 
             if (_MouseTextSelectionEnabled)
             {
@@ -1544,43 +1702,37 @@ namespace TUIKit.Hosting
             if (_Layout != null)
             {
                 BufferSurface? bufferSurface = root as BufferSurface;
-                for (int i = 0; i < _Layout.Regions.Count; i++)
+                if (_JoinRegionBorders)
                 {
-                    Region region = _Layout.Regions[i];
-                    CellStyle regionBackground = ResolveRegionBackground(region);
+                    // Joined borders need every background down first, then every border, so shared edges
+                    // can merge; the focused frame goes last so it stays whole over a shared line.
+                    for (int i = 0; i < _Layout.Regions.Count; i++)
+                        FillRegionBackground(root, _Layout.Regions[i], size);
 
-                    if (region.HasBackground)
+                    Region? focusedRegion = null;
+                    for (int i = 0; i < _Layout.Regions.Count; i++)
                     {
-                        Rect fill = region.Resolve(size).Intersect(new Rect(0, 0, size.Width, size.Height));
-                        if (!fill.IsEmpty)
-                            root.Fill(fill, Cell.Blank(regionBackground));
+                        Region region = _Layout.Regions[i];
+                        if (ShowsRegionFocus(region))
+                            focusedRegion = region;
+                        else
+                            DrawRegionBorder(root, region, size, false, true);
                     }
 
-                    if (region.HasBorder)
+                    if (focusedRegion != null)
+                        DrawRegionBorder(root, focusedRegion, size, true, true);
+
+                    for (int i = 0; i < _Layout.Regions.Count; i++)
+                        RenderRegionContent(root, bufferSurface, _Layout.Regions[i], size);
+                }
+                else
+                {
+                    for (int i = 0; i < _Layout.Regions.Count; i++)
                     {
-                        Rect frame = region.Resolve(size).Intersect(new Rect(0, 0, size.Width, size.Height));
-                        BorderStyle borderStyle = _Theme.UseAsciiBorders ? BorderStyle.Ascii : region.Border;
-                        root.DrawBox(frame, _Theme.Border, borderStyle, region.BorderTitle);
-                    }
-
-                    if (!_Content.TryGetValue(region.Id, out IWidget? widget))
-                        continue;
-
-                    Rect rect = region.ContentRect(size).Intersect(new Rect(0, 0, size.Width, size.Height));
-                    if (rect.IsEmpty)
-                        continue;
-
-                    _HitMap.Add(new HitTestEntry(region.Id, widget, rect));
-
-                    ISurface view = bufferSurface != null ? bufferSurface.CreateView(rect) : root;
-                    if (widget is Pane pane)
-                    {
-                        pane.Render(view, regionBackground);
-                    }
-                    else
-                    {
-                        view.Fill(new Rect(0, 0, rect.Width, rect.Height), Cell.Blank(regionBackground));
-                        widget.Render(view);
+                        Region region = _Layout.Regions[i];
+                        FillRegionBackground(root, region, size);
+                        DrawRegionBorder(root, region, size, ShowsRegionFocus(region), false);
+                        RenderRegionContent(root, bufferSurface, region, size);
                     }
                 }
             }
@@ -1599,6 +1751,82 @@ namespace TUIKit.Hosting
 
             if (_AutoRenderNotifications)
                 _Notifications.Render(root, NowMilliseconds);
+        }
+
+        // A region shows the focused treatment while it holds focus, opted in, and no modal sits on top:
+        // with a dialog open the panes behind it go plain so only the dialog reads as focused.
+        private bool ShowsRegionFocus(Region region)
+        {
+            return region.HasBorder
+                && (_HighlightFocusedRegion || region.FocusedBorder.HasValue)
+                && string.Equals(region.Id, _FocusedRegion, StringComparison.Ordinal)
+                && !_Modals.IsActive;
+        }
+
+        private void FillRegionBackground(ISurface root, Region region, Size size)
+        {
+            if (!region.HasBackground)
+                return;
+
+            Rect fill = region.Resolve(size).Intersect(new Rect(0, 0, size.Width, size.Height));
+            if (!fill.IsEmpty)
+                root.Fill(fill, Cell.Blank(ResolveRegionBackground(region)));
+        }
+
+        private void DrawRegionBorder(ISurface root, Region region, Size size, bool focused, bool join)
+        {
+            if (!region.HasBorder)
+                return;
+
+            Rect frame = region.Resolve(size).Intersect(new Rect(0, 0, size.Width, size.Height));
+            if (_HighlightFocusedRegion || region.FocusedBorder.HasValue)
+            {
+                CellStyle focusStyle = FocusFrame.FocusedStyle(_Theme);
+                FocusFrame.DrawCore(
+                    root,
+                    frame,
+                    focused,
+                    region.FocusedBorder ?? _FocusFrameOptions.FocusedBorder,
+                    region.Border,
+                    focusStyle,
+                    _Theme.Border,
+                    _Theme.Resolve(Theme.FocusTitleRole, focusStyle),
+                    _Theme.UseAsciiBorders,
+                    _FocusFrameOptions,
+                    region.BorderTitle,
+                    join);
+                return;
+            }
+
+            BorderStyle borderStyle = _Theme.UseAsciiBorders ? BorderStyle.Ascii : region.Border;
+            if (join)
+                root.DrawJoinedBox(frame, _Theme.Border, borderStyle, region.BorderTitle);
+            else
+                root.DrawBox(frame, _Theme.Border, borderStyle, region.BorderTitle);
+        }
+
+        private void RenderRegionContent(ISurface root, BufferSurface? bufferSurface, Region region, Size size)
+        {
+            if (!_Content.TryGetValue(region.Id, out IWidget? widget))
+                return;
+
+            Rect rect = region.ContentRect(size).Intersect(new Rect(0, 0, size.Width, size.Height));
+            if (rect.IsEmpty)
+                return;
+
+            _HitMap.Add(new HitTestEntry(region.Id, widget, rect));
+
+            CellStyle regionBackground = ResolveRegionBackground(region);
+            ISurface view = bufferSurface != null ? bufferSurface.CreateView(rect) : root;
+            if (widget is Pane pane)
+            {
+                pane.Render(view, regionBackground);
+            }
+            else
+            {
+                view.Fill(new Rect(0, 0, rect.Width, rect.Height), Cell.Blank(regionBackground));
+                widget.Render(view);
+            }
         }
 
         private CellStyle ResolveRegionBackground(Region region)
@@ -1670,6 +1898,7 @@ namespace TUIKit.Hosting
             try
             {
                 DispatchCore(inputEvent);
+                RefreshFocusPath();
             }
             catch (Exception ex) when (RecordDispatchFailure(ex, kind, start))
             {
@@ -2250,11 +2479,11 @@ namespace TUIKit.Hosting
                 ? (direction > 0 ? 0 : _FocusOrder.Count - 1)
                 : (current + direction + _FocusOrder.Count) % _FocusOrder.Count;
 
-            // Skip disabled widgets (IEnableable) unless every candidate is disabled.
+            // Skip disabled and hidden widgets, and regions not on screen, unless every candidate is.
             for (int attempt = 0; attempt < _FocusOrder.Count; attempt++)
             {
                 int candidate = (next + (direction * attempt) + (_FocusOrder.Count * _FocusOrder.Count)) % _FocusOrder.Count;
-                if (_Content.TryGetValue(_FocusOrder[candidate], out IWidget? widget) && FocusScope.IsFocusable(widget))
+                if (_Content.TryGetValue(_FocusOrder[candidate], out IWidget? widget) && FocusScope.IsFocusable(widget) && IsRegionShown(_FocusOrder[candidate]))
                 {
                     next = candidate;
                     break;
@@ -2289,15 +2518,84 @@ namespace TUIKit.Hosting
 
             _Renderer?.Invalidate();
             FocusChanged?.Invoke(regionId);
+            RefreshFocusPath();
+        }
+
+        private Region? FindRegion(string regionId)
+        {
+            if (string.IsNullOrEmpty(regionId))
+                throw new ArgumentException("Region id must not be null or empty.", nameof(regionId));
+
+            return _Layout?.FindById(regionId);
+        }
+
+        // A region is on screen when the current layout has it and, once a frame has been composed, its
+        // content area is not empty. A widget bound to a region the layout dropped (a hidden sidebar) is
+        // not a focus stop.
+        internal bool IsRegionShown(string regionId)
+        {
+            if (_Layout == null)
+                return true;
+
+            Region? region = _Layout.FindById(regionId);
+            if (region == null)
+                return false;
+            if (_FrameSize.Width <= 0 || _FrameSize.Height <= 0)
+                return true;
+
+            return !region.ContentRect(_FrameSize).Intersect(new Rect(0, 0, _FrameSize.Width, _FrameSize.Height)).IsEmpty;
+        }
+
+        internal void InjectInput(InputEvent inputEvent)
+        {
+            Dispatch(inputEvent);
+        }
+
+        internal string HitMapSignature()
+        {
+            System.Text.StringBuilder builder = new System.Text.StringBuilder();
+            for (int i = 0; i < _HitMap.Count; i++)
+            {
+                HitTestEntry entry = _HitMap[i];
+                builder.Append(entry.RegionId).Append(':')
+                    .Append(entry.Rect.X).Append(',').Append(entry.Rect.Y).Append(',')
+                    .Append(entry.Rect.Width).Append(',').Append(entry.Rect.Height).Append(';');
+            }
+
+            return builder.ToString();
+        }
+
+        // Rebuilds the focus path into a reusable scratch list and publishes a new snapshot only when it
+        // differs, so the common case (nothing moved) allocates nothing.
+        private void RefreshFocusPath()
+        {
+            _FocusScratch.Clear();
+            string? region = _FocusedRegion;
+            if (region != null && _Content.TryGetValue(region, out IWidget? root))
+                FocusPath.Collect(root, _FocusScratch);
+            else
+                region = null;
+
+            if (_FocusPath.SameAs(region, _FocusScratch))
+                return;
+
+            _FocusPath = _FocusScratch.Count == 0 ? FocusPath.Empty : new FocusPath(region, new List<object>(_FocusScratch));
+            _RenderRequested = true;
+            FocusPathChanged?.Invoke(_FocusPath);
         }
 
         private void DrainPostQueue()
         {
+            bool ran = false;
             while (_PostQueue.TryDequeue(out PostedAction? posted))
             {
                 RunPosted(posted);
                 _RenderRequested = true;
+                ran = true;
             }
+
+            if (ran)
+                RefreshFocusPath();
         }
 
         private static void RunPosted(PostedAction posted)

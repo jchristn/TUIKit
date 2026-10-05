@@ -26,10 +26,12 @@ dotnet run
 
 Options:
 
-- `--Framework net8.0|net10.0` — target framework (default `net8.0`).
+- `--Framework net8.0|net10.0`: target framework (default `net8.0`).
 
-The generated project references the `TUIKit` NuGet package, lays out a header and
-body region, and quits on `Ctrl+Q`. Edit `Program.cs` to build your interface.
+The generated project references the `TUIKit` NuGet package (1.4 or later) and lays out a
+header, a list and a notes field in framed regions, and a footer. The focused region draws a
+heavy frame, `Tab` moves focus, the footer lists the keys that work for whatever has focus, and
+`Ctrl+Q` quits. Edit `Program.cs` to build your interface.
 
 ## Uninstall
 

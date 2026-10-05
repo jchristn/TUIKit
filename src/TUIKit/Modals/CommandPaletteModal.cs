@@ -157,6 +157,7 @@ namespace TUIKit.Modals
 
             BorderStyleColor = theme.Accent;
             BackgroundStyle = theme.Text;
+            ApplyBorderTheme(theme);
             HighlightStyle = theme.Selection;
             MutedStyle = theme.Muted;
             _Query.ApplyTheme(theme);

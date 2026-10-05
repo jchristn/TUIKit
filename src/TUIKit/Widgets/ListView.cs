@@ -3,6 +3,7 @@ namespace TUIKit.Widgets
     using System;
     using System.Collections.Generic;
     using TUIKit;
+    using TUIKit.Content;
     using TUIKit.Input;
     using TUIKit.Theming;
 
@@ -13,7 +14,7 @@ namespace TUIKit.Widgets
     /// <see cref="string"/>), so the selection can be read back as the original object.
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
-    public sealed class ListView<T> : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable
+    public sealed class ListView<T> : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, IKeyHintSource
     {
         private readonly List<T> _Items = new List<T>();
         private readonly Func<T, string> _Display;
@@ -22,6 +23,8 @@ namespace TUIKit.Widgets
         private int _LastViewportHeight = 1;
         private int _HoverIndex = -1;
         private bool _Enabled = true;
+        private bool _RevealSelection;
+        private Rect _IndicatorRect;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ListView{T}"/> class.
@@ -174,6 +177,47 @@ namespace TUIKit.Widgets
         public CellStyle HoverStyle { get; set; } = CellStyle.Default.WithAttributes(CellAttributes.Underline);
 
         /// <summary>
+        /// Gets or sets the follow-the-bottom behavior for a list that grows with <see cref="Append"/> (a
+        /// chat, a log, a feed), or null for none. While following, appended items keep the last row in
+        /// view; moving the selection only stops following when it scrolls the list up (selecting a
+        /// visible row never does), End resumes, and while not following a "N new below" indicator on
+        /// the last row counts arrivals and returns to the bottom when clicked. Defaults to null, which
+        /// keeps the earlier behavior (the view simply keeps the selection visible).
+        /// </summary>
+        public TailFollow? TailFollow { get; set; }
+
+        /// <summary>
+        /// Appends one item, keeping the current selection. With <see cref="TailFollow"/> set and
+        /// following, the list shows its new last row.
+        /// </summary>
+        /// <param name="item">The item.</param>
+        public void Append(T item)
+        {
+            int before = SelectedIndex;
+            _Items.Add(item);
+            TailFollow?.OnContentAppended(1);
+            RaiseIfChanged(before);
+        }
+
+        /// <summary>
+        /// Appends several items, keeping the current selection. With <see cref="TailFollow"/> set and
+        /// following, the list shows its new last row.
+        /// </summary>
+        /// <param name="items">The items. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="items"/> is null.</exception>
+        public void AppendRange(IEnumerable<T> items)
+        {
+            if (items == null)
+                throw new ArgumentNullException(nameof(items));
+
+            int before = SelectedIndex;
+            int count = _Items.Count;
+            _Items.AddRange(items);
+            TailFollow?.OnContentAppended(_Items.Count - count);
+            RaiseIfChanged(before);
+        }
+
+        /// <summary>
         /// Replaces the list items and resets the selection to the first item. Raises
         /// <see cref="SelectionChanged"/> when the selected index or the selected item changed.
         /// </summary>
@@ -190,6 +234,7 @@ namespace TUIKit.Widgets
             _Items.AddRange(items);
             _Selected = 0;
             _Top = 0;
+            TailFollow?.Reset();
             if (before == SelectedIndex && before >= 0 && !EqualityComparer<T>.Default.Equals(beforeItem!, SelectedItem!))
             {
                 // Same index, different item: the selection still changed for anyone showing its details.
@@ -271,6 +316,25 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
+        /// Gets the list's keys for the status bar: moving the selection, jumping to either end, and
+        /// <c>Enter</c> when <see cref="ItemActivated"/> has a handler. Empty while disabled or empty.
+        /// Part of <see cref="IKeyHintSource"/>.
+        /// </summary>
+        /// <returns>The hints. Never null.</returns>
+        public IReadOnlyList<KeyHint>? GetKeyHints()
+        {
+            List<KeyHint> hints = new List<KeyHint>();
+            if (!_Enabled || _Items.Count == 0)
+                return hints;
+
+            if (ItemActivated != null)
+                hints.Add(new KeyHint(new KeyChord(KeyCode.Enter, 0, KeyModifiers.None), "Open", 10));
+            hints.Add(new KeyHint("Up/Down", "Move"));
+            hints.Add(new KeyHint("Home/End", "First/last"));
+            return hints;
+        }
+
+        /// <summary>
         /// Handles Up/Down (single step), PageUp/PageDown (by the viewport height), and Home/End (first
         /// and last item) navigation keys.
         /// </summary>
@@ -332,6 +396,13 @@ namespace TUIKit.Widgets
             switch (mouse.Kind)
             {
                 case MouseEventKind.Press:
+                    if (mouse.Button == MouseButton.Left && TailFollow != null && _IndicatorRect.Width > 0 && _IndicatorRect.Contains(new Point(mouse.X, mouse.Y)))
+                    {
+                        TailFollow.ReturnToTail();
+                        _Top = Math.Max(0, _Items.Count - _LastViewportHeight);
+                        return true;
+                    }
+
                     if (mouse.Button == MouseButton.Left)
                     {
                         int pressed = RowIndexAt(mouse.Y);
@@ -390,10 +461,34 @@ namespace TUIKit.Widgets
 
             _LastViewportHeight = height;
 
-            if (_Selected < _Top)
-                _Top = _Selected;
-            else if (_Selected >= _Top + height)
-                _Top = _Selected - height + 1;
+            TailFollow? follow = TailFollow;
+            if (follow == null)
+            {
+                RevealSelection(height);
+            }
+            else
+            {
+                // Only a viewport move counts: keeping a changed selection visible may scroll, which is
+                // reported; selecting a row that is already visible leaves the viewport (and following) alone.
+                int maxTop = Math.Max(0, _Items.Count - height);
+                if (_RevealSelection)
+                {
+                    if (follow.IsFollowing)
+                        _Top = maxTop;
+                    int before = _Top;
+                    RevealSelection(height);
+                    if (_Top != before || !follow.IsFollowing)
+                        follow.OnViewportMoved(Math.Min(_Top, maxTop), maxTop);
+                }
+                else if (follow.IsFollowing)
+                {
+                    _Top = maxTop;
+                }
+
+                _Top = Math.Max(0, Math.Min(_Top, maxTop));
+            }
+
+            _RevealSelection = false;
 
             surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
 
@@ -428,12 +523,30 @@ namespace TUIKit.Widgets
 
                 surface.DrawText(0, row, _Display(_Items[index]), style);
             }
+
+            _IndicatorRect = default;
+            string? indicator = follow?.IndicatorText;
+            if (indicator != null)
+            {
+                int indicatorWidth = Math.Min(width, TUIKit.Unicode.TextFit.Width(indicator));
+                _IndicatorRect = new Rect(width - indicatorWidth, height - 1, indicatorWidth, 1);
+                surface.DrawText(width - indicatorWidth, height - 1, TUIKit.Unicode.TextFit.Ellipsize(indicator, indicatorWidth), NormalStyle.WithAttribute(CellAttributes.Reverse, true).WithAttribute(CellAttributes.Bold, true));
+            }
+        }
+
+        private void RevealSelection(int height)
+        {
+            if (_Selected < _Top)
+                _Top = _Selected;
+            else if (_Selected >= _Top + height)
+                _Top = _Selected - height + 1;
         }
 
         private void SetSelected(int index)
         {
             int before = SelectedIndex;
             _Selected = index;
+            _RevealSelection = true;
             RaiseIfChanged(before);
         }
 

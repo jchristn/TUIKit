@@ -20,7 +20,7 @@ namespace TUIKit.Widgets
     /// pane under the pointer, and the arrow keys resize only when held with <see cref="ResizeModifiers"/>
     /// or when the focused pane does not consume them. Not thread-safe: use it from the UI loop.
     /// </remarks>
-    public sealed class SplitView : IWidget, IFocusable, IMouseAware, IFocusContainer, IFocusAware, IThemeable
+    public sealed class SplitView : IWidget, IFocusable, IMouseAware, IFocusContainer, IFocusAware, IThemeable, IFocusPathNode
     {
         private readonly IWidget _First;
         private readonly IWidget _Second;
@@ -34,6 +34,9 @@ namespace TUIKit.Widgets
         private bool _Focused;
         private bool _Dragging;
         private int _LastExtent;
+        private Rect _FirstInner;
+        private Rect _SecondInner;
+        private FocusFrameOptions _FrameOptions = new FocusFrameOptions();
 
         /// <summary>
         /// Gets or sets a value indicating whether keys are forwarded to the focused pane first, making the
@@ -70,6 +73,15 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
+        /// Gets the child that holds focus one level down, or null when <see cref="ForwardKeys"/> is off (keys resize the split) or the focused pane is not focusable. Part of
+        /// <see cref="IFocusPathNode"/>; the host uses it to build <see cref="FocusPath"/>.
+        /// </summary>
+        public IFocusable? FocusedChild
+        {
+            get { return ForwardKeys ? Pane(_FocusedPane) as IFocusable : null; }
+        }
+
+        /// <summary>
         /// Gets or sets the focused pane while <see cref="ForwardKeys"/> is set: 0 for the first child, 1 for
         /// the second. Values are clamped to that range.
         /// </summary>
@@ -94,6 +106,46 @@ namespace TUIKit.Widgets
 
         /// <summary>Gets or sets the split orientation.</summary>
         public SplitOrientation Orientation { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether each pane is drawn inside a <see cref="FocusFrame"/>:
+        /// the pane holding focus gets the heavy focused border and the other a normal border, so the user
+        /// can see which side keys go to. A pane counts as focused while the split view holds focus with
+        /// <see cref="ForwardKeys"/> set and that pane is <see cref="FocusedPane"/>. The frame takes the
+        /// pane's outer ring of cells in both states, so moving focus never shifts content. With
+        /// <see cref="FocusFrameOptions.JoinBorders"/> set on <see cref="FrameOptions"/>, the two frames share
+        /// the divider line and meet in tee glyphs, and the focused frame is drawn whole over it. Defaults to
+        /// false.
+        /// </summary>
+        public bool ShowPaneFrames { get; set; }
+
+        /// <summary>
+        /// Gets or sets the border and title style of the focused pane frame. Defaults to bold yellow
+        /// (palette 11); <see cref="ApplyTheme"/> sets it from <see cref="Theme.FocusBorderRole"/>.
+        /// </summary>
+        public CellStyle FocusedFrameStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(11)).WithAttribute(CellAttributes.Bold, true);
+
+        /// <summary>
+        /// Gets or sets the border style of an unfocused pane frame. Defaults to gray (palette 8);
+        /// <see cref="ApplyTheme"/> sets it from <see cref="Theme.Border"/>.
+        /// </summary>
+        public CellStyle FrameStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(8));
+
+        /// <summary>
+        /// Gets or sets a value indicating whether pane frames use ASCII glyphs (heavy ASCII while
+        /// focused). Defaults to false; <see cref="ApplyTheme"/> copies <see cref="Theme.UseAsciiBorders"/>.
+        /// </summary>
+        public bool AsciiFrames { get; set; }
+
+        /// <summary>
+        /// Gets or sets the pane frame options (border styles, narrow fallback). Never null.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        public FocusFrameOptions FrameOptions
+        {
+            get { return _FrameOptions; }
+            set { _FrameOptions = value ?? throw new ArgumentNullException(nameof(value)); }
+        }
 
         /// <summary>Gets or sets whether a divider line is drawn between the panes. Defaults to true.</summary>
         public bool ShowDivider { get; set; } = true;
@@ -237,6 +289,9 @@ namespace TUIKit.Widgets
                 throw new ArgumentNullException(nameof(theme));
 
             DividerStyle = theme.Border;
+            FrameStyle = theme.Border;
+            FocusedFrameStyle = FocusFrame.FocusedStyle(theme);
+            AsciiFrames = theme.UseAsciiBorders;
             ThemeApplier.Apply(_First, theme);
             ThemeApplier.Apply(_Second, theme);
         }
@@ -331,7 +386,8 @@ namespace TUIKit.Widgets
             if (width <= 0 || height <= 0)
                 return;
 
-            int divider = ShowDivider ? 1 : 0;
+            bool join = ShowPaneFrames && _FrameOptions.JoinBorders;
+            int divider = ShowDivider || join ? 1 : 0;
             _LastDivider = divider;
             _LastExtent = Orientation == SplitOrientation.Horizontal ? width : height;
 
@@ -342,7 +398,8 @@ namespace TUIKit.Widgets
                 {
                     _LastFirstExtent = width;
                     _LastDivider = 0;
-                    _First.Render(surface);
+                    RenderPane(surface, 0, new Rect(0, 0, width, height));
+                    _SecondInner = default;
                     return;
                 }
 
@@ -350,10 +407,16 @@ namespace TUIKit.Widgets
                 int secondWidth = usable - firstWidth;
                 _LastFirstExtent = firstWidth;
 
-                _First.Render(new SurfaceView(surface, new Rect(0, 0, firstWidth, height)));
+                if (join)
+                {
+                    RenderJoined(surface, new Rect(0, 0, firstWidth + 1, height), new Rect(firstWidth, 0, secondWidth + 1, height));
+                    return;
+                }
+
+                RenderPane(surface, 0, new Rect(0, 0, firstWidth, height));
                 if (divider > 0)
                     surface.Fill(new Rect(firstWidth, 0, 1, height), Cell.Glyph("\u2502", DividerStyle, 1));
-                _Second.Render(new SurfaceView(surface, new Rect(firstWidth + divider, 0, secondWidth, height)));
+                RenderPane(surface, 1, new Rect(firstWidth + divider, 0, secondWidth, height));
             }
             else
             {
@@ -362,7 +425,8 @@ namespace TUIKit.Widgets
                 {
                     _LastFirstExtent = height;
                     _LastDivider = 0;
-                    _First.Render(surface);
+                    RenderPane(surface, 0, new Rect(0, 0, width, height));
+                    _SecondInner = default;
                     return;
                 }
 
@@ -370,11 +434,65 @@ namespace TUIKit.Widgets
                 int secondHeight = usable - firstHeight;
                 _LastFirstExtent = firstHeight;
 
-                _First.Render(new SurfaceView(surface, new Rect(0, 0, width, firstHeight)));
+                if (join)
+                {
+                    RenderJoined(surface, new Rect(0, 0, width, firstHeight + 1), new Rect(0, firstHeight, width, secondHeight + 1));
+                    return;
+                }
+
+                RenderPane(surface, 0, new Rect(0, 0, width, firstHeight));
                 if (divider > 0)
                     surface.Fill(new Rect(0, firstHeight, width, 1), Cell.Glyph("\u2500", DividerStyle, 1));
-                _Second.Render(new SurfaceView(surface, new Rect(0, firstHeight + divider, width, secondHeight)));
+                RenderPane(surface, 1, new Rect(0, firstHeight + divider, width, secondHeight));
             }
+        }
+
+        private void RenderPane(ISurface surface, int pane, Rect rect)
+        {
+            Rect inner = rect;
+            if (ShowPaneFrames)
+            {
+                bool focused = _Focused && ForwardKeys && pane == _FocusedPane;
+                FocusFrame.Draw(surface, rect, focused, FocusedFrameStyle, FrameStyle, AsciiFrames, _FrameOptions);
+                inner = InnerRect(rect);
+            }
+
+            if (pane == 0)
+                _FirstInner = inner;
+            else
+                _SecondInner = inner;
+
+            if (inner.Width > 0 && inner.Height > 0)
+                Pane(pane).Render(new SurfaceView(surface, inner));
+        }
+
+        // Joined frames share the divider line: both frames include it, the unfocused one is drawn first
+        // and the focused one last, so the shared line takes the focused weight and meets in tees.
+        private void RenderJoined(ISurface surface, Rect firstFrame, Rect secondFrame)
+        {
+            int focused = _Focused && ForwardKeys ? _FocusedPane : -1;
+            int firstDrawn = focused == 0 ? 1 : 0;
+            for (int step = 0; step < 2; step++)
+            {
+                int pane = step == 0 ? firstDrawn : 1 - firstDrawn;
+                FocusFrame.Draw(surface, pane == 0 ? firstFrame : secondFrame, pane == focused, FocusedFrameStyle, FrameStyle, AsciiFrames, _FrameOptions);
+            }
+
+            _FirstInner = InnerRect(firstFrame);
+            _SecondInner = InnerRect(secondFrame);
+            if (_FirstInner.Width > 0 && _FirstInner.Height > 0)
+                _First.Render(new SurfaceView(surface, _FirstInner));
+            if (_SecondInner.Width > 0 && _SecondInner.Height > 0)
+                _Second.Render(new SurfaceView(surface, _SecondInner));
+        }
+
+        private Rect InnerRect(Rect rect)
+        {
+            int minimum = _FrameOptions.MinimumBoxSize;
+            if (rect.Width >= minimum && rect.Height >= minimum)
+                return new Rect(rect.X + 1, rect.Y + 1, rect.Width - 2, rect.Height - 2);
+
+            return rect.Width > 1 ? new Rect(rect.X + 1, rect.Y, rect.Width - 1, rect.Height) : new Rect(rect.X, rect.Y, 0, 0);
         }
 
         /// <summary>
@@ -418,30 +536,34 @@ namespace TUIKit.Widgets
             }
 
             int secondStart = _LastFirstExtent + _LastDivider;
-            if (Orientation == SplitOrientation.Horizontal)
-            {
-                if (mouse.X < _LastFirstExtent)
-                    return ForwardToPane(0, mouse, mouse.X, mouse.Y);
-                if (mouse.X >= secondStart)
-                    return ForwardToPane(1, mouse, mouse.X - secondStart, mouse.Y);
-            }
-            else
-            {
-                if (mouse.Y < _LastFirstExtent)
-                    return ForwardToPane(0, mouse, mouse.X, mouse.Y);
-                if (mouse.Y >= secondStart)
-                    return ForwardToPane(1, mouse, mouse.X, mouse.Y - secondStart);
-            }
+            if (position < _LastFirstExtent)
+                return ForwardToPane(0, mouse);
+            if (position >= secondStart)
+                return ForwardToPane(1, mouse);
 
             return false;
         }
 
-        private bool ForwardToPane(int pane, MouseEvent mouse, int localX, int localY)
+        private bool ForwardToPane(int pane, MouseEvent mouse)
         {
-            if (ForwardKeys && mouse.Kind == MouseEventKind.Press && Pane(pane) is IFocusable focusable && FocusScope.IsFocusable(focusable))
+            bool press = mouse.Kind == MouseEventKind.Press;
+            if (ForwardKeys && press && Pane(pane) is IFocusable focusable && FocusScope.IsFocusable(focusable))
                 SetPane(pane);
 
-            return ForwardTo(Pane(pane), mouse, localX, localY);
+            Rect inner = pane == 0 ? _FirstInner : _SecondInner;
+            if (!inner.Contains(new Point(mouse.X, mouse.Y)))
+            {
+                if (mouse.Kind == MouseEventKind.Leave && inner.Width > 0 && inner.Height > 0)
+                {
+                    int x = Math.Min(Math.Max(mouse.X, inner.X), inner.X + inner.Width - 1);
+                    int y = Math.Min(Math.Max(mouse.Y, inner.Y), inner.Y + inner.Height - 1);
+                    return ForwardTo(Pane(pane), mouse, x - inner.X, y - inner.Y);
+                }
+
+                return press && ShowPaneFrames && ForwardKeys;
+            }
+
+            return ForwardTo(Pane(pane), mouse, mouse.X - inner.X, mouse.Y - inner.Y);
         }
 
         private static bool ForwardTo(IWidget child, MouseEvent mouse, int localX, int localY)

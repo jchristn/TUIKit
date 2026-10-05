@@ -19,6 +19,7 @@ namespace TUIKit.Layout
         private string? _BorderTitle;
         private Color? _Background;
         private string? _BackgroundRole;
+        private BorderStyle? _FocusedBorder;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RegionBuilder"/> class.
@@ -218,6 +219,25 @@ namespace TUIKit.Layout
         }
 
         /// <summary>
+        /// Draws the region's border in a heavier style while the region holds keyboard focus, with the
+        /// theme's focus color and a title marker, so the user can always see where keys will go. The
+        /// region must also have a border (see <see cref="WithBorder"/>). Opts this region in even when
+        /// the host-wide <c>TuiApplication.HighlightFocusedRegion</c> is off.
+        /// </summary>
+        /// <param name="focusedBorder">The border while focused. Defaults to <see cref="BorderStyle.Thick"/>.
+        /// Must not be <see cref="BorderStyle.None"/>.</param>
+        /// <returns>This builder.</returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="focusedBorder"/> is <see cref="BorderStyle.None"/>.</exception>
+        public RegionBuilder WithFocusedBorder(BorderStyle focusedBorder = BorderStyle.Thick)
+        {
+            if (focusedBorder == BorderStyle.None)
+                throw new ArgumentException("A focused border must be visible.", nameof(focusedBorder));
+
+            _FocusedBorder = focusedBorder;
+            return this;
+        }
+
+        /// <summary>
         /// Paints an explicit background color across the region's whole resolved rectangle (behind the
         /// border and any bound widget), for example a dark panel behind a sidebar. An explicit color
         /// takes precedence over any <see cref="BackgroundRole"/>. Clears any previously set role.
@@ -278,7 +298,7 @@ namespace TUIKit.Layout
             if (_Vertical == null)
                 throw new InvalidOperationException("Region '" + _Id + "' has no vertical constraint.");
 
-            return new Region(_Id, _Horizontal, _Vertical, _Padding, _Border, _BorderTitle, _Background, _BackgroundRole);
+            return new Region(_Id, _Horizontal, _Vertical, _Padding, _Border, _BorderTitle, _Background, _BackgroundRole, _FocusedBorder);
         }
     }
 }

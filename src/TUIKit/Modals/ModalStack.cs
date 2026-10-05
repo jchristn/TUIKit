@@ -74,7 +74,10 @@ namespace TUIKit.Modals
                 throw new ArgumentNullException(nameof(modal));
 
             lock (_Sync)
+            {
                 _Modals.Add(modal);
+                UpdateTopmostLocked();
+            }
 
             TrackShown(modal);
         }
@@ -154,9 +157,13 @@ namespace TUIKit.Modals
                         if (removed == null)
                             removed = new List<Modal>();
                         removed.Add(_Modals[i]);
+                        _Modals[i].IsTopmost = false;
                         _Modals.RemoveAt(i);
                     }
                 }
+
+                if (removed != null)
+                    UpdateTopmostLocked();
             }
 
             if (removed != null)
@@ -164,6 +171,12 @@ namespace TUIKit.Modals
                 for (int i = 0; i < removed.Count; i++)
                     TrackRemoved(removed[i]);
             }
+        }
+
+        private void UpdateTopmostLocked()
+        {
+            for (int i = 0; i < _Modals.Count; i++)
+                _Modals[i].IsTopmost = i == _Modals.Count - 1;
         }
 
         private static void TrackShown(Modal modal)

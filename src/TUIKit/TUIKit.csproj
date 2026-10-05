@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.3.0</Version>
-    <AssemblyVersion>1.3.0.0</AssemblyVersion>
-    <FileVersion>1.3.0.0</FileVersion>
+    <Version>1.4.0</Version>
+    <AssemblyVersion>1.4.0.0</AssemblyVersion>
+    <FileVersion>1.4.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -31,8 +31,8 @@
     <RepositoryUrl>https://github.com/jchristn/TUIKit</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
-    <PackageTags>tui;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.3.0 - hierarchical focus (IFocusContainer, FocusScope), change events and disabled/read-only state across widgets, DataTable selection/sort/marking, command palette and key help, multi-series and stacked charts, cell-width-correct layout for CJK and emoji, 50 more ASCII-art fonts (134 total, including TAAG's Isometric1-4, Epic, Star Wars, and the TheDraw fonts FateGate and Bleach), and a FIGlet endmark fix for 14 built-in TOIlet fonts. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageTags>tui;focus;accessibility;keyboard;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
+    <PackageReleaseNotes>v1.4.0 - usability you can see: focused regions and split panes draw a heavy focus frame (HighlightFocusedRegion, FocusFrame, FocusPath), TabView shows when its tab strip holds focus, status bars list the keys of whatever has focus and hide keys that would type into a text field (KeyHintResolver, BindKeyHints), lists and panes follow new content without fighting the reader (TailFollow), custom rows get clickable inline buttons (ClickRegionMap, InlineButton), repeated toasts coalesce with a count, and tests gain real mouse input (HeadlessBackend.FeedClick and friends), frame capture, and a focus audit (FocusAudit). All additive. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

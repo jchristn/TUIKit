@@ -7,7 +7,11 @@ box that echoes whatever you type. While the Live demo is focused, browse featur
 **PageUp/PageDown** (or `[` / `]`); the **arrow keys** and **Enter** interact with the focused box,
 and **Ctrl+Q** quits. The tour covers markup, banners, charts, progress, tables, trees, tabs, fuzzy
 finding, menus, nested splits, the color picker, diffs, the key-binding editor, and images
-(half-block / sixel / kitty).
+(half-block / sixel / kitty). Pages 2 to 5 cover the 1.4 usability features: **Focus you can see**
+(pane frames and the tab-strip marker; Tab moves inside the demo), **Keys follow focus** (the bar
+hides keys that would type once you Tab into the search field), **Streaming without losing your
+place** (a feed that follows unless you scroll away; End returns), and **Clickable rows** (inline
+buttons with `o`/`x` keys; do one twice to see the toast count).
 
 Global keys open live UI on top of the tour:
 
@@ -38,6 +42,13 @@ the editor into a host focus ring, and wires:
 - **Ctrl+K Ctrl+T** — a two-key theme chord (the syntax the old `Bind` could not parse).
 - **Ctrl+Q** — quit.
 
+A fourth demo, the **focus showcase** (`--focus`, [`FocusShowcase.cs`](FocusShowcase.cs)), is a
+small app built from real regions: the focused region draws a heavy frame, the Details tab view's
+strip is its own focus stop, the footer lists the keys of whatever has focus, the Log tab follows new
+output, the Activity rows have clickable inline buttons, and **Ctrl+S** shows a "Saved" toast that
+coalesces with a count when repeated. `--focus-audit-once` runs `FocusAudit` over it and exits 1 if
+it finds a problem.
+
 ## Running it
 
 ```bash
@@ -50,10 +61,15 @@ dotnet run --project src/TUIKit.Example -- --contract
 # The agent-control harness instead of the tour
 dotnet run --project src/TUIKit.Example -- --harness
 
+# The focus showcase (visible focus, key hints, tail-follow, inline buttons)
+dotnet run --project src/TUIKit.Example -- --focus
+
 # Headless one-frame snapshots printed to stdout (great for CI and screenshots)
 dotnet run --project src/TUIKit.Example -- --tour-once --page 3   # a tour page
 dotnet run --project src/TUIKit.Example -- --once                 # the harness
 dotnet run --project src/TUIKit.Example -- --contract-once        # the interaction-contract demo
+dotnet run --project src/TUIKit.Example -- --focus-once           # the focus showcase
+dotnet run --project src/TUIKit.Example -- --focus-audit-once     # FocusAudit over the showcase (exit 1 on problems)
 ```
 
 In the harness, press **F1** or **?** for the built-in keybinding help — the demo documents itself.
@@ -108,5 +124,13 @@ Every marquee capability of the library maps to something concrete in this app. 
 | Non-TTY degradation | Piping the app produces plain line output with no escape sequences |
 | Headless rendering | `--once` renders a frame to a `CellBuffer` and prints it with `Snapshot.ToText` |
 | Input record/replay | `InputRecording` can replay a captured session into a headless backend |
+| Visible focus (`HighlightFocusedRegion`, `FocusFrame`, `SplitView.ShowPaneFrames`) | `--focus` regions; tour page "Focus you can see" |
+| TabView focused tab (`StripFocusStop`) | Details tab view in `--focus`; tour page "Focus you can see" |
+| Focus path (`CurrentFocusPath`, `FocusPath`) | Tour page "Focus you can see" prints the live path |
+| Focus-aware key hints (`BindKeyHints`, `KeyHintResolver`, `ITextEntry`) | `--focus` footer; tour page "Keys follow focus" |
+| Tail-follow (`TailFollow`, `ListView.Append`) | Tour page "Streaming without losing your place"; the Log tab in `--focus` |
+| Inline click regions (`ClickRegionMap`, `InlineButton`) | Activity rows in `--focus`; tour page "Clickable rows" |
+| Notification coalescing | Repeat **Ctrl+S** in `--focus`, or an action on "Clickable rows" |
+| Headless mouse, frame capture, focus audit | `--focus-audit-once`; the test suites drive `FeedClick` and `CaptureFrame` |
 
 If you add a public capability to the library, add a row here and wire it into the app.

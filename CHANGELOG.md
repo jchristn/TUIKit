@@ -7,6 +7,111 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-05
+
+Usability you can see, drawn from what a large client (Armada's terminal UI) had to build for
+itself: focus that is always visible, key hints that follow focus, streaming views that do not fight
+the reader, clickable areas inside custom rows, repeated toasts that coalesce, and real mouse input
+and focus checks for tests. Everything is general purpose and additive; defaults keep the 1.3.0
+behavior except where noted under "Changed".
+
+### Added
+- **Visible focus.** `TuiApplication.HighlightFocusedRegion` (off by default) draws every bordered
+  region's border with heavy lines in the focus style while it holds focus, plus a title marker;
+  `RegionBuilder.WithFocusedBorder` (and `Region.FocusedBorder`) opts in a single region. The border
+  is reserved in both states, so focus never shifts content, and focus differs by glyph as well as
+  color (`BorderStyle.AsciiHeavy` under ASCII borders). `FocusFrame` draws the same treatment for
+  custom widgets and sub-panes, configured by `FocusFrameOptions` (focused and unfocused border,
+  title marker, narrow-space gutter fallback); `TuiApplication.FocusFrameOptions` configures the
+  host's. `SplitView.ShowPaneFrames` (with `FocusedFrameStyle`, `FrameStyle`, `AsciiFrames`,
+  `FrameOptions`) frames each pane and highlights the focused one. New theme roles
+  `Theme.FocusBorderRole`, `FocusTitleRole`, `TabFocusedRole`, and `InlineButtonHoverRole` are
+  registered on `Dark`, `Light`, and `HighContrast`, and a `SurfaceExtensions.DrawBox` overload takes
+  a separate title style.
+- **Joined frames.** `SurfaceExtensions.DrawJoinedBox` draws a box that joins box lines already on
+  the surface: shared edges and nested boxes meet in the right tee, corner, and cross glyphs (light,
+  heavy, double, their mixes, and ASCII), and the box drawn last wins a shared line, so the focused
+  frame stays whole. `IReadableSurface` (on `BufferSurface` and `SurfaceView`) lets drawing read cells
+  back. `FocusFrameOptions.JoinBorders` joins focus frames, letting `SplitView` pane frames share the
+  divider line, and `TuiApplication.JoinRegionBorders` joins regions laid out to overlap by one cell.
+- **Dialogs and overlays.** `DialogModal.Border` and `FocusedBorder` (drawn while the dialog is
+  topmost), public `DialogModal.ContentBounds` and new `FrameBounds`, and ASCII dialog borders under
+  ASCII themes for the built-in dialogs. `Modal.IsTopmost`, maintained by `ModalStack`.
+  `TuiApplication.GetRegionBounds` and `GetRegionContentBounds` give a `RenderOverlay` callback (which
+  runs after every region and widget) the geometry to draw its own decorations.
+- **Hidden widgets are not focus stops.** `IHideable.IsVisible` removes a widget from focus traversal
+  everywhere `FocusScope.IsFocusable` is consulted (the host ring, `FocusScope`, `FocusManager`, and the
+  built-in containers); `ButtonRow` reports hidden while empty. `FocusAuditProblemKind.InvisibleStop`
+  reports focus resting on a hidden widget or an off-screen region.
+- **Focus path.** `FocusPath` (region, nodes from the region's widget to the focused leaf, `Leaf`,
+  `Depth`, `Contains`, `Build`), `TuiApplication.CurrentFocusPath`, and
+  `TuiApplication.FocusPathChanged`, raised for moves inside containers as well as between regions.
+  `IFocusPathNode.FocusedChild` exposes each step; `FocusScope`, `TabView`, `SplitView`,
+  `ScrollView`, `Collapsible`, `Form`, and `ButtonRow` implement it.
+- **TabView focused tab.** `TabView.StripFocusStop` makes the tab strip its own focus stop (Left and
+  Right switch tabs there; Tab, Down, or Enter enter the content; Shift+Tab returns), and
+  `IsStripFocused`, `FocusedTabStyle`, and `TabFocusMarker` show whether arrows will switch tabs or
+  move inside the content. Clicking a tab focuses the strip; clicking the content focuses it.
+- **Key hints that follow focus.** `KeyHint`, `IKeyHintSource`, and `KeyHintResolver` merge hints
+  from the focused leaf outward, then application hints and `CommandRegistry` commands
+  (`AddAppHint`, `AddCommands`), with the innermost description of a key winning, `Priority`
+  ordering, and `MaxHints`. While a text widget takes typed text (`ITextEntry.AcceptsText`, on
+  `TextField`, `TextEditor`, and `ComboBox`), keys that would type a character are hidden
+  (`HideTypingChords`, `KeyChord.InsertsTextWhenTyping`) and `LeaveTextHint` leads.
+  `TuiApplication.BindKeyHints` binds a `StatusBar` (new `StatusBar.HintSource`); its fixed hints stay
+  pinned at the end. `ListView`, `DataTable`, `TabView`, and `TextEditor` describe their real keys.
+- **Tail-follow scrolling.** `TailFollow` and `TailFollowMode` (`FollowAtBottom`, `AlwaysFollow`,
+  `Never`): only a viewport move away from the bottom stops following, never a selection change;
+  reaching the bottom, End, or `ReturnToTail` resumes; `IndicatorText`, `IndicatorFormat`, and
+  `ShowIndicator` drive a "N new below" marker. `Pane.TailFollow` exposes the pane's scroll lock,
+  and the pane now draws the marker and returns to the bottom when it is clicked.
+  `ListView.TailFollow` (opt-in) plus `ListView.Append` and `AppendRange`, which keep the selection.
+- **Inline click regions.** `ClickRegionMap<TAction>` and `ClickRegion<TAction>` record clickable
+  areas while a custom widget renders and turn a click into its action (`Invoked`, `HitTest`, hover
+  tracking); recording in drawing coordinates keeps clicks right when content scrolls.
+  `InlineButton` draws `[Label] key` buttons, never half a button, and `InlineButtonStyle` styles them
+  (`FromTheme`).
+- **Notification coalescing.** `NotificationCenter.CoalesceRepeats` merges a raise identical to a
+  toast still on screen (same severity, text, title, and action instances) into that toast:
+  `Notification.RepeatCount` increments, the timeout restarts from
+  `Notification.LastRaisedAtMilliseconds`, the toast moves to newest and becomes unread, and
+  `RepeatSuffixFormat` (default `" (x{0})"`) shows the count. `NotificationHistoryModal` shows it too.
+- **Testing.** `MouseSequenceEncoder` and `HeadlessBackend.FeedMouse`, `FeedClick`,
+  `FeedDoubleClick`, `FeedWheel`, `FeedMove`, and `FeedDrag` send real SGR mouse input through the
+  parser, hit map, click synthesis, and focus-on-click. `WidgetTester` gains `Mouse`, `Click`,
+  `DoubleClick`, `Wheel`, `Move`, `Drag`, `LastMouseHandled`, and `CellAt`.
+  `TuiApplication.CaptureFrame` (and `TerminalRenderer.CopyLastFrame`) return the last frame as cells.
+  `FocusAudit`, `FocusAuditOptions`, `FocusAuditResult`, `FocusAuditProblem`, and
+  `FocusAuditProblemKind` sweep Tab and Shift+Tab over an application and report invisible focus,
+  Tab traps, rings that do not close, asymmetric traversal, layout shifts, and stops with no
+  focusable leaf.
+- **Telemetry.** `tuikit.notifications.coalesced` (by severity) and `tuikit.click_regions.invoked`.
+- **Example.** Four guided-tour pages ("Focus you can see", "Keys follow focus", "Streaming without
+  losing your place", "Clickable rows") and a region-based focus showcase (`--focus`, with
+  `--focus-once` and `--focus-audit-once` for headless runs). The `tuikit-app` template references
+  TUIKit 1.4 and starts with framed regions and a bound status bar.
+
+### Fixed
+- A focused, empty `TextField` drew its caret as a blank over the first letter of its placeholder;
+  the letter now shows under the caret.
+
+### Changed
+- **Toasts coalesce by default.** `NotificationCenter.CoalesceRepeats` defaults to true, so raising
+  the same toast while it is showing refreshes it with a count instead of stacking a duplicate, and
+  `Add` returns the existing notification. Set it to false for the 1.3.0 stacking. A toast's expiry is
+  measured from `LastRaisedAtMilliseconds`, which equals `CreatedAtMilliseconds` until a repeat.
+- **Panes draw the "N new below" marker** on their last row while scrolled up with new lines waiting;
+  set `pane.TailFollow.ShowIndicator = false` to hide it. Scrolling up a pane whose content fits its
+  height no longer detaches it, since there is nothing to scroll.
+- **Focus traversal skips what the user cannot see.** Tab no longer lands on a widget whose region is
+  missing from the current layout or has no room on screen, or on a widget that reports
+  `IHideable.IsVisible` false.
+- With `HighlightFocusedRegion` on, the focused region draws plain while a modal is open, so only the
+  dialog reads as focused.
+- `CommandPaletteModal`, `KeyHelpModal`, and `NotificationHistoryModal` draw an ASCII border when a
+  theme with ASCII borders is applied to them.
+- Toast click handling now runs on `ClickRegionMap`; behavior is unchanged.
+
 ## [1.3.0] - 2026-10-04
 
 Widget, focus, theming, and notification upgrades driven by a large dashboard-parity client. All

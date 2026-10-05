@@ -12,7 +12,7 @@ namespace TUIKit.Widgets
     /// end (it is an <see cref="IFocusContainer"/>); Enter or Space activates the focused button.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class ButtonRow : IWidget, IFocusContainer, IFocusAware, IMouseAware, IThemeable, ITooltipProvider
+    public sealed class ButtonRow : IWidget, IFocusContainer, IFocusAware, IMouseAware, IThemeable, ITooltipProvider, IFocusPathNode, IHideable
     {
         private readonly List<Button> _Buttons = new List<Button>();
         private readonly List<Rect> _Rects = new List<Rect>();
@@ -48,6 +48,24 @@ namespace TUIKit.Widgets
         public IReadOnlyList<Button> Buttons
         {
             get { return _Buttons; }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the row has any buttons. An empty row renders nothing and is
+        /// skipped by focus traversal. Part of <see cref="IHideable"/>.
+        /// </summary>
+        public bool IsVisible
+        {
+            get { return _Buttons.Count > 0; }
+        }
+
+        /// <summary>
+        /// Gets the child that holds focus one level down, or null when the row has no buttons. Part of
+        /// <see cref="IFocusPathNode"/>; the host uses it to build <see cref="FocusPath"/>.
+        /// </summary>
+        public IFocusable? FocusedChild
+        {
+            get { return _Buttons.Count == 0 ? null : _Buttons[_Focused]; }
         }
 
         /// <summary>

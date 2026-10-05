@@ -9,13 +9,28 @@ namespace TUIKit
     /// the view never draws outside its bounds on the parent. Unlike <see cref="BufferSurface"/>'s
     /// view, this wraps any <see cref="ISurface"/>, so views can nest arbitrarily.
     /// </summary>
-    public sealed class SurfaceView : ISurface
+    public sealed class SurfaceView : IReadableSurface
     {
         private readonly ISurface _Parent;
         private readonly int _OffsetX;
         private readonly int _OffsetY;
         private readonly int _Width;
         private readonly int _Height;
+
+        /// <summary>
+        /// Gets the cell at a local position by reading the parent surface. Returns
+        /// <see cref="Cell.Empty"/> outside the view or when the parent cannot be read.
+        /// </summary>
+        /// <param name="x">The zero-based local column.</param>
+        /// <param name="y">The zero-based local row.</param>
+        /// <returns>The cell.</returns>
+        public Cell Get(int x, int y)
+        {
+            if (x < 0 || y < 0 || x >= _Width || y >= _Height)
+                return Cell.Empty;
+
+            return _Parent is IReadableSurface readable ? readable.Get(_OffsetX + x, _OffsetY + y) : Cell.Empty;
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SurfaceView"/> class.

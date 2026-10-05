@@ -31,8 +31,18 @@ namespace TUIKit.Example
                 return 0;
             }
 
+            if (Array.IndexOf(args, "--focus-once") >= 0)
+            {
+                RunFocusSnapshot();
+                return 0;
+            }
+
+            if (Array.IndexOf(args, "--focus-audit-once") >= 0)
+                return RunFocusAudit();
+
             bool harnessMode = Array.IndexOf(args, "--harness") >= 0;
             bool contractMode = Array.IndexOf(args, "--contract") >= 0;
+            bool focusMode = Array.IndexOf(args, "--focus") >= 0;
 
             using (ConsoleBackend backend = new ConsoleBackend())
             using (TuiApplication app = new TuiApplication(backend))
@@ -43,7 +53,15 @@ namespace TUIKit.Example
                     app.RequestStop();
                 };
 
-                if (contractMode)
+                if (focusMode)
+                {
+                    using (FocusShowcase showcase = new FocusShowcase(app))
+                    {
+                        showcase.StartLog();
+                        await app.RunAsync(CancellationToken.None).ConfigureAwait(false);
+                    }
+                }
+                else if (contractMode)
                 {
                     ContractDemo demo = new ContractDemo(app);
                     demo.Start();
@@ -121,6 +139,42 @@ namespace TUIKit.Example
                 Console.WriteLine("TUIKit example — interaction contract demo (--contract-once)");
                 Console.WriteLine(new string('=', 100));
                 Console.WriteLine(frame);
+            }
+        }
+
+        private static void RunFocusSnapshot()
+        {
+            HeadlessBackend backend = new HeadlessBackend(100, 20);
+            using (TuiApplication app = new TuiApplication(backend))
+            using (FocusShowcase showcase = new FocusShowcase(app))
+            {
+                app.Start();
+                app.RenderOnce();
+                string frame = TUIKit.Testing.Snapshot.ToText(app.CaptureFrame()!);
+                app.Stop();
+
+                Console.WriteLine("TUIKit example: focus showcase (--focus-once)");
+                Console.WriteLine(new string('=', 100));
+                Console.WriteLine(frame);
+            }
+        }
+
+        private static int RunFocusAudit()
+        {
+            HeadlessBackend backend = new HeadlessBackend(100, 20);
+            using (TuiApplication app = new TuiApplication(backend))
+            using (FocusShowcase showcase = new FocusShowcase(app))
+            {
+                app.Start();
+                TUIKit.Testing.FocusAuditResult result = TUIKit.Testing.FocusAudit.Run(app);
+                app.Stop();
+
+                Console.WriteLine("TUIKit example: focus audit of the focus showcase (--focus-audit-once)");
+                Console.WriteLine("Stops: " + result.Stops + "  Problems: " + result.Problems.Count);
+                foreach (TUIKit.Testing.FocusAuditProblem problem in result.Problems)
+                    Console.WriteLine("  " + problem);
+
+                return result.IsClean ? 0 : 1;
             }
         }
 

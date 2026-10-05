@@ -2,12 +2,14 @@ namespace TUIKit.Modals
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using TUIKit;
     using TUIKit.Content;
     using TUIKit.Diagnostics;
     using TUIKit.Input;
     using TUIKit.Theming;
     using TUIKit.Unicode;
+    using TUIKit.Widgets;
 
     /// <summary>
     /// Collects and renders transient notifications (toasts) and keeps a bounded history of them (the
@@ -29,7 +31,7 @@ namespace TUIKit.Modals
         private readonly object _Sync = new object();
         private readonly List<Notification> _Items = new List<Notification>();
         private readonly List<Notification> _History = new List<Notification>();
-        private readonly List<ToastHitRegion> _Hits = new List<ToastHitRegion>();
+        private readonly ClickRegionMap<ToastClick> _Hits = new ClickRegionMap<ToastClick>();
         private int _MaxConcurrent = 5;
         private int _DefaultTimeoutMilliseconds = 4000;
         private int _HistoryLimit = 100;
@@ -44,6 +46,8 @@ namespace TUIKit.Modals
         private CellStyle _ActionStyle = CellStyle.Default.WithAttribute(CellAttributes.Underline, true);
         private bool _ShowDismissButton;
         private bool _DismissOnClick;
+        private bool _CoalesceRepeats = true;
+        private string _RepeatSuffixFormat = " (x{0})";
 
         /// <summary>
         /// Raised after a notification is added, dismissed, read, or removed, or the history changes.
@@ -157,6 +161,52 @@ namespace TUIKit.Modals
         }
 
         /// <summary>
+        /// Gets or sets a value indicating whether raising a notification identical to one still on
+        /// screen refreshes that toast instead of stacking a duplicate. Identical means the same
+        /// severity, text, and title, and either no actions on both or the very same action instances in
+        /// the same order (two actions with equal labels but different callbacks never merge). A
+        /// coalesced raise increments <see cref="Notification.RepeatCount"/>, restarts the timeout from
+        /// the new raise, moves the toast to the newest position, marks it unread, and shows
+        /// <see cref="RepeatSuffixFormat"/> after its text. Defaults to true. Thread-safe.
+        /// </summary>
+        public bool CoalesceRepeats
+        {
+            get { lock (_Sync) { return _CoalesceRepeats; } }
+            set { lock (_Sync) { _CoalesceRepeats = value; } }
+        }
+
+        /// <summary>
+        /// Gets or sets the composite format appended to a toast's text when it has been raised more
+        /// than once; <c>{0}</c> is replaced by <see cref="Notification.RepeatCount"/>. Defaults to
+        /// <c>" (x{0})"</c>, which renders <c>Saved (x3)</c>. Must contain <c>{0}</c>. Thread-safe.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        /// <exception cref="ArgumentException">Thrown when the value does not contain <c>{0}</c> or is not
+        /// a valid composite format.</exception>
+        public string RepeatSuffixFormat
+        {
+            get { lock (_Sync) { return _RepeatSuffixFormat; } }
+            set
+            {
+                if (value == null)
+                    throw new ArgumentNullException(nameof(value));
+                if (value.IndexOf("{0}", StringComparison.Ordinal) < 0)
+                    throw new ArgumentException("Repeat suffix format must contain {0}.", nameof(value));
+
+                try
+                {
+                    string.Format(CultureInfo.InvariantCulture, value, 2);
+                }
+                catch (FormatException ex)
+                {
+                    throw new ArgumentException("Repeat suffix format is not a valid composite format: " + ex.Message, nameof(value), ex);
+                }
+
+                lock (_Sync) { _RepeatSuffixFormat = value; }
+            }
+        }
+
+        /// <summary>
         /// Gets or sets the style painted behind each toast. Defaults to <see cref="CellStyle.Default"/>.
         /// </summary>
         public CellStyle BackgroundStyle
@@ -257,7 +307,8 @@ namespace TUIKit.Modals
         /// <param name="severity">The severity.</param>
         /// <param name="nowMilliseconds">The current time in milliseconds.</param>
         /// <param name="timeoutMilliseconds">The timeout, or null to use the default.</param>
-        /// <returns>The created notification.</returns>
+        /// <returns>The created notification, or the existing one when the raise was coalesced (see
+        /// <see cref="CoalesceRepeats"/>).</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public Notification Add(string text, NotificationSeverity severity, long nowMilliseconds, int? timeoutMilliseconds = null)
         {
@@ -273,21 +324,59 @@ namespace TUIKit.Modals
         /// <param name="timeoutMilliseconds">The timeout, or null to use the default. Zero is sticky.</param>
         /// <param name="title">An optional title, or null.</param>
         /// <param name="actions">Optional action buttons, or null.</param>
-        /// <returns>The created notification.</returns>
+        /// <returns>The created notification, or, when <see cref="CoalesceRepeats"/> merged this raise into
+        /// an identical toast still on screen, that existing notification with its
+        /// <see cref="Notification.RepeatCount"/> incremented.</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> or an action is null.</exception>
         public Notification Add(string text, NotificationSeverity severity, long nowMilliseconds, int? timeoutMilliseconds, string? title, IEnumerable<NotificationAction>? actions)
         {
             if (text == null)
                 throw new ArgumentNullException(nameof(text));
 
+            List<NotificationAction>? actionList = null;
+            if (actions != null)
+            {
+                actionList = new List<NotificationAction>(actions);
+                for (int i = 0; i < actionList.Count; i++)
+                {
+                    if (actionList[i] == null)
+                        throw new ArgumentNullException(nameof(actions), "Actions must not contain null.");
+                }
+            }
+
             Notification notification;
             lock (_Sync)
+            {
+                TuiKitInstruments.Add(TuiKitInstruments.Notifications, 1, TuiKitTelemetryNames.AttrSeverity, SeverityName(severity));
+                Notification? repeat = _CoalesceRepeats ? FindRepeat(text, severity, title, actionList, nowMilliseconds) : null;
+                if (repeat != null)
+                {
+                    repeat.RecordRepeat(nowMilliseconds);
+                    _Items.Remove(repeat);
+                    _Items.Add(repeat);
+                    _History.Remove(repeat);
+                    _History.Add(repeat);
+                    TuiKitInstruments.Add(TuiKitInstruments.NotificationsCoalesced, 1, TuiKitTelemetryNames.AttrSeverity, SeverityName(severity));
+                    notification = repeat;
+                }
+                else
+                {
+                    notification = AddNew(text, severity, nowMilliseconds, timeoutMilliseconds, title, actionList);
+                }
+            }
+
+            Changed?.Invoke();
+            return notification;
+        }
+
+        private Notification AddNew(string text, NotificationSeverity severity, long nowMilliseconds, int? timeoutMilliseconds, string? title, List<NotificationAction>? actions)
+        {
+            Notification notification;
             {
                 int timeout = timeoutMilliseconds ?? _DefaultTimeoutMilliseconds;
                 notification = new Notification(text, severity, nowMilliseconds, timeout, title, actions);
                 notification.Id = _NextId++;
                 _Items.Add(notification);
-                TuiKitInstruments.Add(TuiKitInstruments.Notifications, 1, TuiKitTelemetryNames.AttrSeverity, SeverityName(severity));
 
                 while (_Items.Count > _MaxConcurrent)
                 {
@@ -299,8 +388,46 @@ namespace TUIKit.Modals
                 TrimHistory();
             }
 
-            Changed?.Invoke();
             return notification;
+        }
+
+        private Notification? FindRepeat(string text, NotificationSeverity severity, string? title, List<NotificationAction>? actions, long nowMilliseconds)
+        {
+            string? normalizedTitle = string.IsNullOrEmpty(title) ? null : title;
+            List<NotificationAction> requested = actions ?? new List<NotificationAction>();
+            for (int i = _Items.Count - 1; i >= 0; i--)
+            {
+                Notification candidate = _Items[i];
+                if (candidate.IsExpired(nowMilliseconds))
+                    continue;
+                if (candidate.Severity != severity
+                    || !string.Equals(candidate.Text, text, StringComparison.Ordinal)
+                    || !string.Equals(candidate.Title, normalizedTitle, StringComparison.Ordinal)
+                    || candidate.Actions.Count != requested.Count)
+                    continue;
+
+                bool sameActions = true;
+                for (int a = 0; a < requested.Count && sameActions; a++)
+                    sameActions = ReferenceEquals(candidate.Actions[a], requested[a]);
+
+                if (sameActions)
+                    return candidate;
+            }
+
+            return null;
+        }
+
+        internal string RepeatSuffix(Notification notification)
+        {
+            int count = notification.RepeatCount;
+            if (count <= 1)
+                return string.Empty;
+
+            string format;
+            lock (_Sync)
+                format = _RepeatSuffixFormat;
+
+            return string.Format(CultureInfo.InvariantCulture, format, count);
         }
 
         /// <summary>
@@ -513,43 +640,19 @@ namespace TUIKit.Modals
             if (mouse.Kind != MouseEventKind.Press || mouse.Button != MouseButton.Left)
                 return false;
 
-            Notification? target = null;
-            int action = -1;
-            bool dismiss = false;
+            ToastClick? click;
             lock (_Sync)
             {
-                for (int i = 0; i < _Hits.Count && target == null; i++)
-                {
-                    ToastHitRegion hit = _Hits[i];
-                    if (!hit.Bounds.Contains(new Point(mouse.X, mouse.Y)))
-                        continue;
-
-                    for (int a = 0; a < hit.ActionRects.Count; a++)
-                    {
-                        if (hit.ActionRects[a].Contains(new Point(mouse.X, mouse.Y)))
-                        {
-                            target = hit.Notification;
-                            action = a;
-                        }
-                    }
-
-                    if (target == null && hit.DismissRect.Contains(new Point(mouse.X, mouse.Y)))
-                    {
-                        target = hit.Notification;
-                        dismiss = true;
-                    }
-
-                    if (target == null && _DismissOnClick)
-                    {
-                        target = hit.Notification;
-                        dismiss = true;
-                    }
-                }
+                ClickRegion<ToastClick>? hit = _Hits.HitTest(mouse.X, mouse.Y);
+                click = hit?.Action;
             }
 
-            if (target == null)
+            if (click == null)
                 return false;
 
+            Notification target = click.Notification;
+            int action = click.ActionIndex;
+            bool dismiss = action < 0;
             if (action >= 0)
                 InvokeAction(target, action);
             else if (dismiss)
@@ -568,9 +671,15 @@ namespace TUIKit.Modals
             {
                 // The original single-line toast, byte for byte.
                 surface.Fill(new Rect(x, row, width, 1), Cell.Blank(_BackgroundStyle));
-                string label = " " + TextFit.Ellipsize(item.Text.Trim(), inner) + " ";
+                string suffix = RepeatSuffixLocked(item);
+                int suffixWidth = TextFit.Width(suffix);
+                string body = suffixWidth < inner
+                    ? TextFit.Ellipsize(item.Text.Trim(), inner - suffixWidth) + suffix
+                    : TextFit.Ellipsize(item.Text.Trim() + suffix, inner);
+                string label = " " + body + " ";
                 surface.DrawText(x, row, label, style);
-                _Hits.Add(new ToastHitRegion(item, new Rect(x, row, width, 1)));
+                if (_DismissOnClick)
+                    _Hits.Add(new Rect(x, row, width, 1), new ToastClick(item, -1));
                 return row + 1;
             }
 
@@ -587,7 +696,7 @@ namespace TUIKit.Modals
                 row++;
             }
 
-            IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(Text.From(item.Text.Trim()), Math.Max(1, textWidth));
+            IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(Text.From(item.Text.Trim() + RepeatSuffixLocked(item)), Math.Max(1, textWidth));
             int lines = Math.Min(_MaxToastLines, wrapped.Count);
             for (int l = 0; l < lines && row < maxRow; l++)
             {
@@ -602,7 +711,7 @@ namespace TUIKit.Modals
                 row++;
             }
 
-            ToastHitRegion hit = new ToastHitRegion(item, new Rect(x, top, width, Math.Max(1, row - top)));
+            List<Rect> actionRects = new List<Rect>();
             if (item.Actions.Count > 0 && row < maxRow)
             {
                 surface.Fill(new Rect(x, row, width, 1), Cell.Blank(_BackgroundStyle));
@@ -615,25 +724,28 @@ namespace TUIKit.Modals
                         break;
 
                     surface.DrawText(cursor, row, label, MarkdownStyles.Overlay(style, _ActionStyle));
-                    hit.ActionRects.Add(new Rect(cursor, row, labelWidth, 1));
+                    actionRects.Add(new Rect(cursor, row, labelWidth, 1));
                     cursor += labelWidth + 1;
                 }
 
                 row++;
-                hit = CopyWithBounds(hit, new Rect(x, top, width, row - top));
             }
 
-            hit.DismissRect = dismissRect;
-            _Hits.Add(hit);
+            // Recorded lowest precedence first: the map's hit test prefers the area added last, so an
+            // action beats the dismiss marker, which beats a click anywhere on the toast.
+            if (_DismissOnClick)
+                _Hits.Add(new Rect(x, top, width, Math.Max(1, row - top)), new ToastClick(item, -1));
+            _Hits.Add(dismissRect, new ToastClick(item, -1));
+            for (int a = 0; a < actionRects.Count; a++)
+                _Hits.Add(actionRects[a], new ToastClick(item, a));
+
             return row;
         }
 
-        private static ToastHitRegion CopyWithBounds(ToastHitRegion source, Rect bounds)
+        private string RepeatSuffixLocked(Notification notification)
         {
-            ToastHitRegion copy = new ToastHitRegion(source.Notification, bounds);
-            copy.ActionRects.AddRange(source.ActionRects);
-            copy.DismissRect = source.DismissRect;
-            return copy;
+            int count = notification.RepeatCount;
+            return count <= 1 ? string.Empty : string.Format(CultureInfo.InvariantCulture, _RepeatSuffixFormat, count);
         }
 
         private static Rect DrawDismiss(ISurface surface, int x, int row, int width, CellStyle style)

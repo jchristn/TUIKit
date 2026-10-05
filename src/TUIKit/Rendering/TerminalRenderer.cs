@@ -165,6 +165,19 @@ namespace TUIKit.Rendering
             _RepaintPending = true;
         }
 
+        /// <summary>
+        /// Returns a copy of the most recently emitted frame: the cells the terminal currently shows.
+        /// Before the first frame the copy is blank. The copy is independent of the renderer, so later
+        /// frames do not change it.
+        /// </summary>
+        /// <returns>A new buffer holding the last frame. Never null.</returns>
+        public CellBuffer CopyLastFrame()
+        {
+            CellBuffer copy = new CellBuffer(_Front.Width, _Front.Height);
+            copy.CopyFrom(_Front);
+            return copy;
+        }
+
         private void SyncSize(Size size)
         {
             if (size.Width <= 0 || size.Height <= 0)

@@ -19,7 +19,7 @@ namespace TUIKit.Widgets
     /// <see cref="IScrollExtent"/> on the child so the focused part stays visible. Not thread-safe: use it
     /// from the UI loop.
     /// </remarks>
-    public sealed class ScrollView : IWidget, IFocusable, IMouseAware, IFocusContainer, IFocusAware, IThemeable
+    public sealed class ScrollView : IWidget, IFocusable, IMouseAware, IFocusContainer, IFocusAware, IThemeable, IFocusPathNode
     {
         private readonly IWidget _Child;
         private int _ContentWidth;
@@ -41,6 +41,15 @@ namespace TUIKit.Widgets
         /// Wheel events always scroll the view. Defaults to true.
         /// </summary>
         public bool ForwardMouse { get; set; } = true;
+
+        /// <summary>
+        /// Gets the child that holds focus one level down, or null when <see cref="ForwardKeys"/> is off (keys scroll the view) or the child is not focusable. Part of
+        /// <see cref="IFocusPathNode"/>; the host uses it to build <see cref="FocusPath"/>.
+        /// </summary>
+        public IFocusable? FocusedChild
+        {
+            get { return ForwardKeys ? _Child as IFocusable : null; }
+        }
 
         /// <summary>
         /// Gets the hosted child.

@@ -13,7 +13,8 @@ namespace TUIKit.Content
     /// <see cref="Write(string)"/> or <see cref="WriteLine(string)"/>; writes are ordered first-in
     /// first-out within the pane. Content can be updated in place through the handle returned by
     /// <c>WriteLine</c>, and a smart scroll lock detaches the viewport when the user scrolls up and
-    /// re-attaches at the bottom. A pane is also an <see cref="IWidget"/>, so it can be bound to a
+    /// re-attaches at the bottom (see <see cref="TailFollow"/>); while detached, a "N new below"
+    /// indicator on the last row counts what arrived and a click on it returns to the bottom. A pane is also an <see cref="IWidget"/>, so it can be bound to a
     /// layout region like any other widget.
     /// </summary>
     /// <remarks>
@@ -29,12 +30,12 @@ namespace TUIKit.Content
         private long _NextId = 1;
         private int _Capacity = 5000;
         private int _MaxLineLength = 8192;
-        private bool _Attached = true;
+        private readonly TailFollow _Follow = new TailFollow();
+        private Rect _IndicatorRect;
         private int _ViewTop;
         private int _LastTotalRows;
         private int _LastHeight;
         private int _LastWidth;
-        private int _NewSinceDetached;
         private long _Version;
         private int _BatchDepth;
         private string? _Search;
@@ -83,20 +84,31 @@ namespace TUIKit.Content
 
         /// <summary>
         /// Gets a value indicating whether the viewport is attached to the bottom (following new
-        /// output). False while the user has scrolled up.
+        /// output). False while the user has scrolled up. Same as <see cref="TailFollow.IsFollowing"/>.
         /// </summary>
         public bool IsAtBottom
         {
-            get { lock (_Sync) { return _Attached; } }
+            get { return _Follow.IsFollowing; }
         }
 
         /// <summary>
         /// Gets the number of new lines committed since the viewport detached from the bottom. Zero
-        /// while attached. Drives the "N new" indicator.
+        /// while attached. Drives the "N new below" indicator. Same as <see cref="TailFollow.NewItemsBelow"/>.
         /// </summary>
         public int NewSinceDetached
         {
-            get { lock (_Sync) { return _NewSinceDetached; } }
+            get { return _Follow.NewItemsBelow; }
+        }
+
+        /// <summary>
+        /// Gets the follow-the-bottom state that drives the scroll lock: its mode (for example
+        /// <see cref="TailFollowMode.AlwaysFollow"/> for a log that must never fall behind), the
+        /// indicator text and visibility, and the <see cref="TailFollow.FollowingChanged"/> event. Never
+        /// null. Selecting text never detaches the pane; only scrolling does.
+        /// </summary>
+        public TailFollow TailFollow
+        {
+            get { return _Follow; }
         }
 
         /// <summary>
@@ -211,9 +223,8 @@ namespace TUIKit.Content
             {
                 _Lines.Clear();
                 _Current = StyledText.Empty;
-                _Attached = true;
+                _Follow.Reset();
                 _ViewTop = 0;
-                _NewSinceDetached = 0;
                 Bump();
             }
         }
@@ -240,13 +251,12 @@ namespace TUIKit.Content
 
             lock (_Sync)
             {
-                if (_Attached)
-                {
-                    _Attached = false;
-                    _ViewTop = Math.Max(0, _LastTotalRows - _LastHeight);
-                }
+                int maxTop = Math.Max(0, _LastTotalRows - _LastHeight);
+                if (_Follow.IsFollowing)
+                    _ViewTop = maxTop;
 
                 _ViewTop = Math.Max(0, _ViewTop - lines);
+                _Follow.OnViewportMoved(_ViewTop, maxTop);
                 Bump();
             }
         }
@@ -262,18 +272,15 @@ namespace TUIKit.Content
 
             lock (_Sync)
             {
-                if (_Attached)
+                if (_Follow.IsFollowing)
                     return;
 
                 _ViewTop += lines;
                 int maxTop = Math.Max(0, _LastTotalRows - _LastHeight);
                 if (_ViewTop >= maxTop)
-                {
                     _ViewTop = maxTop;
-                    _Attached = true;
-                    _NewSinceDetached = 0;
-                }
 
+                _Follow.OnViewportMoved(_ViewTop, maxTop);
                 Bump();
             }
         }
@@ -285,8 +292,8 @@ namespace TUIKit.Content
         {
             lock (_Sync)
             {
-                _Attached = true;
-                _NewSinceDetached = 0;
+                _Follow.ReturnToTail();
+                _ViewTop = Math.Max(0, _LastTotalRows - _LastHeight);
                 Bump();
             }
         }
@@ -324,6 +331,19 @@ namespace TUIKit.Content
         {
             if (mouse == null)
                 throw new ArgumentNullException(nameof(mouse));
+
+            if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
+            {
+                bool onIndicator;
+                lock (_Sync)
+                    onIndicator = _IndicatorRect.Width > 0 && _IndicatorRect.Contains(new Point(mouse.X, mouse.Y));
+
+                if (onIndicator)
+                {
+                    ScrollToBottom();
+                    return true;
+                }
+            }
 
             switch (mouse.Button)
             {
@@ -383,7 +403,7 @@ namespace TUIKit.Content
                 _LastWidth = width;
 
                 int maxTop = Math.Max(0, totalRows - height);
-                int top = _Attached ? maxTop : Math.Min(Math.Max(_ViewTop, 0), maxTop);
+                int top = _Follow.IsFollowing ? maxTop : Math.Min(Math.Max(_ViewTop, 0), maxTop);
                 _ViewTop = top;
 
                 List<StyledText> rows = VisibleRows(width, top, height);
@@ -394,6 +414,16 @@ namespace TUIKit.Content
                         row = HighlightMatches(row, _Search!, _SearchStyle);
 
                     surface.DrawStyledText(0, r, row, background);
+                }
+
+                _IndicatorRect = default;
+                string? indicator = _Follow.IndicatorText;
+                if (indicator != null)
+                {
+                    int indicatorWidth = Math.Min(width, TUIKit.Unicode.TextFit.Width(indicator));
+                    int x = width - indicatorWidth;
+                    _IndicatorRect = new Rect(x, height - 1, indicatorWidth, 1);
+                    surface.DrawText(x, height - 1, TUIKit.Unicode.TextFit.Ellipsize(indicator, indicatorWidth), background.WithAttribute(CellAttributes.Reverse, true).WithAttribute(CellAttributes.Bold, true));
                 }
             }
         }
@@ -476,8 +506,7 @@ namespace TUIKit.Content
             if (_Capacity > 0 && _Lines.Count > _Capacity)
                 _Lines.RemoveAt(0);
 
-            if (!_Attached)
-                _NewSinceDetached++;
+            _Follow.OnContentAppended(1);
 
             Bump();
             return new PaneLineHandle(this, id);
@@ -537,10 +566,9 @@ namespace TUIKit.Content
 
                     if (rows[index].ToPlainString().IndexOf(_Search!, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        _Attached = false;
                         int maxTop = Math.Max(0, rows.Count - Math.Max(1, _LastHeight));
                         _ViewTop = Math.Min(index, maxTop);
-                        _NewSinceDetached = 0;
+                        _Follow.DetachAtJump();
                         Bump();
                         return true;
                     }

@@ -24,6 +24,13 @@ namespace TUIKit
         Double = 4,
 
         /// <summary>Heavy/thick box-drawing border (<c>┏ ━ ┓ ┃ ┗ ┛</c>).</summary>
-        Thick = 5
+        Thick = 5,
+
+        /// <summary>
+        /// Heavy ASCII border using <c>#</c> corners and edges with <c>=</c> across the top and
+        /// bottom. The ASCII counterpart of <see cref="Thick"/>: a focus frame drawn with ASCII borders
+        /// uses it so focus differs from <see cref="Ascii"/> by glyph, not by color alone.
+        /// </summary>
+        AsciiHeavy = 6
     }
 }

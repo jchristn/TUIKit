@@ -17,7 +17,7 @@ namespace TUIKit.Widgets
     /// scroll horizontally to keep the caret visible.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable
+    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, IKeyHintSource
     {
         private readonly List<string> _Lines = new List<string> { string.Empty };
         private readonly Stack<EditorSnapshot> _Undo = new Stack<EditorSnapshot>();
@@ -74,6 +74,32 @@ namespace TUIKit.Widgets
         /// Programmatic calls (<see cref="Text"/>, <see cref="InsertText"/>) still apply. Defaults to false.
         /// </summary>
         public bool IsReadOnly { get; set; }
+
+        /// <summary>
+        /// Gets a value indicating whether printable keys are inserted as text: true while enabled and not
+        /// read-only. Part of <see cref="ITextEntry"/>.
+        /// </summary>
+        public bool AcceptsText
+        {
+            get { return _Enabled && !IsReadOnly; }
+        }
+
+        /// <summary>
+        /// Gets the editor's own shortcuts for the status bar: undo and redo while editable. Part of
+        /// <see cref="IKeyHintSource"/>.
+        /// </summary>
+        /// <returns>The hints. Never null; empty while read-only or disabled.</returns>
+        public IReadOnlyList<KeyHint>? GetKeyHints()
+        {
+            if (!AcceptsText)
+                return new KeyHint[0];
+
+            return new KeyHint[]
+            {
+                KeyHint.For("ctrl+z", "Undo"),
+                KeyHint.For("ctrl+y", "Redo")
+            };
+        }
 
         /// <summary>
         /// Gets or sets a value indicating whether Ctrl+letter chords the editor does not bind (anything

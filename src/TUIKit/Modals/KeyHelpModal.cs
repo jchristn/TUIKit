@@ -163,6 +163,7 @@ namespace TUIKit.Modals
 
             BorderStyleColor = theme.Accent;
             BackgroundStyle = theme.Text;
+            ApplyBorderTheme(theme);
             HeadingStyle = theme.Accent.WithAttribute(CellAttributes.Bold, true);
             KeyStyle = theme.Warning;
         }

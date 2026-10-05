@@ -1,6 +1,7 @@
 namespace TUIKit.Layout
 {
     using System;
+    using TUIKit.Theming;
 
     /// <summary>
     /// A named rectangle in a layout, positioned and sized by an independent horizontal and vertical
@@ -64,6 +65,16 @@ namespace TUIKit.Layout
         public string? BackgroundRole { get; }
 
         /// <summary>
+        /// Gets the border drawn while this region holds keyboard focus, or null to use the host's focus
+        /// treatment (see <c>TuiApplication.HighlightFocusedRegion</c>). Setting it opts the region into a
+        /// focused frame even when the host-wide highlight is off: while focused the border is drawn in
+        /// this style with <see cref="Theme.FocusBorderRole"/> colors and a title marker. The border cells
+        /// are reserved either way, so focus never shifts content. Ignored when <see cref="Border"/> is
+        /// <see cref="BorderStyle.None"/>. Never <see cref="BorderStyle.None"/> itself.
+        /// </summary>
+        public BorderStyle? FocusedBorder { get; }
+
+        /// <summary>
         /// Gets a value indicating whether the region draws a border.
         /// </summary>
         public bool HasBorder
@@ -118,7 +129,34 @@ namespace TUIKit.Layout
         /// </exception>
         /// <exception cref="ArgumentNullException">Thrown when a constraint is null.</exception>
         public Region(string id, AxisConstraint horizontal, AxisConstraint vertical, Padding padding = default, BorderStyle border = BorderStyle.None, string? borderTitle = null, Color? background = null, string? backgroundRole = null)
+            : this(id, horizontal, vertical, padding, border, borderTitle, background, backgroundRole, null)
         {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Region"/> class with a focused border.
+        /// </summary>
+        /// <param name="id">The region identifier. Must not be null or empty.</param>
+        /// <param name="horizontal">The horizontal constraint. Must not be null.</param>
+        /// <param name="vertical">The vertical constraint. Must not be null.</param>
+        /// <param name="padding">The interior padding.</param>
+        /// <param name="border">The border style.</param>
+        /// <param name="borderTitle">The optional border title, or null.</param>
+        /// <param name="background">The explicit background color, or null for none.</param>
+        /// <param name="backgroundRole">The theme style name for the background, or null for none.</param>
+        /// <param name="focusedBorder">The border drawn while the region holds focus, or null to follow the
+        /// host (see <see cref="FocusedBorder"/>). Must not be <see cref="BorderStyle.None"/>.</param>
+        /// <exception cref="ArgumentException">
+        /// Thrown when <paramref name="id"/> is null or empty, when <paramref name="backgroundRole"/> is a
+        /// non-null empty or whitespace string, or when <paramref name="focusedBorder"/> is
+        /// <see cref="BorderStyle.None"/>.
+        /// </exception>
+        /// <exception cref="ArgumentNullException">Thrown when a constraint is null.</exception>
+        public Region(string id, AxisConstraint horizontal, AxisConstraint vertical, Padding padding, BorderStyle border, string? borderTitle, Color? background, string? backgroundRole, BorderStyle? focusedBorder)
+        {
+            if (focusedBorder.HasValue && focusedBorder.Value == BorderStyle.None)
+                throw new ArgumentException("A focused border must be visible; use null to follow the host instead.", nameof(focusedBorder));
+
             if (string.IsNullOrEmpty(id))
                 throw new ArgumentException("Region id must not be null or empty.", nameof(id));
             if (backgroundRole != null && string.IsNullOrWhiteSpace(backgroundRole))
@@ -132,6 +170,7 @@ namespace TUIKit.Layout
             BorderTitle = borderTitle;
             Background = background;
             BackgroundRole = backgroundRole;
+            FocusedBorder = focusedBorder;
         }
 
         /// <summary>

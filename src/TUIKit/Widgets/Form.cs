@@ -23,7 +23,7 @@ namespace TUIKit.Widgets
     /// (<see cref="IFocusContainer"/>); set <see cref="WrapFocus"/> to false when it is nested so Tab at
     /// the last field moves on to the next sibling. Not thread-safe: use it from the UI loop.
     /// </remarks>
-    public sealed class Form : IWidget, IFocusable, IScrollExtent, IMouseAware, IFocusContainer, IFocusAware, IThemeable
+    public sealed class Form : IWidget, IFocusable, IScrollExtent, IMouseAware, IFocusContainer, IFocusAware, IThemeable, IFocusPathNode
     {
         private readonly List<FormField> _Fields = new List<FormField>();
         private readonly FocusManager _Focus = new FocusManager();
@@ -104,6 +104,15 @@ namespace TUIKit.Widgets
                 if (!value)
                     SetDirty(false);
             }
+        }
+
+        /// <summary>
+        /// Gets the child that holds focus one level down, or null when the form has no focusable fields. Part of
+        /// <see cref="IFocusPathNode"/>; the host uses it to build <see cref="FocusPath"/>.
+        /// </summary>
+        public IFocusable? FocusedChild
+        {
+            get { return _Focus.Focused; }
         }
 
         /// <summary>

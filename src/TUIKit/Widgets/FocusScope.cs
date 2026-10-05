@@ -15,7 +15,7 @@ namespace TUIKit.Widgets
     /// scope's own <see cref="IsActive"/> state into account so only the leaf on the active path shows focus.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class FocusScope : IFocusContainer, IFocusAware
+    public sealed class FocusScope : IFocusContainer, IFocusAware, IFocusPathNode
     {
         private readonly List<IFocusable> _Children = new List<IFocusable>();
         private int _Index = -1;
@@ -55,6 +55,15 @@ namespace TUIKit.Widgets
         public int FocusedIndex
         {
             get { return _Index; }
+        }
+
+        /// <summary>
+        /// Gets the child that holds focus one level down, or null when the scope has no focused child. Part of
+        /// <see cref="IFocusPathNode"/>; the host uses it to build <see cref="FocusPath"/>.
+        /// </summary>
+        public IFocusable? FocusedChild
+        {
+            get { return Focused; }
         }
 
         /// <summary>
@@ -265,13 +274,17 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Gets a value indicating whether a widget can take focus by traversal: it is not disabled.
+        /// Gets a value indicating whether a widget can take focus by traversal: it is not disabled
+        /// (<see cref="IEnableable"/>) and not hidden (<see cref="IHideable"/>).
         /// </summary>
         /// <param name="widget">The widget, or null.</param>
-        /// <returns><c>true</c> when the widget is non-null and enabled.</returns>
+        /// <returns><c>true</c> when the widget is non-null, enabled, and visible.</returns>
         public static bool IsFocusable(object? widget)
         {
             if (widget == null)
+                return false;
+
+            if (widget is IHideable hideable && !hideable.IsVisible)
                 return false;
 
             return !(widget is IEnableable enableable) || enableable.IsEnabled;

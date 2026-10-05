@@ -24,7 +24,7 @@ namespace TUIKit.Widgets
     /// use it from the UI loop.
     /// </remarks>
     /// <typeparam name="T">The row type.</typeparam>
-    public sealed class DataTable<T> : IWidget, IFocusable, IMouseAware, IFocusAware, IEnableable, IChangeNotifier, IThemeable
+    public sealed class DataTable<T> : IWidget, IFocusable, IMouseAware, IFocusAware, IEnableable, IChangeNotifier, IThemeable, IKeyHintSource
     {
         private readonly List<DataColumn<T>> _Columns = new List<DataColumn<T>>();
         private readonly List<T> _Rows = new List<T>();
@@ -539,6 +539,32 @@ namespace TUIKit.Widgets
             HighlightStyle = theme.Selection;
             InactiveHighlightStyle = new CellStyle(theme.Text.Background, theme.Muted.Foreground);
             DisabledStyle = theme.Disabled;
+        }
+
+        /// <summary>
+        /// Gets the table's keys for the status bar: moving the selection, <c>Enter</c> when
+        /// <see cref="RowActivated"/> has a handler, and with <see cref="MultiSelect"/> the marking keys.
+        /// Empty while disabled or empty. Part of <see cref="IKeyHintSource"/>.
+        /// </summary>
+        /// <returns>The hints. Never null.</returns>
+        public IReadOnlyList<KeyHint>? GetKeyHints()
+        {
+            List<KeyHint> hints = new List<KeyHint>();
+            if (!_Enabled || _Rows.Count == 0)
+                return hints;
+
+            if (RowActivated != null)
+                hints.Add(new KeyHint(new KeyChord(KeyCode.Enter, 0, KeyModifiers.None), "Open", 10));
+            hints.Add(new KeyHint("Up/Down", "Move"));
+            if (MultiSelect)
+            {
+                hints.Add(new KeyHint(new KeyChord(KeyCode.Character, ' ', KeyModifiers.None), "Mark"));
+                hints.Add(KeyHint.For("ctrl+a", "Mark all"));
+                if (MarkedCount > 0)
+                    hints.Add(new KeyHint(new KeyChord(KeyCode.Escape, 0, KeyModifiers.None), "Clear marks"));
+            }
+
+            return hints;
         }
 
         /// <summary>

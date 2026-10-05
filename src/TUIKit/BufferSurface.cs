@@ -8,7 +8,7 @@ namespace TUIKit
     /// slice of a larger buffer.
     /// </summary>
     /// <remarks>Not thread-safe; intended for use on the render thread.</remarks>
-    public sealed class BufferSurface : ISurface
+    public sealed class BufferSurface : IReadableSurface
     {
         private readonly CellBuffer _Buffer;
         private readonly int _OffsetX;

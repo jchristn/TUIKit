@@ -146,6 +146,22 @@ namespace TUIKit.Input
         }
 
         /// <summary>
+        /// Determines whether this chord would insert a character into a focused text field rather than
+        /// act as a shortcut: a printable character (including Space) with no Ctrl, Alt, or Super
+        /// modifier. Shift alone still types (it selects the upper-case or shifted character).
+        /// </summary>
+        /// <returns><c>true</c> when the chord types text; otherwise <c>false</c>.</returns>
+        public bool InsertsTextWhenTyping()
+        {
+            if (Code != KeyCode.Character || Rune == 0)
+                return false;
+            if ((Modifiers & (KeyModifiers.Ctrl | KeyModifiers.Alt | KeyModifiers.Super)) != 0)
+                return false;
+
+            return Rune >= 0x20 && Rune != 0x7F;
+        }
+
+        /// <summary>
         /// Formats this chord as a human-readable label suitable for help text, footers, and menus,
         /// using the conventions of the requested <see cref="KeyLabelStyle"/>. For example
         /// <c>ctrl+g</c> renders as <c>Ctrl+G</c> in <see cref="KeyLabelStyle.Ascii"/> and <c>⌃G</c>

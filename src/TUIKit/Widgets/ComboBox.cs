@@ -15,7 +15,7 @@ namespace TUIKit.Widgets
     /// reverted when focus leaves or Enter is pressed.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class ComboBox : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable
+    public sealed class ComboBox : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry
     {
         private readonly TextField _Field = new TextField();
         private readonly List<string> _Items = new List<string>();
@@ -107,6 +107,15 @@ namespace TUIKit.Widgets
                     throw new ArgumentOutOfRangeException(nameof(value), value, "Must be at least 1.");
                 _MaxVisibleItems = value;
             }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether printable keys are inserted into the filter text: true while
+        /// enabled. Part of <see cref="ITextEntry"/>.
+        /// </summary>
+        public bool AcceptsText
+        {
+            get { return _Field.IsEnabled; }
         }
 
         /// <summary>

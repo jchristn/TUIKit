@@ -4,6 +4,22 @@
 
 This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
+## 1.4.0 additions (feature/v1.4.0)
+
+The 1.4.0 usability work (see `archive/IMPROVEMENTS_FROM_ARMADA.md`) added the public surface below. Each item has positive and negative Touchstone cases, run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **776 console cases** (777 through the xUnit/NUnit wrappers), all green. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **81.6%** (`Test.Shared` 99.4%).
+
+| New/changed public surface | Test suite |
+|---|---|
+| `MouseSequenceEncoder`, `HeadlessBackend.FeedMouse`/`FeedClick`/`FeedDoubleClick`/`FeedWheel`/`FeedMove`/`FeedDrag`, `WidgetTester.Mouse`/`Click`/`DoubleClick`/`Wheel`/`Move`/`Drag`/`CellAt`/`LastMouseHandled`, `TuiApplication.CaptureFrame`, `TerminalRenderer.CopyLastFrame` | `HeadlessMouse` |
+| `NotificationCenter.CoalesceRepeats`/`RepeatSuffixFormat`, `Notification.RepeatCount`/`LastRaisedAtMilliseconds`, `tuikit.notifications.coalesced` | `NotificationCoalescing` |
+| `FocusFrame`, `FocusFrameOptions`, `BorderStyle.AsciiHeavy`, `TuiApplication.HighlightFocusedRegion`/`FocusFrameOptions`/`CurrentFocusPath`/`FocusPathChanged`, `Region.FocusedBorder`, `RegionBuilder.WithFocusedBorder`, `FocusPath`, `IFocusPathNode`, `SplitView.ShowPaneFrames`/`FocusedFrameStyle`/`FrameStyle`/`AsciiFrames`/`FrameOptions`, `Theme.FocusBorderRole`/`FocusTitleRole`/`TabFocusedRole`/`InlineButtonHoverRole`, `SurfaceExtensions.DrawBox` (title style) | `FocusFrame` |
+| `TabView.StripFocusStop`/`IsStripFocused`/`FocusedTabStyle`/`TabFocusMarker`/`FocusedChild` | `TabFocus` |
+| `KeyHint`, `IKeyHintSource`, `KeyHintResolver`, `ITextEntry`, `KeyChord.InsertsTextWhenTyping`, `StatusBar.HintSource`, `TuiApplication.BindKeyHints`, widget hint sources | `KeyHints` |
+| `TailFollow`, `TailFollowMode`, `Pane.TailFollow` and its indicator, `ListView.TailFollow`/`Append`/`AppendRange` | `TailFollow` |
+| `ClickRegion<TAction>`, `ClickRegionMap<TAction>`, `InlineButton`, `InlineButtonStyle`, `tuikit.click_regions.invoked` | `ClickRegion` |
+| `FocusAudit`, `FocusAuditOptions`, `FocusAuditResult`, `FocusAuditProblem`, `FocusAuditProblemKind` | `FocusAudit` |
+| `IReadableSurface`, `SurfaceExtensions.DrawJoinedBox`, `FocusFrameOptions.JoinBorders`, `TuiApplication.JoinRegionBorders`/`GetRegionBounds`/`GetRegionContentBounds`, `Modal.IsTopmost`, `DialogModal.Border`/`FocusedBorder`/`ContentBounds`/`FrameBounds`, `IHideable`, `FocusAuditProblemKind.InvisibleStop` | `FocusFollowUp` |
+
 ## 0.6.0 additions (feature/v0.6.0)
 
 The 0.6.0 horizontal-components work (see `IMPROVEMENTS_FOR_MUX.md`) added the public surface below, each covered by a dedicated Touchstone suite with positive and negative cases and run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0. The total stands at **363 console cases** (364 through the xUnit/NUnit wrappers).

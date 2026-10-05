@@ -179,6 +179,26 @@ int missed = log.NewSinceDetached;  // "↓ N new" indicator
 log.ScrollToBottom();               // re-attach
 ```
 
+While detached, the pane draws a "N new below" marker on its last row; clicking it re-attaches. The
+rules live in `pane.TailFollow` (a `TailFollow`), which you can tune:
+
+```csharp
+log.TailFollow.Mode = TailFollowMode.AlwaysFollow;  // a log that must never fall behind
+log.TailFollow.IndicatorFormat = " {0} more ";       // or ShowIndicator = false
+```
+
+**Selection is not scrolling.** A streaming list that stops following the moment the user selects
+something is the classic bug: the user acts on a message, new output arrives off-screen, and they
+keep pressing End. `TailFollow` only stops following when the *viewport* moves away from the bottom.
+Lists get the same behavior with `ListView.TailFollow` and `Append` (which keeps the selection):
+
+```csharp
+ListView<string> feed = new ListView<string> { TailFollow = new TailFollow() };
+feed.Append("event 1");   // follows while the last row is in view
+// Selecting a visible row keeps following; moving the selection above the top holds still and
+// counts arrivals; End (or a click on the marker) returns to the newest item.
+```
+
 ### Scrollback and batching
 
 ```csharp
@@ -303,6 +323,77 @@ Keys route through one explicit precedence chain:
 Giving the focused widget first refusal is what lets a focused editor keep `Ctrl+K` (kill-to-end-of-line) even when a global `Ctrl+K …` sequence is bound — the global chord only fires when no focused widget claims the key. A dangling sequence prefix is abandoned after `SequenceTimeoutMilliseconds` (default 800) instead of swallowing the next key. Set an app-wide pre-filter with `app.KeyFilter = key => …` (return `true` to consume).
 
 Mouse input is routed from a per-frame, host-owned hit-test map: a press **focuses** the `IFocusable` widget under the pointer (click-to-focus), and wheel/click events are forwarded to widgets that implement the optional **`IMouseAware`** interface, with coordinates translated into the widget's own rectangle. `Pane` and `ScrollView` scroll on the wheel out of the box. Turn the whole thing off with `app.EnableMouseRouting = false` to fall back to raw `MouseReceived`.
+
+### Make focus visible
+
+The most common usability failure in a multi-pane terminal app is that nobody can tell which pane
+has focus, so keys land in the wrong place. Turn on the host's focus frame and give regions borders:
+
+```csharp
+app.HighlightFocusedRegion = true;   // focused region: heavy border, focus color, "> " title marker
+app.AddWidget("files", list, r => r.ProportionalWidth(0, 0.3).FillHeight().WithBorder(BorderStyle.Rounded, "Files"));
+```
+
+The border cells are reserved whether or not a region is focused, so focus never shifts content,
+and the focused frame differs by glyph as well as color (heavy box lines, or `#`/`=` under ASCII
+borders), so it survives monochrome terminals. Opt in a single region with
+`RegionBuilder.WithFocusedBorder()`. Inside a region, `SplitView.ShowPaneFrames` frames each pane
+and highlights the focused one, `TabView.StripFocusStop` shows whether arrows will switch tabs or
+move inside the content, and custom widgets draw the same treatment with `FocusFrame.Draw`.
+
+Neighbouring frames can share one line instead of drawing two. Lay regions out to overlap by one
+column or row and set `app.JoinRegionBorders = true`, or set `split.FrameOptions.JoinBorders = true`
+for pane frames: edges meet in tee, corner, and cross glyphs, and the focused frame is drawn last so
+it stays whole over the shared line. `SurfaceExtensions.DrawJoinedBox` does the same for your own
+boxes. While a modal is open, the focused region draws plain and the topmost dialog can mark itself
+(`DialogModal.FocusedBorder`, `Modal.IsTopmost`). To draw your own decorations after everything
+else, use `RenderOverlay` with `app.GetRegionBounds(id)`.
+
+Tab should never land somewhere the user cannot see. Widgets bound to regions that are not in the
+current layout are skipped, and a widget that implements `IHideable` and reports `IsVisible = false`
+(an empty `ButtonRow`, a collapsed filter bar, actions hidden while loading) drops out of every
+focus ring.
+
+`app.CurrentFocusPath` names every container between the focused region and the focused widget,
+and `FocusPathChanged` fires whenever it changes, including moves inside a container. Containers
+expose their focused child through `IFocusPathNode`; implement it on your own containers too.
+
+### Never advertise a key that would type
+
+A status bar that lists `a Approve` while a text field has focus is lying: pressing `a` types the
+letter. Bind the bar to the focus path and let widgets describe their own keys:
+
+```csharp
+StatusBar status = new StatusBar().Add("F10", "Menu");    // fixed hints stay pinned at the end
+KeyHintResolver hints = app.BindKeyHints(status);
+hints.AddAppHint("q", "Quit");                            // hidden while a field takes text
+hints.AddCommands(registry);                              // enabled commands with chords
+```
+
+Hints come from the focused leaf first, then each container outward (`IKeyHintSource`), then the
+app; the innermost description of a key wins. While the leaf takes typed text (`ITextEntry`, on
+`TextField`, `TextEditor`, and `ComboBox`), keys that would type a character are hidden and the bar
+leads with how to leave the field (`LeaveTextHint`, by default `Tab Next field`). Bind help to
+`F1` as well as `?`, so it stays reachable from inside a text field.
+
+### Clickable areas inside custom rows
+
+When a widget draws its own rows with buttons in them, record each button while rendering and let a
+`ClickRegionMap<TAction>` resolve clicks:
+
+```csharp
+// Render:
+_Map.Clear();
+x += InlineButton.Draw(surface, x, row, "Approve", "a", new RowAction(index), _Map);
+// HandleMouse:
+return _Map.HandleMouse(mouse);
+// Setup:
+_Map.Invoked += region => Approve(region.Action);
+```
+
+Record in the same coordinates you draw in and clear on every render; then scrolled content clicks
+correctly with no offset math, and nothing stale can be clicked. Show the key after every button
+so the row works without a mouse.
 
 ### Responding to the mouse (hover, clicks, wheel)
 
@@ -720,6 +811,25 @@ string text = Snapshot.RenderWidget(new Gauge { Value = 1 }, 4, 1);   // "██
 
 `PumpInputOnce`/`RenderOnce` let a test advance the app one step at a time without a real terminal or a running loop.
 
+Drive the mouse through the real parser and hit map, and assert on cells rather than raw output:
+
+```csharp
+app.RenderOnce();                       // populate the hit map
+backend.FeedClick(10, 3);               // also FeedDoubleClick, FeedWheel, FeedMove, FeedDrag
+app.PumpInputOnce();
+CellBuffer frame = app.CaptureFrame()!; // the frame as cells: glyphs and styles
+Cell corner = frame.Get(0, 0);
+```
+
+`WidgetTester` has matching local-coordinate methods (`Click`, `DoubleClick`, `Wheel`, `Move`,
+`Drag`) and `CellAt` for unit-testing one widget. To check focus across a whole screen, run the
+audit: it presses Tab through every stop and Shift+Tab back, and reports stops with invisible focus,
+Tab traps, rings that never close, asymmetric traversal, and layouts that shift with focus.
+
+```csharp
+FocusAudit.Run(app).ThrowIfProblems();
+```
+
 ---
 
 ## 12. Cross-platform, SSH, and tmux
@@ -872,6 +982,7 @@ The table below tracks which capabilities from the original improvement roadmap 
 | 10.41 | Fullscreen rendering — synchronized output (mode 2026), persistent full-repaint (`ForceFullRepaint`), cross-platform `SuspendAsync` shell-out | **Implemented** |
 | — | Keybinding editor / user-configurable keymap (`KeyBindingEditor`/`KeyBindingSet`) | **Implemented** |
 | — | Guided-tour example (self-describing `TUIKit.Example`) | **Implemented** |
+| - | Visible focus, focus path, focus-aware key hints, tail-follow, inline click regions, toast coalescing, headless mouse and focus audit (1.4.0) | **Implemented** |
 
 ### Summary: included vs. excluded
 

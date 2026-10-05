@@ -4,6 +4,7 @@ namespace TUIKit.Modals
     using TUIKit;
     using TUIKit.Input;
     using TUIKit.Layout;
+    using TUIKit.Theming;
 
     /// <summary>
     /// Base class for a centered, bordered dialog. It owns the work every boxed modal repeats: it
@@ -126,7 +127,45 @@ namespace TUIKit.Modals
         /// Gets the screen rectangle of the content area as of the most recent render, so derived modals
         /// can hit-test mouse events (which arrive in screen coordinates). Empty before the first render.
         /// </summary>
-        protected Rect ContentBounds { get; private set; }
+        public Rect ContentBounds { get; private set; }
+
+        /// <summary>
+        /// Gets the screen rectangle of the whole dialog box, border included, as of the most recent
+        /// render, so an application can draw on or around the dialog's edge without repeating its
+        /// geometry. Empty before the first render.
+        /// </summary>
+        public Rect FrameBounds { get; private set; }
+
+        /// <summary>
+        /// Gets or sets the dialog's border style. Defaults to <see cref="TUIKit.BorderStyle.Rounded"/>, the
+        /// original look. <see cref="TUIKit.BorderStyle.None"/> draws no border but keeps its cells, so
+        /// the layout is unchanged.
+        /// </summary>
+        public BorderStyle Border { get; set; } = BorderStyle.Rounded;
+
+        /// <summary>
+        /// Gets or sets the border drawn while this dialog is the topmost modal
+        /// (<see cref="Modal.IsTopmost"/>), or null to always use <see cref="Border"/>. Setting it makes the
+        /// active dialog stand out from dialogs stacked beneath it. Defaults to null.
+        /// </summary>
+        public BorderStyle? FocusedBorder { get; set; }
+
+        /// <summary>
+        /// Switches <see cref="Border"/> between ASCII and the rounded box-drawing border to match a
+        /// theme's <see cref="Theme.UseAsciiBorders"/>. Call it from a derived dialog's theme handling.
+        /// </summary>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        protected void ApplyBorderTheme(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            if (theme.UseAsciiBorders)
+                Border = BorderStyle.Ascii;
+            else if (Border == BorderStyle.Ascii)
+                Border = BorderStyle.Rounded;
+        }
 
         /// <summary>
         /// Reports the natural content width the subclass would like, in cells, given the width the
@@ -207,8 +246,9 @@ namespace TUIKit.Modals
             Rect box = new Rect(boxX, boxY, boxWidth, boxHeight);
 
             surface.Fill(box, Cell.Blank(BackgroundStyle));
-            bool ascii = false;
-            surface.DrawBox(box, BorderStyleColor, ascii ? BorderStyle.Ascii : BorderStyle.Rounded, _Title);
+            BorderStyle border = IsTopmost && FocusedBorder.HasValue ? FocusedBorder.Value : Border;
+            surface.DrawBox(box, BorderStyleColor, border, _Title);
+            FrameBounds = box;
             DrawFooter(surface, box);
 
             Rect contentRect = new Rect(boxX + 1 + pad.Left, boxY + 1 + pad.Top, contentWidth, contentHeight);

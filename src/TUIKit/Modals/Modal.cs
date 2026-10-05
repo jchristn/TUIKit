@@ -16,6 +16,8 @@ namespace TUIKit.Modals
         private readonly TaskCompletionSource<object?> _Completion =
             new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        private volatile bool _Topmost;
+
         internal long TelemetryShownTimestamp { get; set; }
 
         internal Activity? TelemetrySpan { get; set; }
@@ -28,6 +30,18 @@ namespace TUIKit.Modals
         public Task<object?> Completion
         {
             get { return _Completion.Task; }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether this modal is the top of its <see cref="ModalStack"/>: the one
+        /// that receives keys and should look focused. A modal stacked under another is not topmost, and
+        /// a closed or never-shown modal is not either. Maintained by the stack as modals are pushed and
+        /// removed; derived modals read it while rendering (see <see cref="DialogModal.FocusedBorder"/>).
+        /// </summary>
+        public bool IsTopmost
+        {
+            get { return _Topmost; }
+            internal set { _Topmost = value; }
         }
 
         /// <summary>

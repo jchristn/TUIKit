@@ -32,6 +32,8 @@ namespace TUIKit.Diagnostics
         internal static readonly Histogram<double> ModalDuration;
         internal static readonly Counter<long> Notifications;
         internal static readonly Counter<long> NotificationsEvicted;
+        internal static readonly Counter<long> NotificationsCoalesced;
+        internal static readonly Counter<long> ClickRegionsInvoked;
         internal static readonly Counter<long> SessionStarts;
         internal static readonly UpDownCounter<long> SessionsActive;
         internal static readonly Histogram<double> SessionDuration;
@@ -74,6 +76,8 @@ namespace TUIKit.Diagnostics
             ModalDuration = meter.CreateHistogram<double>(TuiKitTelemetryNames.ModalDuration, "s", "Time a modal stayed open.");
             Notifications = meter.CreateCounter<long>(TuiKitTelemetryNames.Notifications, "{notification}", "Toast notifications raised, by severity.");
             NotificationsEvicted = meter.CreateCounter<long>(TuiKitTelemetryNames.NotificationsEvicted, "{notification}", "Notifications evicted by the concurrency cap.");
+            NotificationsCoalesced = meter.CreateCounter<long>(TuiKitTelemetryNames.NotificationsCoalesced, "{notification}", "Notification raises merged into an identical visible toast, by severity.");
+            ClickRegionsInvoked = meter.CreateCounter<long>(TuiKitTelemetryNames.ClickRegionsInvoked, "{click}", "Inline click regions invoked.");
             SessionStarts = meter.CreateCounter<long>(TuiKitTelemetryNames.SessionStarts, "{session}", "Terminal session start attempts, by outcome.");
             SessionsActive = meter.CreateUpDownCounter<long>(TuiKitTelemetryNames.SessionsActive, "{session}", "Terminal sessions currently started.");
             SessionDuration = meter.CreateHistogram<double>(TuiKitTelemetryNames.SessionDuration, "s", "Terminal session lifetime.");

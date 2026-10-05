@@ -138,6 +138,10 @@ backend; TUIKit computes no quantiles in-process.
 | `tuikit.modal.duration` | Histogram | `s` | `tuikit.modal.type`, `tuikit.modal.outcome` | Time a modal stayed open. |
 | `tuikit.notifications` | Counter | `{notification}` | `tuikit.notification.severity` | Toasts raised. |
 | `tuikit.notifications.evicted` | Counter | `{notification}` | - | Toasts dropped early because `MaxConcurrent` was reached (limiter rejection). |
+| `tuikit.notifications.coalesced` | Counter | `{notification}` | `tuikit.notification.severity` | Raises merged into an identical toast still on screen (`NotificationCenter.CoalesceRepeats`). Every raise is also counted in `tuikit.notifications`. |
+| `tuikit.click_regions.invoked` | Counter | `{click}` | - | Inline click regions invoked through `ClickRegionMap.HandleMouse`. Unlabeled: labels are user content. |
+
+Focus moves are not measured: `FocusPathChanged` can fire on every key press, and a counter of it would say nothing an application cannot read from `TuiApplication.CurrentFocusPath` directly.
 
 ### Session lifecycle and configuration
 

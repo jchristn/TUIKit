@@ -16,7 +16,7 @@ namespace TUIKit.Widgets
     /// expands and Left collapses; while the child has focus it receives every key first. Not
     /// thread-safe: use it from the UI loop.
     /// </remarks>
-    public sealed class Collapsible : IWidget, IFocusable, IMouseAware, IFocusContainer, IFocusAware, IThemeable
+    public sealed class Collapsible : IWidget, IFocusable, IMouseAware, IFocusContainer, IFocusAware, IThemeable, IFocusPathNode
     {
         private readonly IWidget _Child;
         private string _Header;
@@ -95,6 +95,15 @@ namespace TUIKit.Widgets
         public IWidget Child
         {
             get { return _Child; }
+        }
+
+        /// <summary>
+        /// Gets the child that holds focus one level down, or null when focus rests on the header. Part of
+        /// <see cref="IFocusPathNode"/>; the host uses it to build <see cref="FocusPath"/>.
+        /// </summary>
+        public IFocusable? FocusedChild
+        {
+            get { return _ChildFocused ? _Child as IFocusable : null; }
         }
 
         /// <summary>

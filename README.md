@@ -44,16 +44,16 @@ It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`. The modern targets a
 
 - **Developer-defined regions.** Declare any number of rectangles, each with its own resize behavior - fixed, edge-anchored, stretch, or proportional - plus per-rectangle padding and an optional background (an explicit color or a named theme role, so a sidebar or status strip is tinted and restyles with the theme). TUIKit reflows them when the window changes and shows a "terminal too small" screen when it can't fit.
 - **Thread-safe, mutable content.** Any thread may write to any pane; writes are FIFO per pane. Lines can be updated in place, so a tool call goes `running…` → `done (1.2s)` and a progress bar advances without redrawing the world.
-- **Streaming with a smart scroll lock.** Scroll up to detach from the live tail; return to the bottom to re-attach. A `↓ N new` indicator tells you what you're missing.
+- **Streaming with a smart scroll lock.** Scroll up to detach from the live tail; return to the bottom to re-attach. A "N new below" marker counts what you're missing and takes you back when clicked. The same `TailFollow` rules drive growing lists (`ListView.TailFollow` with `Append`): selecting a row never stops following, only scrolling away does.
 - **Rich text.** A fluent styled-text builder, inline markup (`[bold red]…[/]`), a Markdown renderer (headings, lists, task lists, tables, blockquotes, code), word/character wrapping, and correct Unicode column width for CJK, combining marks, and emoji grapheme clusters.
 - **Enhanced input.** A byte decoder for UTF-8, control keys, arrows, function keys, the Kitty/CSI-u protocol, SGR mouse, and bracketed paste - routed through a central command table with scopes, multi-key chords (`Ctrl+K Ctrl+T`), and a configurable Ctrl+C policy. Carriage return (`Enter`) and line feed (`Ctrl+J`) decode distinctly, so you can bind `Ctrl+J` as a newline chord that works even where the terminal can't report `Shift+Enter`.
 - **Mouse, links, and selection.** Full pointer support: click-to-focus, single/double/triple click synthesis, drag, vertical **and horizontal** wheel, and **hover** - any-motion tracking (on by default, with per-frame move coalescing) delivers `Enter`/`Leave` events synthesized from a per-frame hit-test map, so widgets highlight under the pointer. Terminal **focus reporting** (`TerminalFocusChanged`) lets an app dim itself when the window blurs. Virtual links get per-frame hit-testing, a security allowlist for auto-linkification, hover tracking (`LinkHovered` for status-bar URL previews), OSC 8 hyperlink emission, and keyboard link hints; text selection and OSC 52 clipboard copy work over SSH. A one-key toggle hands the mouse back to the terminal for native drag-select, and `MouseTrackingMode` drops to drag-only or off for chatty links. See [Mouse support by environment](#mouse-support-by-environment) for the exact matrix.
-- **A host-owned interaction contract.** The host wires the interactive skeleton for you: a **focus ring** across bound focusable widgets (`Focus`, `FocusNext`/`FocusPrevious`, `FocusChanged`, `Tab` traversal, `FocusContext` that follows focus), an explicit **key-precedence chain** (modal → pre-filter → focus-scoped commands → focused-widget first refusal → global commands → fallback), **click-to-focus** and wheel routing from a per-frame hit-test map, and application-shell **dock layout helpers** (`DockTop`/`DockBottom`/`DockLeft`/`DockRight`/`Fill`). It's all additive - the raw `KeyReceived`/`MouseReceived`/`RenderOverlay` hooks still work.
+- **A host-owned interaction contract.** The host wires the interactive skeleton for you: a **focus ring** across bound focusable widgets (`Focus`, `FocusNext`/`FocusPrevious`, `FocusChanged`, `Tab` traversal, `FocusContext` that follows focus), an explicit **key-precedence chain** (modal → pre-filter → focus-scoped commands → focused-widget first refusal → global commands → fallback), **click-to-focus** and wheel routing from a per-frame hit-test map, and application-shell **dock layout helpers** (`DockTop`/`DockBottom`/`DockLeft`/`DockRight`/`Fill`). Focus is always visible when you want it: `HighlightFocusedRegion` gives the focused region a heavy frame without shifting content (neighbouring frames can share one line with proper tee and cross joins), `CurrentFocusPath` names every container between the region and the focused widget, and `BindKeyHints` makes a status bar list the keys that work for whatever has focus, hiding single-letter shortcuts while a text field would type them. Hidden or empty widgets drop out of the Tab order. It's all additive - the raw `KeyReceived`/`MouseReceived`/`RenderOverlay` hooks still work.
 - **Modals, notifications, and prompts.** A focus-trapping modal stack with awaitable, **typed** results (`ShowAsync<T>`, plus `ConfirmAsync` / `PromptAsync` / `SelectAsync`), a reusable `DialogModal` base that auto-sizes a centered box with a title and footer hint so custom dialogs stop hand-rolling geometry, a `MultiSelectModal<T>` for choosing several options, a `Post(Action)` loop scheduler for marshalling continuations back onto the UI thread, non-focus-stealing toasts, and a global focus manager for `Tab` order.
 - **A broad widget toolkit.** Inputs (text field with optional character masking for secret entry such as passwords and tokens, multi-line editor with undo and a kill ring, checkbox, radio group, forms); selection (`CheckList<T>` multi-select, sortable virtualized `DataTable<T>`, tree, tabs, fuzzy finder, list); navigation (menu bar, file browser, scroll view, collapsible section, status bar); status and feedback (a `DefinitionList` labeled-value panel, `ActivityIndicator` working line, gauge, sparkline, progress bar, spinner, concurrent multi-task progress); a `Rule` divider; plus a user-editable key-binding editor.
 - **Nested focus, change events, and form controls.** `FocusScope` and `IFocusContainer` give hierarchical focus: tabs, split panes, scroll views, collapsible sections, button rows, and forms route keys to their children and Tab moves through nested scopes. Inputs and pickers raise change events (also for programmatic sets) and support disabled and read-only states; forms hide rows and track dirty state. `Button`, wrapping `ButtonRow`, `Dropdown<T>`, `ComboBox`, `ContextMenu`, `Badge`, and pointer tooltips (`ITooltipProvider`) round out the controls, and `DataTable<T>` offers sized and aligned columns, typed sorting with header indicators and header clicks, server-side sort, multi-select, per-cell styles, and a paging hook.
-- **Theme-aware widgets and a notification center.** Opt in with `ApplyThemeToWidgets` and every bound widget, modal, toast, tooltip, and Markdown style follows the active theme. Toasts can carry titles and action buttons, wrap over several lines, be dismissed by click, and stay in a notification history (`ShowNotificationHistoryAsync`). A built-in command palette (`ShowCommandPaletteAsync`) and key-help overlay (`ShowKeyHelpAsync`) work from a `CommandRegistry`.
-- **Selection and editing lists.** Generic `ListView<T>` and `FuzzyList<T>` return the selected object (not a string), `ActionListView<T>` gives rows keyboard actions with a typed result, and `ReorderableList<T>` moves and removes items in place.
+- **Theme-aware widgets and a notification center.** Opt in with `ApplyThemeToWidgets` and every bound widget, modal, toast, tooltip, and Markdown style follows the active theme. Toasts can carry titles and action buttons, wrap over several lines, be dismissed by click, coalesce repeats into one toast with a count, and stay in a notification history (`ShowNotificationHistoryAsync`). A built-in command palette (`ShowCommandPaletteAsync`) and key-help overlay (`ShowKeyHelpAsync`) work from a `CommandRegistry`.
+- **Selection and editing lists.** Generic `ListView<T>` and `FuzzyList<T>` return the selected object (not a string), `ActionListView<T>` gives rows keyboard actions with a typed result, and `ReorderableList<T>` moves and removes items in place. Custom-drawn rows can carry clickable `InlineButton`s resolved by a `ClickRegionMap<TAction>`, which stays correct when the content scrolls.
 - **Command surfaces and typeahead.** A `CommandRegistry` drives key bindings, a grouped menu bar, a fuzzy command palette, and a `/slash` router from one command list, and an `AutocompleteOverlay` (with a pluggable `ISuggestionProvider`) shows caret-anchored suggestions for any text input.
 - **Streaming and text helpers.** A `StreamingTranscript` that projects streamed text and keyed in-place status lines onto a pane (finalizing each block as Markdown), plus `HintText` footer wrapping, `ColumnFormatter` column alignment, and a `SubmitKeyResolver` that settles the cross-terminal Enter-vs-newline question for multi-line editors.
 - **Charts, diffs, and images.** Braille line and bar charts, a sparkline, and three distribution widgets - a `BoxPlotChart` (horizontal box-and-whisker over a caller-supplied five-number summary such as min / avg / p95 / p99 / max), a `Histogram` (bucketed frequency with the eighth-block ramp, live via `Push`), and a `HeatMap` (a grid of cells shaded by magnitude) - plus a diff viewer with syntax highlighting, FIGlet-style banners, a color picker, and image rendering - half-block on any terminal, sixel or kitty where supported.
@@ -61,7 +61,7 @@ It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`. The modern targets a
 - **Reactive and animated.** Thread-safe `Observable<T>` one-way data binding, and deterministic, tick-driven animation (`Easing`, `Tween`, `FrameTimer`) that replays identically in tests.
 - **Theming and diagnostics.** Dark, light, and high-contrast themes with an ASCII-border fallback; a debug overlay; frame statistics; and input record/replay.
 - **Full-viewport, flicker-free rendering.** A double-buffered diff renderer repaints only changed rows and coalesces SGR runs; **synchronized output** (DEC mode 2026) presents each frame atomically so fast streams never tear; a persistent **full-repaint mode** covers backends that drop incremental updates; and a cross-platform **`SuspendAsync`** shell-out hands the terminal to an external editor or pager and restores the alternate screen afterward. The terminal is restored on every exit path - clean quit, Ctrl+C, or unhandled exception.
-- **Headless rendering.** Render to an in-memory cell buffer and assert it as text. It's how TUIKit tests itself, and it's a shipped feature so you can snapshot-test your own UI.
+- **Headless rendering and testing.** Render to an in-memory cell buffer and assert it as text or cell by cell (`CaptureFrame`, `WidgetTester.CellAt`). Drive real keys and mouse input through the same parser and hit map a user exercises (`HeadlessBackend.FeedKey`, `FeedClick`, `FeedWheel`, `FeedDrag`), and sweep every focus stop with `FocusAudit` to catch invisible focus, Tab traps, and asymmetric traversal. It's how TUIKit tests itself, and it's a shipped feature so you can test your own UI.
 
 ## Why use it
 
@@ -97,7 +97,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.3.0" />
+<PackageReference Include="TUIKit" Version="1.4.0" />
 ```
 
 ## Quick start
@@ -135,6 +135,30 @@ CancellationToken.None);
 
 Prefer to wire things up by hand? Construct a `ConsoleBackend` and a `TuiApplication`, set `app.Layout`, `BindPane`, register commands, and `await app.RunAsync(...)` yourself - the [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) shows both paths.
 
+### Focus and key hints
+
+Users should always know where their keys will go. Turn on the focus frame, give regions borders, and bind a status bar to the focus path:
+
+```csharp
+await TuiApp.RunAsync(app =>
+{
+    app.HighlightFocusedRegion = true; // the focused region draws a heavy frame
+
+    ListView<string> files = app.AddWidget("files", new ListView<string>(),
+        r => r.ProportionalWidth(0, 0.4).FillHeight(0, 1).WithBorder(BorderStyle.Rounded, "Files"));
+    files.SetItems(new[] { "README.md", "Program.cs" });
+    app.AddWidget("search", new TextField { Placeholder = "Search" },
+        r => r.ProportionalWidth(0.4, 0.6).FillHeight(0, 1).WithBorder(BorderStyle.Rounded, "Search"));
+
+    StatusBar status = app.AddWidget("status", new StatusBar(), r => r.FillWidth().BottomAnchored(0, 1).WithPadding(0));
+    app.BindKeyHints(status).AddAppHint("q", "Quit"); // hidden while the search field has focus
+
+    app.Bind("Ctrl+Q", app.Quit);
+}, CancellationToken.None);
+```
+
+With the list focused the bar reads `Up/Down Move   Home/End First/last   Q Quit`; press `Tab` into the search field and it reads `Tab Next field`, because `q` would type a letter there. Widgets describe their own keys through `IKeyHintSource`, and `app.CurrentFocusPath` tells you which containers hold focus.
+
 ## Example application
 
 A complete, runnable demo lives in [`src/TUIKit.Example`](src/TUIKit.Example) - a simulated **agent control harness** that exercises every major capability against a fake agent (no network, no model), so it is deterministic and self-contained. Its README carries a [capability-coverage matrix](src/TUIKit.Example/README.md) mapping each library feature to the exact interaction that demonstrates it.
@@ -171,7 +195,25 @@ The example renders a single frame to text without a terminal, which is how you 
 dotnet run --project src/TUIKit.Example -- --once          # print one frame to stdout
 dotnet run --project src/TUIKit.Example -- --once --debug   # ... with the debug overlay
 dotnet run --project src/TUIKit.Example -- --contract-once  # the interaction-contract demo frame
+dotnet run --project src/TUIKit.Example -- --focus-once     # the focus showcase frame
+dotnet run --project src/TUIKit.Example -- --focus-audit-once  # FocusAudit over the showcase; exit 1 on problems
 dotnet run --project src/TUIKit.Example | cat               # non-TTY -> plain line output
+```
+
+The **focus showcase** (`--focus`) is a small region-based app with focus frames, a tab view whose strip is its own focus stop, a status bar that follows focus, a log that follows new output, clickable inline buttons, and coalescing toasts on `Ctrl+S`.
+
+Your own tests can drive an app the same way. Render a frame, feed real input, pump, and assert on cells:
+
+```csharp
+HeadlessBackend backend = new HeadlessBackend(80, 24);
+using TuiApplication app = new TuiApplication(backend);
+// ... build the layout and bind widgets ...
+app.Start();
+app.RenderOnce();                       // populates the hit map
+backend.FeedClick(10, 3);               // real SGR mouse input
+app.PumpInputOnce();
+CellBuffer frame = app.CaptureFrame()!; // assert on glyphs and styles
+FocusAudit.Run(app).ThrowIfProblems();  // every Tab stop visible, symmetric, and escapable
 ```
 
 The **interaction-contract demo** (`--contract`) is the shortest path to seeing the host at work: a four-way dock shell (header, sidebar, editor, footer) built from real regions, a focus ring you drive with `Tab` or the mouse, a focus-scoped `Enter` that opens a file in the sidebar while `Enter` in the editor inserts a newline, a two-key theme chord, and a typed picker modal marshalled back onto the loop with `Post` - the whole app in ~120 lines of [`ContractDemo.cs`](src/TUIKit.Example/ContractDemo.cs).

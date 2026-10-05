@@ -38,11 +38,17 @@ namespace TUIKit.Example
         private bool _DemoHovered;
         private Size _LastSize;
         private string _Input = string.Empty;
+        private StreamingDemoWidget? _Streaming;
 
         internal GuidedTour(TuiApplication app)
         {
             _App = app ?? throw new ArgumentNullException(nameof(app));
-            _Pages = BuildPages();
+            _Pages = BuildPages(app);
+            foreach (TourPage page in _Pages)
+            {
+                if (page.Demo is StreamingDemoWidget streaming)
+                    _Streaming = streaming;
+            }
 
             _Layout = Layout.Create()
                 .Add("header", r => r.FillWidth().TopAnchored(0, 1))
@@ -227,10 +233,12 @@ namespace TUIKit.Example
         internal void Start()
         {
             _App.Start();
+            _Streaming?.StartFeed();
         }
 
         internal void Stop()
         {
+            _Streaming?.Dispose();
             _App.Stop();
         }
 
@@ -279,6 +287,15 @@ namespace TUIKit.Example
             if (_ShowHelp)
             {
                 _ShowHelp = false;
+                return;
+            }
+
+            // A demo that is itself a focus container gets Tab first, so focus moves inside it (between
+            // its panes, a tab strip and its content) before leaving for the Interactive box: the same
+            // hierarchical rule the host applies to bound containers.
+            if (key.Code == KeyCode.Tab && _FocusIndex == FocusLiveDemo && _Pages[_Index].Demo is IFocusContainer container && container.HandleKey(key))
+            {
+                Log("Tab was pressed, focus moved inside the " + _Pages[_Index].Title + " demo");
                 return;
             }
 
@@ -575,7 +592,7 @@ namespace TUIKit.Example
                 inner.DrawText(0, i, lines[i], CellStyle.Default);
         }
 
-        private static List<TourPage> BuildPages()
+        private static List<TourPage> BuildPages(TuiApplication app)
         {
             List<TourPage> pages = new List<TourPage>();
 
@@ -605,6 +622,74 @@ namespace TUIKit.Example
                     "app.Notify(\"Saved\",",
                     "  NotificationSeverity.Success);",
                     "app.Theme = Theme.Light;"
+                }));
+
+            pages.Add(new TourPage(
+                "Focus you can see",
+                "Press [bold]Tab[/]. The focused pane gets a heavy frame; the tab strip shows a marker when focused.",
+                new FocusDemoWidget(),
+                new[]
+                {
+                    "app.HighlightFocusedRegion = true;",
+                    "SplitView split = new SplitView(",
+                    "  SplitOrientation.Horizontal, list, tabs)",
+                    "  { ForwardKeys = true,",
+                    "    ShowPaneFrames = true };",
+                    "split.FrameOptions.JoinBorders = true;",
+                    "TabView tabs = new TabView",
+                    "  { ForwardKeys = true,",
+                    "    StripFocusStop = true };",
+                    "FocusPath path = app.CurrentFocusPath;"
+                }));
+
+            pages.Add(new TourPage(
+                "Keys follow focus",
+                "Watch the bottom bar: [bold]Tab[/] into the field and keys that would type disappear.",
+                new KeyHintsDemoWidget(),
+                new[]
+                {
+                    "StatusBar bar = new StatusBar()",
+                    "  .Add(\"F10\", \"Menu\"); // pinned",
+                    "KeyHintResolver hints =",
+                    "  app.BindKeyHints(bar);",
+                    "hints.AddAppHint(\"q\", \"Quit\");",
+                    "hints.AddCommands(registry);",
+                    "",
+                    "// Widgets describe their own keys:",
+                    "// IKeyHintSource.GetKeyHints()"
+                }));
+
+            pages.Add(new TourPage(
+                "Streaming without losing your place",
+                "A new event arrives every second. [bold]Up[/] past the top holds the view; [bold]End[/] returns.",
+                new StreamingDemoWidget(app),
+                new[]
+                {
+                    "ListView<string> feed = new ListView<string>",
+                    "  { TailFollow = new TailFollow() };",
+                    "feed.Append(\"event 31\");",
+                    "",
+                    "// Panes follow the same rules:",
+                    "pane.TailFollow.Mode =",
+                    "  TailFollowMode.FollowAtBottom;",
+                    "pane.ScrollToBottom();"
+                }));
+
+            pages.Add(new TourPage(
+                "Clickable rows",
+                "Click a row's buttons, or press [bold]o[/] / [bold]x[/]. Do one twice to see the toast count.",
+                new ClickableRowsWidget(app, new[] { "invoice-0042", "invoice-0043", "invoice-0044", "invoice-0045" }),
+                new[]
+                {
+                    "ClickRegionMap<RowAction> map =",
+                    "  new ClickRegionMap<RowAction>();",
+                    "// in Render:",
+                    "map.Clear();",
+                    "x += InlineButton.Draw(surface, x, row,",
+                    "  \"Open\", \"o\", new RowAction(i, true), map);",
+                    "// in HandleMouse:",
+                    "return map.HandleMouse(mouse);",
+                    "map.Invoked += r => Act(r.Action);"
                 }));
 
             Pane backgrounds = new Pane("backgrounds");
