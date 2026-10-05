@@ -177,6 +177,28 @@ namespace TUIKit.Terminal
         }
 
         /// <summary>
+        /// Queues the terminal input sequence for a key, encoded with
+        /// <see cref="Input.KeySequenceEncoder"/>, so tests can press any key (F1 through F12, modified
+        /// arrows, Ctrl and Alt chords) without writing escape sequences.
+        /// </summary>
+        /// <param name="key">The key event.</param>
+        public void FeedKey(Input.KeyEvent key)
+        {
+            FeedInput(Input.KeySequenceEncoder.Encode(key));
+        }
+
+        /// <summary>
+        /// Queues the terminal input sequence for a chord written in <see cref="Input.KeyChord.Parse"/>
+        /// syntax, for example <c>"f9"</c> or <c>"ctrl+p"</c>.
+        /// </summary>
+        /// <param name="chord">The chord text. Must not be null or empty.</param>
+        /// <exception cref="ArgumentException">Thrown when the chord cannot be parsed.</exception>
+        public void FeedKey(string chord)
+        {
+            FeedInput(Input.KeySequenceEncoder.Encode(chord));
+        }
+
+        /// <summary>
         /// Simulates a terminal resize.
         /// </summary>
         /// <param name="width">The new width in cells. Must be greater than zero.</param>

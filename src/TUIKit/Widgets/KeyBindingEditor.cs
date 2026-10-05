@@ -3,6 +3,7 @@ namespace TUIKit.Widgets
     using System;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// An interactive settings widget for viewing and changing key bindings, satisfying the common
@@ -202,12 +203,7 @@ namespace TUIKit.Widgets
 
         private static string Fit(string text, int width)
         {
-            if (text.Length <= width)
-                return text;
-            if (width <= 1)
-                return text.Substring(0, Math.Max(0, width));
-
-            return text.Substring(0, width - 1) + "…";
+            return TextFit.Ellipsize(text, width);
         }
     }
 }

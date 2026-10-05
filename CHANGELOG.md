@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Widget, focus, theming, and notification upgrades driven by a large dashboard-parity client. All
+changes are additive; defaults keep the 1.2.1 behavior except where noted under "Changed".
+
+### Added
+- **Hierarchical focus.** `IFocusContainer` (focus scopes that move focus within themselves and
+  bubble out at either end), `FocusScope` (a reusable nested focus ring), and container support in
+  `FocusManager` (`Wrap`, `CanFocus`, `MoveFocus`, `FocusEdge`) and in the host's region focus ring
+  (entering a container focuses its first or last descendant). `TabView`, `SplitView`, `ScrollView`,
+  and `Collapsible` gain `ForwardKeys` (off by default) to route keys to their children; `TabView`
+  and `ScrollView` gain `ForwardMouse` (on); `SplitView` gains pane focus, `ResizeModifiers`,
+  divider dragging, and `DividerStyle`; `TabView` gains `ActiveTabChanged`, `TabNames`,
+  `ActiveContent`, and `SetTabName`; `Collapsible` gains `ExpandedChanged`, a header focus stop, and
+  configurable markers.
+- **Change events.** `ValueChangedEventArgs<T>` and `IChangeNotifier`. `ListView.SelectionChanged`
+  and `ItemActivated`, `DataTable.SelectionChanged`/`MarkedChanged`/`SortChanged`/`RowActivated`,
+  `TextField.ValueChanged`, `TextEditor.TextChanged`, `Checkbox.CheckedChanged`,
+  `RadioGroup.SelectionChanged` (with a settable `SelectedIndex`). Events fire for programmatic sets
+  too, and only when the value changed.
+- **Disabled and read-only state.** `IEnableable` (`IsEnabled`) on `ListView`, `DataTable`,
+  `TextField`, `TextEditor`, `Checkbox`, `RadioGroup`, and the new controls; disabled widgets dim,
+  ignore input, and are skipped by focus traversal. `TextField.IsReadOnly`/`Placeholder` and
+  `TextEditor.IsReadOnly`.
+- **DataTable.** Public `DataColumn<T>` with fixed `Width`, `Weight`, `MinWidth`, `Alignment`,
+  typed `Comparer`/`SortKey`, and per-cell `CellStyle`; `RowStyle`; stable typed sort with header
+  indicators (`ShowSortIndicator`), header-click sorting, `SortLocally = false` for server sorting,
+  `SortByColumn(index, ascending)`, `ClearSort`; multi-select (`MultiSelect`, Space, Shift+Up/Down,
+  Ctrl+A, Escape, mark column, `MarkedRows`, `SetMarked`, `MarkAll`, `ClearMarks`); `KeySelector` to
+  keep the selection and marks across `Bind`; `EndReached` paging hook; `EmptyText`; `Select`;
+  `InactiveHighlightStyle`; cell-width (CJK-safe) layout.
+- **Controls.** `Button`, `ButtonRow` (wraps onto several lines), `Dropdown<T>`, `ComboBox`,
+  `ContextMenu` (positioned popup menu modal), `Tooltip` plus `ITooltipProvider` and host tooltips
+  (`ShowTooltips`, `TooltipDelayMilliseconds`), `Badge`/`BadgeVariant`.
+- **Form.** Hidden rows (`SetFieldVisible`), disabled rows (`SetFieldEnabled`), dirty tracking
+  (`IsDirty`, `DirtyChanged`, `MarkClean`, `TrackChanges`), `AddCheckbox`, `GetField`,
+  `SetFieldLabel`, label styles, `WrapFocus` for nesting.
+- **Theme-aware widgets.** `IThemeable`, `ThemeApplier`, `TuiApplication.ApplyThemeToWidgets` (off
+  by default) to push the theme into bound widgets, modals, toasts, and tooltips on bind and on
+  every theme change. `Theme.Resolve`, `Theme.HasStyle`, and role names for Markdown, toasts, and
+  buttons. `MarkdownStyles` (`Default`, `FromTheme`) and `MarkdownRenderer.Render(markdown, styles)`.
+- **Notification center.** `History` (bounded by `HistoryLimit`), `UnreadCount`, `MarkAllRead`,
+  `Dismiss`, `DismissLatest`, `DismissAll`, `Remove`, `ClearHistory`, `Changed`; titles and
+  `NotificationAction` buttons; wider and multi-line toasts (`ToastWidth`, `MaxToastLines`),
+  `ShowDismissButton`, `DismissOnClick`, themeable severity styles; clickable toasts routed by the
+  host before widgets; `NotificationHistoryModal` and `TuiApplication.ShowNotificationHistoryAsync`;
+  `TuiApplication.Notify(text, severity, title, timeout, actions)`.
+- **Streaming Markdown.** `StreamingTranscript.RenderMarkdownWhileStreaming` (on) renders each
+  completed line once and only re-renders the trailing partial line; `Styles`;
+  `MarkdownRenderer.RenderLine` for incremental rendering; `PaneLineHandle.Remove`.
+- **Performance.** `Pane` caches wrapped rows per line and width and materializes only the visible
+  window. `TuiApplication.IdleFps`, `IdleAfterMilliseconds`, `IsIdle`, and `RequestRender` throttle
+  frame composition while the session is quiet (off by default).
+- **Cell-width text.** `TextFit` (`Width`, `Truncate`, `Ellipsize`, `PadLeft`, `PadRight`, `Center`,
+  `Slice`, `ColumnOf`, `IndexAtColumn`, `NextBoundary`, `PreviousBoundary`).
+- **Command palette and key help.** `CommandPaletteModal`, `KeyHelpModal`/`KeyHelpEntry`,
+  `TuiApplication.ShowCommandPaletteAsync` and `ShowKeyHelpAsync`.
+- **Charts.** `LineChart.AddSeries` (multi-series on one scale, legend, fixed `Minimum`/`Maximum`),
+  `BarChart.AddStacked` with `SegmentColors`/`SegmentGlyphs` and `ValueFormatter`, `ColumnChart`
+  (vertical stacked or grouped series), `ChartSeries`.
+- **Testing.** `KeySequenceEncoder` and `HeadlessBackend.FeedKey` encode any key (F1-F12, modified
+  arrows, Ctrl and Alt chords) for headless input.
+- `DialogModal.ContentBounds` for mouse hit-testing in derived modals.
+
+### Changed
+- **Modals closed without input are pruned.** `ModalStack` drops closed modals whenever it is
+  queried, routed to, or rendered, so a modal closed from a posted callback no longer stays drawn or
+  swallows the next key. Calling `RemoveClosed` remains harmless.
+- **Cell-width math everywhere.** `DataTable`, `Table`, `TabView`, `MenuBar`, `FuzzyList`,
+  `BarChart`, `BoxPlotChart`, `HeatMap`, `MultiProgress`, `KeyBindingEditor`, `FileBrowser`,
+  `Checkbox`, `MessageModal`, `DialogModal`, and toasts measure terminal columns instead of
+  `string.Length`, so CJK and emoji text no longer misalign.
+- **TextField and TextEditor** edit by grapheme cluster, place the caret by column, and scroll long
+  values horizontally (previously text past the right edge was cut off and unreachable).
+  `TextEditor.ConsumeUnboundControlKeys` (default true, the old behavior) can let unbound Ctrl chords
+  through. Word wrap breaks by cell width.
+- **Mouse forwarding.** `TabView` and `ScrollView` forward mouse events (other than the scroll wheel)
+  to their content; set `ForwardMouse = false` for the old behavior. A left press on a `SplitView`
+  divider now starts a drag.
+- **DataTable header.** A sorted column shows an indicator and a click on a sortable header sorts
+  (set `ShowSortIndicator` and `SortOnHeaderClick` to false for the old behavior). Local sorts are
+  stable and re-applied after `Bind`.
+- `StreamingTranscript` renders Markdown while streaming instead of one collapsed live line (set
+  `RenderMarkdownWhileStreaming = false` for the old behavior). The finalized output is unchanged.
+- `Checkbox`, `Form`, `TabView`, `SplitView`, `ScrollView`, and `Collapsible` implement
+  `IFocusAware`; their default focused styles leave the rendering unchanged.
+
 ## [1.2.1] - 2026-10-03
 
 Dependency maintenance release. No public API or behavior changes.

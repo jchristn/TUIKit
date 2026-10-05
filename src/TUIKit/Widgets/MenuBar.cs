@@ -4,6 +4,7 @@ namespace TUIKit.Widgets
     using System.Collections.Generic;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// A horizontal menu bar with drop-down menus. Left/Right move between menus; Down or Enter opens
@@ -205,7 +206,7 @@ namespace TUIKit.Widgets
                 if (active)
                     activeX = x;
 
-                x += title.Length;
+                x += TextFit.Width(title);
             }
 
             if (_Open && height > 1)
@@ -340,7 +341,7 @@ namespace TUIKit.Widgets
             int cursor = 0;
             for (int i = 0; i < _Menus.Count; i++)
             {
-                int titleWidth = _Menus[i].Title.Length + 2;
+                int titleWidth = TextFit.Width(_Menus[i].Title) + 2;
                 if (x >= cursor && x < cursor + titleWidth)
                     return i;
 
@@ -385,8 +386,8 @@ namespace TUIKit.Widgets
             int longest = 0;
             for (int i = 0; i < items.Count; i++)
             {
-                if (items[i].Label.Length > longest)
-                    longest = items[i].Label.Length;
+                if (TextFit.Width(items[i].Label) > longest)
+                    longest = TextFit.Width(items[i].Label);
             }
 
             int boxWidth = Math.Min(width - menuX, longest + 4);
@@ -411,8 +412,8 @@ namespace TUIKit.Widgets
                     style = ItemStyle.Over(DropdownStyle);
 
                 string label = items[i].Label;
-                if (label.Length > boxWidth - 2)
-                    label = label.Substring(0, Math.Max(0, boxWidth - 2));
+                if (TextFit.Width(label) > boxWidth - 2)
+                    label = TextFit.Truncate(label, Math.Max(0, boxWidth - 2));
 
                 if (highlighted && items[i].Enabled)
                     surface.Fill(new Rect(menuX + 1, 2 + i, boxWidth - 2, 1), Cell.Blank(style));

@@ -3,18 +3,22 @@ namespace TUIKit.Widgets
     using System;
 
     /// <summary>
-    /// A labeled field within a <see cref="Form"/>: a caption, the interactive widget, and an
-    /// optional validator that returns an error message or null when the value is acceptable.
+    /// A single labeled field in a <see cref="Form"/>: its label, its input widget, the focusable view of
+    /// that widget, an optional validator, and its visibility and layout flags.
     /// </summary>
     internal sealed class FormField
     {
-        internal string Label { get; }
+        internal string Label { get; set; }
 
         internal IWidget Widget { get; }
 
         internal IFocusable Focusable { get; }
 
         internal Func<string?>? Validator { get; }
+
+        internal bool Visible { get; set; } = true;
+
+        internal bool Inline { get; set; }
 
         internal FormField(string label, IWidget widget, IFocusable focusable, Func<string?>? validator)
         {

@@ -94,7 +94,13 @@ namespace Test.Shared
                     ModalMouseRoutingSuite.Suite(),
                     WidgetMouseCoverageSuite.Suite(),
                     DistributionChartsSuite.Suite(),
-                    FullscreenSuite.Suite()
+                    FullscreenSuite.Suite(),
+                    FocusScopeSuite.Suite(),
+                    ChangeEventsSuite.Suite(),
+                    DataTableUpgradeSuite.Suite(),
+                    FormControlsSuite.Suite(),
+                    ThemeNotificationsSuite.Suite(),
+                    UpstreamRenderingSuite.Suite()
                 };
             }
         }

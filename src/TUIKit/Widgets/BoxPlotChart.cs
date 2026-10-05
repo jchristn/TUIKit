@@ -4,6 +4,7 @@ namespace TUIKit.Widgets
     using System.Collections.Generic;
     using System.Globalization;
     using TUIKit;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// A box-and-whisker (distribution) chart. Each <see cref="BoxSummary"/> is drawn as whiskers spanning
@@ -205,7 +206,7 @@ namespace TUIKit.Widgets
             int labelWidth = 0;
             for (int i = 0; i < _Summaries.Count; i++)
             {
-                int length = _Summaries[i].Label.Length;
+                int length = TextFit.Width(_Summaries[i].Label);
                 if (length > labelWidth)
                     labelWidth = length;
             }
@@ -231,7 +232,7 @@ namespace TUIKit.Widgets
             for (int row = 0; row < dataRows; row++)
             {
                 BoxSummary summary = _Summaries[row];
-                string label = Fit(summary.Label, labelWidth).PadRight(labelWidth);
+                string label = TextFit.PadRight(Fit(summary.Label, labelWidth), labelWidth);
                 surface.DrawText(0, row, label, labelStyle);
 
                 if (plotWidth >= 1)
@@ -312,11 +313,11 @@ namespace TUIKit.Widgets
                 DrawColumn(surface, center, plotTop, plotBottom, rangeMin, rangeMax, summary, whiskerStyle, boxStyle, midStyle);
 
                 string label = Fit(summary.Label, stride);
-                int labelX = center - (label.Length / 2);
+                int labelX = center - (TextFit.Width(label) / 2);
                 if (labelX < plotStart)
                     labelX = plotStart;
-                if (labelX + label.Length > width)
-                    labelX = Math.Max(plotStart, width - label.Length);
+                if (labelX + TextFit.Width(label) > width)
+                    labelX = Math.Max(plotStart, width - TextFit.Width(label));
                 surface.DrawText(labelX, labelRow, label, labelStyle);
 
                 if (ShowValues)
@@ -510,12 +511,7 @@ namespace TUIKit.Widgets
 
         private static string Fit(string text, int width)
         {
-            if (text.Length <= width)
-                return text;
-            if (width <= 1)
-                return text.Substring(0, Math.Max(0, width));
-
-            return text.Substring(0, width - 1) + "…";
+            return TextFit.Ellipsize(text, width);
         }
     }
 }

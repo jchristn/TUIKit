@@ -55,5 +55,15 @@ namespace TUIKit.Content
 
             return _Pane.UpdateLine(_Id, Text.From(content));
         }
+
+        /// <summary>
+        /// Removes the line from the pane, for content that turned out not to need a line (for example a
+        /// streamed Markdown fence). Later updates through this handle are ignored.
+        /// </summary>
+        /// <returns><c>true</c> when the line was found and removed; <c>false</c> when it was already gone.</returns>
+        public bool Remove()
+        {
+            return _Pane.RemoveLine(_Id);
+        }
     }
 }

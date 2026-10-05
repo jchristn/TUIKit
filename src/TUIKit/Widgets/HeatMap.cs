@@ -3,6 +3,7 @@ namespace TUIKit.Widgets
     using System;
     using System.Collections.Generic;
     using TUIKit;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// A grid of intensity cells — rows by columns of values shaded by magnitude — for two-dimensional
@@ -212,8 +213,8 @@ namespace TUIKit.Widgets
             int gutter = 0;
             for (int i = 0; i < _RowLabels.Count; i++)
             {
-                if (_RowLabels[i].Length > gutter)
-                    gutter = _RowLabels[i].Length;
+                if (TextFit.Width(_RowLabels[i]) > gutter)
+                    gutter = TextFit.Width(_RowLabels[i]);
             }
 
             if (gutter > 0)
@@ -274,14 +275,7 @@ namespace TUIKit.Widgets
 
         private static string Fit(string text, int width)
         {
-            if (width <= 0)
-                return string.Empty;
-            if (text.Length <= width)
-                return text.PadRight(width);
-            if (width <= 1)
-                return text.Substring(0, width);
-
-            return text.Substring(0, width - 1) + "…";
+            return TextFit.PadRight(TextFit.Ellipsize(text, width), width);
         }
     }
 }

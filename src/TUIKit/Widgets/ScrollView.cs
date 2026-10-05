@@ -3,14 +3,23 @@ namespace TUIKit.Widgets
     using System;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Theming;
 
     /// <summary>
     /// A container that hosts a child widget larger than the visible region and scrolls it both
     /// vertically and horizontally, drawing scrollbars when the content overflows. The child is
     /// rendered at its full content size into an off-screen buffer, and a window of it is blitted into
-    /// the viewport.
+    /// the viewport. Mouse events other than the wheel are forwarded to the child in content
+    /// coordinates (see <see cref="ForwardMouse"/>).
     /// </summary>
-    public sealed class ScrollView : IWidget, IFocusable, IMouseAware
+    /// <remarks>
+    /// With <see cref="ForwardKeys"/> set the scroll view becomes a hierarchical focus scope
+    /// (<see cref="IFocusContainer"/>): keys go to the child first and scroll the view only when the child
+    /// does not consume them; Tab traversal descends into the child when it is a container. Combine with
+    /// <see cref="IScrollExtent"/> on the child so the focused part stays visible. Not thread-safe: use it
+    /// from the UI loop.
+    /// </remarks>
+    public sealed class ScrollView : IWidget, IFocusable, IMouseAware, IFocusContainer, IFocusAware, IThemeable
     {
         private readonly IWidget _Child;
         private int _ContentWidth;
@@ -18,6 +27,80 @@ namespace TUIKit.Widgets
         private int _ScrollX;
         private int _ScrollY;
         private int _LastViewportHeight;
+        private int _LastViewportWidth;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether keys go to the child first. Defaults to false, which
+        /// keeps the original behavior (the view consumes its scroll keys and the child never sees keys).
+        /// </summary>
+        public bool ForwardKeys { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether non-wheel mouse events inside the viewport are forwarded
+        /// to the child, translated into content coordinates, when it implements <see cref="IMouseAware"/>.
+        /// Wheel events always scroll the view. Defaults to true.
+        /// </summary>
+        public bool ForwardMouse { get; set; } = true;
+
+        /// <summary>
+        /// Gets the hosted child.
+        /// </summary>
+        public IWidget Child
+        {
+            get { return _Child; }
+        }
+
+        /// <inheritdoc/>
+        public IFocusable? FocusedLeaf
+        {
+            get
+            {
+                if (_Child is IFocusContainer container)
+                    return container.FocusedLeaf ?? container;
+
+                return _Child as IFocusable ?? this;
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool MoveFocus(bool forward)
+        {
+            return ForwardKeys && _Child is IFocusContainer container && container.MoveFocus(forward);
+        }
+
+        /// <inheritdoc/>
+        public void FocusEdge(bool first)
+        {
+            if (ForwardKeys && _Child is IFocusContainer container)
+                container.FocusEdge(first);
+        }
+
+        /// <summary>
+        /// Forwards focus changes to the child while <see cref="ForwardKeys"/> is set. Part of
+        /// <see cref="IFocusAware"/>.
+        /// </summary>
+        /// <param name="focused"><c>true</c> when the view gained focus; otherwise <c>false</c>.</param>
+        public void OnFocusChanged(bool focused)
+        {
+            if (ForwardKeys && _Child is IFocusAware aware)
+                aware.OnFocusChanged(focused);
+        }
+
+        /// <summary>
+        /// Applies a theme: <see cref="TrackStyle"/> from <see cref="Theme.Border"/> and
+        /// <see cref="ThumbStyle"/> from <see cref="Theme.Accent"/>, then forwards it to the child.
+        /// </summary>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        public void ApplyTheme(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            TrackStyle = theme.Border;
+            ThumbStyle = theme.Accent;
+            ThemeApplier.Apply(_Child, theme);
+        }
 
         /// <summary>
         /// Gets or sets a value indicating whether the view scrolls to keep the child's focused region
@@ -158,6 +241,12 @@ namespace TUIKit.Widgets
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
         public bool HandleKey(KeyEvent key)
         {
+            if (ForwardKeys && _Child is IFocusable focusable && FocusScope.IsFocusable(focusable) && focusable.HandleKey(key))
+                return true;
+
+            if (ForwardKeys && key.Code == KeyCode.Tab)
+                return false;
+
             switch (key.Code)
             {
                 case KeyCode.Up:
@@ -203,6 +292,18 @@ namespace TUIKit.Widgets
             if (mouse == null)
                 throw new ArgumentNullException(nameof(mouse));
 
+            if (ForwardMouse && mouse.Kind != MouseEventKind.Wheel && _Child is IMouseAware child)
+            {
+                if (mouse.Kind == MouseEventKind.Leave || (mouse.X >= 0 && mouse.Y >= 0
+                    && (_LastViewportWidth <= 0 || mouse.X < _LastViewportWidth)
+                    && (_LastViewportHeight <= 0 || mouse.Y < _LastViewportHeight)))
+                {
+                    return child.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, mouse.X + _ScrollX, mouse.Y + _ScrollY, mouse.Modifiers, mouse.ClickCount));
+                }
+
+                return false;
+            }
+
             switch (mouse.Button)
             {
                 case MouseButton.WheelUp:
@@ -244,6 +345,7 @@ namespace TUIKit.Widgets
             int innerWidth = Math.Max(1, viewWidth - (needVertical ? 1 : 0));
             int innerHeight = Math.Max(1, viewHeight - (needHorizontal ? 1 : 0));
             _LastViewportHeight = innerHeight;
+            _LastViewportWidth = innerWidth;
 
             CellBuffer content = new CellBuffer(_ContentWidth, _ContentHeight);
             _Child.Render(new BufferSurface(content));
@@ -285,7 +387,7 @@ namespace TUIKit.Widgets
             for (int y = 0; y < height; y++)
             {
                 bool onThumb = y >= thumbPos && y < thumbPos + thumbSize;
-                surface.Set(column, y, Cell.Glyph(onThumb ? "█" : "│", onThumb ? thumb : track, 1));
+                surface.Set(column, y, Cell.Glyph(onThumb ? "\u2588" : "\u2502", onThumb ? thumb : track, 1));
             }
         }
 
@@ -299,7 +401,7 @@ namespace TUIKit.Widgets
             for (int x = 0; x < width; x++)
             {
                 bool onThumb = x >= thumbPos && x < thumbPos + thumbSize;
-                surface.Set(x, row, Cell.Glyph(onThumb ? "█" : "─", onThumb ? thumb : track, 1));
+                surface.Set(x, row, Cell.Glyph(onThumb ? "\u2588" : "\u2500", onThumb ? thumb : track, 1));
             }
         }
     }

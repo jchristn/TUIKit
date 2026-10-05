@@ -91,6 +91,19 @@ namespace TUIKit.Hosting
         private BufferSurface? _LastRoot;
         private Size _LastComposeSize;
         private long _SessionStartTimestamp;
+        private bool _ApplyThemeToWidgets;
+        private int _IdleFps;
+        private int _IdleAfterMs = 1000;
+        private long _LastActivityMs;
+        private long _LastRenderMs = long.MinValue;
+        private long _LastPaneVersions;
+        private volatile bool _RenderRequested = true;
+        private int _TooltipDelayMs = 600;
+        private bool _ShowTooltips = true;
+        private int _PointerX = -1;
+        private int _PointerY = -1;
+        private long _PointerStillSinceMs;
+        private readonly Tooltip _Tooltip = new Tooltip();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TuiApplication"/> class.
@@ -137,8 +150,118 @@ namespace TUIKit.Hosting
             set
             {
                 _Theme = value ?? throw new ArgumentNullException(nameof(value));
+                if (_ApplyThemeToWidgets)
+                    ApplyThemeToAll();
+                _RenderRequested = true;
                 _Renderer?.Invalidate();
             }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the host pushes <see cref="Theme"/> into themeable
+        /// components (<see cref="IThemeable"/>): every bound widget (containers forward to their children),
+        /// every pushed modal, the notification center, and the host tooltip, on bind and whenever the
+        /// theme changes. Defaults to false, so widgets keep their built-in colors unless the application
+        /// opts in. Turning it on applies the current theme immediately. Explicit style assignments made
+        /// after a theme is applied stay until the next theme change.
+        /// </summary>
+        public bool ApplyThemeToWidgets
+        {
+            get { return _ApplyThemeToWidgets; }
+            set
+            {
+                _ApplyThemeToWidgets = value;
+                if (value)
+                    ApplyThemeToAll();
+                _Renderer?.Invalidate();
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the frame rate used by <see cref="RunAsync"/> while the session is idle (no input,
+        /// posted actions, pane writes, or <see cref="RequestRender"/> calls for
+        /// <see cref="IdleAfterMilliseconds"/>). Input is still polled at <see cref="TargetFps"/>, so the UI
+        /// stays responsive; only composing frames slows down. Zero (the default) disables idle throttling.
+        /// Must be between 0 and 240.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when out of range.</exception>
+        public int IdleFps
+        {
+            get { return _IdleFps; }
+            set
+            {
+                if (value < 0 || value > 240)
+                    throw new ArgumentOutOfRangeException(nameof(value), value, "Idle FPS must be between 0 and 240.");
+                _IdleFps = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets how long, in milliseconds, the session must be quiet before <see cref="IdleFps"/>
+        /// applies. Defaults to 1000. Must be zero or greater.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when negative.</exception>
+        public int IdleAfterMilliseconds
+        {
+            get { return _IdleAfterMs; }
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException(nameof(value), value, "Idle delay must be zero or greater.");
+                _IdleAfterMs = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the session is currently idle-throttled (see <see cref="IdleFps"/>).
+        /// </summary>
+        public bool IsIdle
+        {
+            get { return _IdleFps > 0 && NowMilliseconds - _LastActivityMs >= _IdleAfterMs; }
+        }
+
+        /// <summary>
+        /// Asks the loop to compose the next frame even while idle-throttled, for state changes the host
+        /// cannot observe (a widget mutated from a timer, for example). Safe to call from any thread.
+        /// </summary>
+        public void RequestRender()
+        {
+            _RenderRequested = true;
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the host draws tooltips for widgets implementing
+        /// <see cref="ITooltipProvider"/> once the pointer rests over them. Defaults to true; it has no
+        /// effect on widgets that do not implement the interface.
+        /// </summary>
+        public bool ShowTooltips
+        {
+            get { return _ShowTooltips; }
+            set { _ShowTooltips = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets how long the pointer must rest before a tooltip appears, in milliseconds. Defaults
+        /// to 600. Must be zero or greater.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when negative.</exception>
+        public int TooltipDelayMilliseconds
+        {
+            get { return _TooltipDelayMs; }
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException(nameof(value), value, "Tooltip delay must be zero or greater.");
+                _TooltipDelayMs = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets the tooltip renderer the host uses, for styling.
+        /// </summary>
+        public Tooltip Tooltip
+        {
+            get { return _Tooltip; }
         }
 
         /// <summary>
@@ -601,6 +724,9 @@ namespace TUIKit.Hosting
                 throw new ArgumentNullException(nameof(widget));
 
             _Content[regionId] = widget;
+            if (_ApplyThemeToWidgets)
+                ThemeApplier.Apply(widget, _Theme);
+            _RenderRequested = true;
 
             if (widget is IFocusable && !_FocusOrder.Contains(regionId))
             {
@@ -784,7 +910,10 @@ namespace TUIKit.Hosting
             if (modal == null)
                 throw new ArgumentNullException(nameof(modal));
 
+            if (_ApplyThemeToWidgets)
+                ThemeApplier.Apply(modal, _Theme);
             _Modals.Push(modal);
+            _RenderRequested = true;
             return modal.Completion;
         }
 
@@ -883,6 +1012,57 @@ namespace TUIKit.Hosting
         }
 
         /// <summary>
+        /// Shows the built-in command palette over a registry's commands. The chosen command's handler
+        /// runs when the palette closes.
+        /// </summary>
+        /// <param name="registry">The command registry. Must not be null.</param>
+        /// <returns>The chosen command, or null when cancelled.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="registry"/> is null.</exception>
+        public async Task<Command?> ShowCommandPaletteAsync(CommandRegistry registry)
+        {
+            if (registry == null)
+                throw new ArgumentNullException(nameof(registry));
+
+            object? result = await ShowAsync(new CommandPaletteModal(registry)).ConfigureAwait(false);
+            return result as Command;
+        }
+
+        /// <summary>
+        /// Shows the built-in key-help overlay listing every registry command that has a chord, plus any
+        /// extra rows.
+        /// </summary>
+        /// <param name="registry">The command registry. Must not be null.</param>
+        /// <param name="extra">Additional rows (for example widget keys), or null.</param>
+        /// <returns>A task that completes when the overlay closes.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="registry"/> is null.</exception>
+        public async Task ShowKeyHelpAsync(CommandRegistry registry, IEnumerable<KeyHelpEntry>? extra = null)
+        {
+            if (registry == null)
+                throw new ArgumentNullException(nameof(registry));
+
+            KeyHelpModal modal = KeyHelpModal.FromCommands(registry.Commands);
+            if (extra != null)
+            {
+                foreach (KeyHelpEntry entry in extra)
+                {
+                    if (entry != null)
+                        modal.Add(entry.Category, entry.Keys, entry.Description);
+                }
+            }
+
+            await ShowAsync(modal).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Shows the notification history (the notification center) as a modal.
+        /// </summary>
+        /// <returns>A task that completes when the modal closes.</returns>
+        public async Task ShowNotificationHistoryAsync()
+        {
+            await ShowAsync(new NotificationHistoryModal(_Notifications, () => NowMilliseconds)).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Raises a transient notification (toast).
         /// </summary>
         /// <param name="text">The message. Must not be null.</param>
@@ -895,6 +1075,28 @@ namespace TUIKit.Hosting
                 throw new ArgumentNullException(nameof(text));
 
             _Notifications.Add(text, severity, NowMilliseconds, timeoutMilliseconds);
+            _RenderRequested = true;
+        }
+
+        /// <summary>
+        /// Raises a notification with a title and action buttons. It stays in
+        /// <see cref="NotificationCenter.History"/> after its toast goes away.
+        /// </summary>
+        /// <param name="text">The message. Must not be null.</param>
+        /// <param name="severity">The severity.</param>
+        /// <param name="title">An optional title, or null.</param>
+        /// <param name="timeoutMilliseconds">The timeout, or null for the default. Zero is sticky.</param>
+        /// <param name="actions">Action buttons, or none.</param>
+        /// <returns>The notification.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
+        public Notification Notify(string text, NotificationSeverity severity, string? title, int? timeoutMilliseconds, params NotificationAction[] actions)
+        {
+            if (text == null)
+                throw new ArgumentNullException(nameof(text));
+
+            Notification notification = _Notifications.Add(text, severity, NowMilliseconds, timeoutMilliseconds, title, actions);
+            _RenderRequested = true;
+            return notification;
         }
 
         /// <summary>
@@ -1101,7 +1303,8 @@ namespace TUIKit.Hosting
                 while (!_StopRequested && !cancellationToken.IsCancellationRequested)
                 {
                     PumpInputOnce();
-                    RenderOnce();
+                    if (ShouldRenderFrame())
+                        RenderOnce();
                     await Task.Delay(frameDelay, cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -1240,6 +1443,81 @@ namespace TUIKit.Hosting
             TuiKitInstruments.SetSessionShape(_TargetFps, _Renderer.Size.Width, _Renderer.Size.Height);
         }
 
+        // Decides whether the run loop composes this frame. Without idle throttling every frame renders
+        // (the original behavior). With it, a frame renders on activity, on a pane write, on request, or
+        // once per idle interval.
+        private bool ShouldRenderFrame()
+        {
+            long now = NowMilliseconds;
+            if (_IdleFps <= 0)
+            {
+                _LastRenderMs = now;
+                return true;
+            }
+
+            long versions = PaneVersions();
+            if (versions != _LastPaneVersions)
+            {
+                _LastPaneVersions = versions;
+                _LastActivityMs = now;
+            }
+
+            if (_RenderRequested)
+            {
+                _RenderRequested = false;
+                _LastActivityMs = now;
+            }
+
+            bool idle = now - _LastActivityMs >= _IdleAfterMs;
+            if (!idle || _LastRenderMs == long.MinValue || now - _LastRenderMs >= 1000 / _IdleFps
+                || (_ShowTooltips && _PointerX >= 0 && now - _PointerStillSinceMs >= _TooltipDelayMs && now - _PointerStillSinceMs < _TooltipDelayMs + 1000))
+            {
+                _LastRenderMs = now;
+                return true;
+            }
+
+            return false;
+        }
+
+        private long PaneVersions()
+        {
+            long total = 0;
+            foreach (KeyValuePair<string, IWidget> entry in _Content)
+            {
+                if (entry.Value is Pane pane)
+                    total += pane.Version;
+            }
+
+            return total;
+        }
+
+        private void ApplyThemeToAll()
+        {
+            foreach (KeyValuePair<string, IWidget> entry in _Content)
+                ThemeApplier.Apply(entry.Value, _Theme);
+
+            _Notifications.ApplyTheme(_Theme);
+            _Tooltip.ApplyTheme(_Theme);
+            Modal? top = _Modals.Top;
+            ThemeApplier.Apply(top, _Theme);
+        }
+
+        private void RenderTooltip(ISurface root)
+        {
+            if (!_ShowTooltips || _PointerX < 0 || _Modals.IsActive)
+                return;
+            if (NowMilliseconds - _PointerStillSinceMs < _TooltipDelayMs)
+                return;
+
+            HitTestEntry? hit = HitTest(_PointerX, _PointerY);
+            if (hit == null || !(hit.Widget is ITooltipProvider provider))
+                return;
+
+            string? text = provider.GetTooltip(_PointerX - hit.Rect.X, _PointerY - hit.Rect.Y);
+            if (!string.IsNullOrEmpty(text))
+                _Tooltip.Render(root, _PointerX, _PointerY, text!);
+        }
+
         private void Compose(ISurface root)
         {
             Size size = root.Size;
@@ -1314,6 +1592,8 @@ namespace TUIKit.Hosting
 
             _OnRenderOverlay?.Invoke(root);
 
+            RenderTooltip(root);
+
             if (_Modals.IsActive)
                 _Modals.Render(root);
 
@@ -1381,6 +1661,8 @@ namespace TUIKit.Hosting
 
         private void Dispatch(InputEvent inputEvent)
         {
+            _LastActivityMs = NowMilliseconds;
+            _RenderRequested = true;
             string kind = InputKindName(inputEvent.Kind);
             long start = TuiKitInstruments.Timestamp();
             TuiKitInstruments.Add(TuiKitInstruments.InputEvents, 1, TuiKitTelemetryNames.AttrInputKind, kind);
@@ -1488,6 +1770,9 @@ namespace TUIKit.Hosting
 
         private void DispatchKey(KeyEvent key)
         {
+            // Any key hides a pending or showing tooltip until the pointer moves again.
+            _PointerStillSinceMs = long.MaxValue / 2;
+
             if (IsCtrlC(key) && _CtrlCPolicy != CtrlCPolicy.Custom)
             {
                 // With the selection layer on and a selection present, Ctrl+C copies and clears it
@@ -1609,6 +1894,18 @@ namespace TUIKit.Hosting
             }
 
             UpdateLinkHover(mouse);
+
+            if (mouse.X != _PointerX || mouse.Y != _PointerY || mouse.Kind != MouseEventKind.Move)
+            {
+                _PointerX = mouse.Kind == MouseEventKind.Leave ? -1 : mouse.X;
+                _PointerY = mouse.Y;
+                _PointerStillSinceMs = mouse.Kind == MouseEventKind.Move ? NowMilliseconds : long.MaxValue / 2;
+            }
+
+            // Toasts draw above everything, so clicks on their actions or dismiss markers go to the
+            // notification center first. Clicks elsewhere (and on plain toasts) fall through as before.
+            if (_AutoRenderNotifications && mouse.Kind == MouseEventKind.Press && _Notifications.HandleMouse(mouse))
+                return;
 
             // Modal trap: while a modal is active it receives the mouse before any region-bound widget,
             // mirroring the key trap above, so clicks land on the dialog and never leak to the interface
@@ -1953,7 +2250,23 @@ namespace TUIKit.Hosting
                 ? (direction > 0 ? 0 : _FocusOrder.Count - 1)
                 : (current + direction + _FocusOrder.Count) % _FocusOrder.Count;
 
+            // Skip disabled widgets (IEnableable) unless every candidate is disabled.
+            for (int attempt = 0; attempt < _FocusOrder.Count; attempt++)
+            {
+                int candidate = (next + (direction * attempt) + (_FocusOrder.Count * _FocusOrder.Count)) % _FocusOrder.Count;
+                if (_Content.TryGetValue(_FocusOrder[candidate], out IWidget? widget) && FocusScope.IsFocusable(widget))
+                {
+                    next = candidate;
+                    break;
+                }
+            }
+
             SetFocusInternal(_FocusOrder[next]);
+
+            // Entering a hierarchical container focuses its first descendant (forward) or last (backward).
+            if (_Content.TryGetValue(_FocusOrder[next], out IWidget? entered) && entered is IFocusContainer container)
+                container.FocusEdge(direction > 0);
+
             return true;
         }
 
@@ -1981,7 +2294,10 @@ namespace TUIKit.Hosting
         private void DrainPostQueue()
         {
             while (_PostQueue.TryDequeue(out PostedAction? posted))
+            {
                 RunPosted(posted);
+                _RenderRequested = true;
+            }
         }
 
         private static void RunPosted(PostedAction posted)

@@ -5,6 +5,7 @@ namespace TUIKit.Modals
     using TUIKit;
     using TUIKit.Content;
     using TUIKit.Input;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// A simple modal showing a title, a message, and a row of buttons. Left/Right or Tab move the
@@ -124,7 +125,7 @@ namespace TUIKit.Modals
         {
             int totalWidth = 0;
             for (int i = 0; i < _Buttons.Length; i++)
-                totalWidth += _Buttons[i].Length + 4 + 1;
+                totalWidth += TextFit.Width(_Buttons[i]) + 4 + 1;
 
             int cursor = startX + Math.Max(0, (width - totalWidth) / 2);
             for (int i = 0; i < _Buttons.Length; i++)

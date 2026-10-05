@@ -123,6 +123,12 @@ namespace TUIKit.Modals
         public CellStyle BackgroundStyle { get; set; } = CellStyle.Default;
 
         /// <summary>
+        /// Gets the screen rectangle of the content area as of the most recent render, so derived modals
+        /// can hit-test mouse events (which arrive in screen coordinates). Empty before the first render.
+        /// </summary>
+        protected Rect ContentBounds { get; private set; }
+
+        /// <summary>
         /// Reports the natural content width the subclass would like, in cells, given the width the
         /// screen can offer. The base class clamps the result to <see cref="MinContentWidth"/>,
         /// <see cref="MaxContentWidth"/>, and the screen.
@@ -170,23 +176,7 @@ namespace TUIKit.Modals
         /// <returns>The fitted text. Never null.</returns>
         protected static string Truncate(string? text, int maxWidth)
         {
-            if (maxWidth < 1)
-                return string.Empty;
-            if (string.IsNullOrEmpty(text))
-                return string.Empty;
-
-            if (TUIKit.Unicode.Graphemes.MeasureWidth(text!) <= maxWidth)
-                return text!;
-
-            if (maxWidth == 1)
-                return "…";
-
-            int take = maxWidth - 1;
-            string clipped = text!.Length > take ? text.Substring(0, take) : text;
-            while (clipped.Length > 0 && TUIKit.Unicode.Graphemes.MeasureWidth(clipped) > maxWidth - 1)
-                clipped = clipped.Substring(0, clipped.Length - 1);
-
-            return clipped + "…";
+            return TUIKit.Unicode.TextFit.Ellipsize(text, maxWidth);
         }
 
         /// <inheritdoc/>
@@ -222,6 +212,7 @@ namespace TUIKit.Modals
             DrawFooter(surface, box);
 
             Rect contentRect = new Rect(boxX + 1 + pad.Left, boxY + 1 + pad.Top, contentWidth, contentHeight);
+            ContentBounds = contentRect;
             SurfaceView content = new SurfaceView(surface, contentRect);
             RenderContent(content);
         }

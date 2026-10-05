@@ -375,18 +375,21 @@ namespace TUIKit.Content
                 if (width <= 0 || height <= 0)
                     return;
 
-                List<StyledText> rows = BuildRows(width);
-                _LastTotalRows = rows.Count;
+                // Wrapped rows are cached per line and width, so only new or changed lines rewrap, and
+                // only the visible window is materialized.
+                int totalRows = CountRows(width);
+                _LastTotalRows = totalRows;
                 _LastHeight = height;
                 _LastWidth = width;
 
-                int maxTop = Math.Max(0, rows.Count - height);
+                int maxTop = Math.Max(0, totalRows - height);
                 int top = _Attached ? maxTop : Math.Min(Math.Max(_ViewTop, 0), maxTop);
                 _ViewTop = top;
 
-                for (int r = 0; r < height && top + r < rows.Count; r++)
+                List<StyledText> rows = VisibleRows(width, top, height);
+                for (int r = 0; r < rows.Count; r++)
                 {
-                    StyledText row = rows[top + r];
+                    StyledText row = rows[r];
                     if (!string.IsNullOrEmpty(_Search))
                         row = HighlightMatches(row, _Search!, _SearchStyle);
 
@@ -421,6 +424,24 @@ namespace TUIKit.Content
                     if (_Lines[i].Id == id)
                     {
                         _Lines[i].Content = content;
+                        Bump();
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        internal bool RemoveLine(long id)
+        {
+            lock (_Sync)
+            {
+                for (int i = _Lines.Count - 1; i >= 0; i--)
+                {
+                    if (_Lines[i].Id == id)
+                    {
+                        _Lines.RemoveAt(i);
                         Bump();
                         return true;
                     }
@@ -529,12 +550,57 @@ namespace TUIKit.Content
             }
         }
 
+        private int CountRows(int width)
+        {
+            int total = 0;
+            for (int i = 0; i < _Lines.Count; i++)
+                total += _Lines[i].Wrapped(width).Count;
+
+            if (_Current.Spans.Count > 0 && _Current.ToPlainString().Length > 0)
+                total += TextWrapper.Wrap(_Current, width).Count;
+
+            return total;
+        }
+
+        private List<StyledText> VisibleRows(int width, int top, int height)
+        {
+            List<StyledText> rows = new List<StyledText>(height);
+            int row = 0;
+            for (int i = 0; i < _Lines.Count && rows.Count < height; i++)
+            {
+                IReadOnlyList<StyledText> wrapped = _Lines[i].Wrapped(width);
+                if (row + wrapped.Count <= top)
+                {
+                    row += wrapped.Count;
+                    continue;
+                }
+
+                for (int w = 0; w < wrapped.Count && rows.Count < height; w++, row++)
+                {
+                    if (row >= top)
+                        rows.Add(wrapped[w]);
+                }
+            }
+
+            if (rows.Count < height && _Current.Spans.Count > 0 && _Current.ToPlainString().Length > 0)
+            {
+                IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(_Current, width);
+                for (int w = 0; w < wrapped.Count && rows.Count < height; w++, row++)
+                {
+                    if (row >= top)
+                        rows.Add(wrapped[w]);
+                }
+            }
+
+            return rows;
+        }
+
         private List<StyledText> BuildRows(int width)
         {
             List<StyledText> rows = new List<StyledText>();
             for (int i = 0; i < _Lines.Count; i++)
             {
-                IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(_Lines[i].Content, width);
+                IReadOnlyList<StyledText> wrapped = _Lines[i].Wrapped(width);
                 for (int w = 0; w < wrapped.Count; w++)
                     rows.Add(wrapped[w]);
             }

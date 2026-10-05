@@ -5,13 +5,19 @@ namespace TUIKit.Widgets
     using System.Text;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Theming;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// A multi-line text editor widget with caret movement, insertion and deletion, newline handling,
     /// a kill ring, and undo/redo. Drive it by forwarding key events to <see cref="HandleKey"/>. This
-    /// is the interactive composer in the example harness.
+    /// is the interactive composer in the example harness. Caret placement, wrapping, and horizontal
+    /// scrolling are measured in terminal columns, and caret movement and deletion step over whole
+    /// grapheme clusters, so CJK and emoji text edit correctly. Without <see cref="WordWrap"/> long lines
+    /// scroll horizontally to keep the caret visible.
     /// </summary>
-    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware
+    /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
+    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable
     {
         private readonly List<string> _Lines = new List<string> { string.Empty };
         private readonly Stack<EditorSnapshot> _Undo = new Stack<EditorSnapshot>();
@@ -20,6 +26,8 @@ namespace TUIKit.Widgets
         private int _Column;
         private string _KillRing = string.Empty;
         private int _MaxUndo = 200;
+        private int _ScrollColumn;
+        private bool _Enabled = true;
 
         // The first visible line index and viewport height captured on the last render, so a click can map a
         // screen row back to a text row.
@@ -37,6 +45,80 @@ namespace TUIKit.Widgets
         /// Gets or sets a value indicating whether the editor is focused and should render a caret.
         /// </summary>
         public bool IsFocused { get; set; }
+
+        /// <summary>
+        /// Raised after the text changes, whether from typing, a paste through <see cref="InsertText"/>,
+        /// undo/redo, or a programmatic set of <see cref="Text"/>. Raised once per operation, and not
+        /// raised when a set leaves the text unchanged.
+        /// </summary>
+        public event EventHandler? TextChanged;
+
+        /// <summary>
+        /// Raised after any text change; the <see cref="IChangeNotifier"/> companion of <see cref="TextChanged"/>.
+        /// </summary>
+        public event EventHandler? Changed;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the editor accepts input. A disabled editor renders with
+        /// <see cref="DisabledStyle"/>, shows no caret, and ignores keys and the mouse. Defaults to true.
+        /// </summary>
+        public bool IsEnabled
+        {
+            get { return _Enabled; }
+            set { _Enabled = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the text is read-only. A read-only editor still moves
+        /// its caret and scrolls, but editing keys are not consumed (they fall through to the host).
+        /// Programmatic calls (<see cref="Text"/>, <see cref="InsertText"/>) still apply. Defaults to false.
+        /// </summary>
+        public bool IsReadOnly { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether Ctrl+letter chords the editor does not bind (anything
+        /// other than Ctrl+Z, Ctrl+Y, Ctrl+K, Ctrl+U) are consumed. Defaults to true, the original behavior;
+        /// set it to false so unbound chords such as a command palette key fall through to the host.
+        /// </summary>
+        public bool ConsumeUnboundControlKeys { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the style composed over <see cref="NormalStyle"/> while disabled or read-only.
+        /// Defaults to dim text.
+        /// </summary>
+        public CellStyle DisabledStyle { get; set; } = CellStyle.Default.WithAttribute(CellAttributes.Dim, true);
+
+        /// <summary>
+        /// Gets the first visible column of unwrapped text, which moves when the caret leaves the viewport
+        /// horizontally. Always zero while <see cref="WordWrap"/> is on.
+        /// </summary>
+        public int ScrollColumn
+        {
+            get { return WordWrap ? 0 : _ScrollColumn; }
+        }
+
+        /// <summary>
+        /// Gets the number of logical lines. Always at least one.
+        /// </summary>
+        public int LineCount
+        {
+            get { return _Lines.Count; }
+        }
+
+        /// <summary>
+        /// Applies a theme: <see cref="NormalStyle"/> from <see cref="Theme.Text"/> and
+        /// <see cref="DisabledStyle"/> from <see cref="Theme.Disabled"/>.
+        /// </summary>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        public void ApplyTheme(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            NormalStyle = theme.Text;
+            DisabledStyle = theme.Disabled;
+        }
 
         /// <summary>
         /// Gets or sets the base style used to paint the editor: the surface fill and the text share
@@ -108,6 +190,7 @@ namespace TUIKit.Widgets
                 if (value == null)
                     throw new ArgumentNullException(nameof(value));
 
+                string before = Text;
                 _Lines.Clear();
                 string[] parts = value.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
                 for (int i = 0; i < parts.Length; i++)
@@ -120,6 +203,8 @@ namespace TUIKit.Widgets
                 _Column = _Lines[_Row].Length;
                 _Undo.Clear();
                 _Redo.Clear();
+                if (!string.Equals(before, Text, StringComparison.Ordinal))
+                    RaiseChanged();
             }
         }
 
@@ -130,41 +215,61 @@ namespace TUIKit.Widgets
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
         public bool HandleKey(KeyEvent key)
         {
+            if (!_Enabled)
+                return false;
+
             bool ctrl = (key.Modifiers & KeyModifiers.Ctrl) != 0;
+            bool editable = !IsReadOnly;
 
             if (ctrl && key.Code == KeyCode.Character)
             {
                 switch (key.Rune)
                 {
                     case 'z':
+                        if (!editable)
+                            return false;
                         Undo();
                         return true;
                     case 'y':
+                        if (!editable)
+                            return false;
                         Redo();
                         return true;
                     case 'k':
+                        if (!editable)
+                            return false;
                         KillToEndOfLine();
                         return true;
                     case 'u':
+                        if (!editable)
+                            return false;
                         Yank();
                         return true;
                     default:
-                        return true;
+                        return ConsumeUnboundControlKeys;
                 }
             }
 
             switch (key.Code)
             {
                 case KeyCode.Character:
+                    if (!editable)
+                        return false;
                     InsertText(char.ConvertFromUtf32(key.Rune));
                     return true;
                 case KeyCode.Enter:
+                    if (!editable)
+                        return false;
                     InsertNewline();
                     return true;
                 case KeyCode.Backspace:
+                    if (!editable)
+                        return false;
                     Backspace();
                     return true;
                 case KeyCode.Delete:
+                    if (!editable)
+                        return false;
                     DeleteForward();
                     return true;
                 case KeyCode.Left:
@@ -216,6 +321,8 @@ namespace TUIKit.Widgets
                 NewlineRaw();
                 start = newline + 1;
             }
+
+            RaiseChanged();
         }
 
         /// <summary>
@@ -225,6 +332,7 @@ namespace TUIKit.Widgets
         {
             PushUndo();
             NewlineRaw();
+            RaiseChanged();
         }
 
         /// <summary>
@@ -238,8 +346,9 @@ namespace TUIKit.Widgets
             PushUndo();
             if (_Column > 0)
             {
-                _Lines[_Row] = _Lines[_Row].Remove(_Column - 1, 1);
-                _Column--;
+                int start = TextFit.PreviousBoundary(_Lines[_Row], _Column);
+                _Lines[_Row] = _Lines[_Row].Remove(start, _Column - start);
+                _Column = start;
             }
             else
             {
@@ -249,6 +358,8 @@ namespace TUIKit.Widgets
                 _Row--;
                 _Column = prevLength;
             }
+
+            RaiseChanged();
         }
 
         /// <summary>
@@ -260,13 +371,16 @@ namespace TUIKit.Widgets
             if (_Column < line.Length)
             {
                 PushUndo();
-                _Lines[_Row] = line.Remove(_Column, 1);
+                int end = TextFit.NextBoundary(line, _Column);
+                _Lines[_Row] = line.Remove(_Column, end - _Column);
+                RaiseChanged();
             }
             else if (_Row < _Lines.Count - 1)
             {
                 PushUndo();
                 _Lines[_Row] += _Lines[_Row + 1];
                 _Lines.RemoveAt(_Row + 1);
+                RaiseChanged();
             }
         }
 
@@ -282,6 +396,7 @@ namespace TUIKit.Widgets
             PushUndo();
             _KillRing = line.Substring(_Column);
             _Lines[_Row] = line.Substring(0, _Column);
+            RaiseChanged();
         }
 
         /// <summary>
@@ -359,6 +474,7 @@ namespace TUIKit.Widgets
 
             _Row = Math.Min(_Row, _Lines.Count - 1);
             _Column = Math.Min(_Column, _Lines[_Row].Length);
+            RaiseChanged();
             return total;
         }
 
@@ -372,6 +488,7 @@ namespace TUIKit.Widgets
 
             _Redo.Push(Capture());
             Restore(_Undo.Pop());
+            RaiseChanged();
         }
 
         /// <summary>
@@ -384,6 +501,7 @@ namespace TUIKit.Widgets
 
             _Undo.Push(Capture());
             Restore(_Redo.Pop());
+            RaiseChanged();
         }
 
         /// <summary>
@@ -392,7 +510,7 @@ namespace TUIKit.Widgets
         public void MoveLeft()
         {
             if (_Column > 0)
-                _Column--;
+                _Column = TextFit.PreviousBoundary(_Lines[_Row], _Column);
             else if (_Row > 0)
             {
                 _Row--;
@@ -406,7 +524,7 @@ namespace TUIKit.Widgets
         public void MoveRight()
         {
             if (_Column < _Lines[_Row].Length)
-                _Column++;
+                _Column = TextFit.NextBoundary(_Lines[_Row], _Column);
             else if (_Row < _Lines.Count - 1)
             {
                 _Row++;
@@ -421,8 +539,9 @@ namespace TUIKit.Widgets
         {
             if (_Row > 0)
             {
+                int visualColumn = TextFit.ColumnOf(_Lines[_Row], _Column);
                 _Row--;
-                _Column = Math.Min(_Column, _Lines[_Row].Length);
+                _Column = TextFit.IndexAtColumn(_Lines[_Row], visualColumn);
             }
         }
 
@@ -433,8 +552,9 @@ namespace TUIKit.Widgets
         {
             if (_Row < _Lines.Count - 1)
             {
+                int visualColumn = TextFit.ColumnOf(_Lines[_Row], _Column);
                 _Row++;
-                _Column = Math.Min(_Column, _Lines[_Row].Length);
+                _Column = TextFit.IndexAtColumn(_Lines[_Row], visualColumn);
             }
         }
 
@@ -451,20 +571,24 @@ namespace TUIKit.Widgets
             if (mouse == null)
                 throw new ArgumentNullException(nameof(mouse));
 
+            if (!_Enabled)
+                return false;
+
             if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
             {
                 if (WordWrap && _VisLogical.Count > 0)
                 {
                     int vi = Math.Max(0, Math.Min(_LastTop + mouse.Y, _VisLogical.Count - 1));
                     _Row = _VisLogical[vi];
-                    _Column = Math.Max(0, Math.Min(_VisStart[vi] + mouse.X, _VisStart[vi] + _VisLen[vi]));
+                    string segment = _Lines[_Row].Substring(_VisStart[vi], _VisLen[vi]);
+                    _Column = _VisStart[vi] + TextFit.IndexAtColumn(segment, Math.Max(0, mouse.X));
                     _Column = Math.Min(_Column, _Lines[_Row].Length);
                     return true;
                 }
 
                 int row = Math.Max(0, Math.Min(_LastTop + mouse.Y, _Lines.Count - 1));
                 _Row = row;
-                _Column = Math.Max(0, Math.Min(mouse.X, _Lines[row].Length));
+                _Column = TextFit.IndexAtColumn(_Lines[row], Math.Max(0, mouse.X) + _ScrollColumn);
                 return true;
             }
 
@@ -501,11 +625,14 @@ namespace TUIKit.Widgets
 
             int height = surface.Size.Height;
             int width = surface.Size.Width;
-            surface.Fill(new Rect(0, 0, width, height), Cell.Blank(NormalStyle));
+            CellStyle textStyle = !_Enabled || IsReadOnly ? DisabledStyle.Over(NormalStyle) : NormalStyle;
+            surface.Fill(new Rect(0, 0, width, height), Cell.Blank(textStyle));
+            if (width <= 0 || height <= 0)
+                return;
 
-            if (WordWrap && width > 0)
+            if (WordWrap)
             {
-                RenderWrapped(surface, width, height);
+                RenderWrapped(surface, width, height, textStyle);
                 return;
             }
 
@@ -516,20 +643,45 @@ namespace TUIKit.Widgets
             _LastTop = top;
             _LastHeight = height;
 
-            for (int row = 0; row < height && top + row < _Lines.Count; row++)
-                surface.DrawText(0, row, _Lines[top + row], NormalStyle);
+            // Horizontal scroll: keep the caret column inside the viewport (one spare column at the right
+            // so the caret can sit after the last glyph).
+            int caretColumn = TextFit.ColumnOf(_Lines[_Row], _Column);
+            int usable = Math.Max(1, width - 1);
+            if (caretColumn < _ScrollColumn)
+                _ScrollColumn = caretColumn;
+            else if (caretColumn > _ScrollColumn + usable)
+                _ScrollColumn = caretColumn - usable;
 
-            if (IsFocused)
+            for (int row = 0; row < height && top + row < _Lines.Count; row++)
+                surface.DrawText(0, row, TextFit.Slice(_Lines[top + row], _ScrollColumn, width), textStyle);
+
+            if (IsFocused && _Enabled)
+                DrawCaret(surface, _Lines[_Row], _Column, caretColumn - _ScrollColumn, _Row - top, width, height);
+        }
+
+        private void DrawCaret(ISurface surface, string line, int index, int x, int y, int width, int height)
+        {
+            if (y < 0 || y >= height || x < 0 || x >= width)
+                return;
+
+            string glyph = " ";
+            int glyphWidth = 1;
+            if (index < line.Length)
             {
-                int caretScreenRow = _Row - top;
-                if (caretScreenRow >= 0 && caretScreenRow < height && _Column <= width)
+                int end = TextFit.NextBoundary(line, index);
+                glyph = line.Substring(index, end - index);
+                glyphWidth = TextFit.Width(glyph);
+                if (glyphWidth < 1 || x + glyphWidth > width)
                 {
-                    Cell under = _Column < _Lines[_Row].Length
-                        ? Cell.Glyph(_Lines[_Row][_Column].ToString(), NormalStyle, 1)
-                        : Cell.Blank(NormalStyle);
-                    surface.Set(_Column, caretScreenRow, Cell.Glyph(under.Grapheme, under.Style.WithAttribute(CellAttributes.Reverse, true), 1));
+                    glyph = " ";
+                    glyphWidth = 1;
                 }
             }
+
+            CellStyle caretStyle = NormalStyle.WithAttribute(CellAttributes.Reverse, true);
+            surface.Set(x, y, Cell.Glyph(glyph, caretStyle, glyphWidth));
+            if (glyphWidth == 2)
+                surface.Set(x + 1, y, Cell.Continuation(caretStyle));
         }
 
         /// <summary>
@@ -556,7 +708,7 @@ namespace TUIKit.Widgets
         }
 
         // Rebuilds the visual-row layout, scrolls it to keep the caret in view, and paints it.
-        private void RenderWrapped(ISurface surface, int width, int height)
+        private void RenderWrapped(ISurface surface, int width, int height, CellStyle textStyle)
         {
             _VisLogical.Clear();
             _VisStart.Clear();
@@ -587,7 +739,7 @@ namespace TUIKit.Widgets
                         if (_Column < start + len || (lastSegOfLine && _Column <= start + len))
                         {
                             caretVisual = k;
-                            caretColumn = _Column - start;
+                            caretColumn = TextFit.ColumnOf(line.Substring(start, len), _Column - start);
                             caretFound = true;
                             break;
                         }
@@ -608,20 +760,13 @@ namespace TUIKit.Widgets
             for (int row = 0; row < height && top + row < total; row++)
             {
                 int vi = top + row;
-                surface.DrawText(0, row, _Lines[_VisLogical[vi]].Substring(_VisStart[vi], _VisLen[vi]), NormalStyle);
+                surface.DrawText(0, row, _Lines[_VisLogical[vi]].Substring(_VisStart[vi], _VisLen[vi]), textStyle);
             }
 
-            if (IsFocused && caretFound)
+            if (IsFocused && _Enabled && caretFound)
             {
-                int caretScreenRow = caretVisual - top;
-                if (caretScreenRow >= 0 && caretScreenRow < height && caretColumn >= 0 && caretColumn <= width)
-                {
-                    string seg = _Lines[_VisLogical[caretVisual]].Substring(_VisStart[caretVisual], _VisLen[caretVisual]);
-                    Cell under = caretColumn < seg.Length
-                        ? Cell.Glyph(seg[caretColumn].ToString(), NormalStyle, 1)
-                        : Cell.Blank(NormalStyle);
-                    surface.Set(caretColumn, caretScreenRow, Cell.Glyph(under.Grapheme, under.Style.WithAttribute(CellAttributes.Reverse, true), 1));
-                }
+                string seg = _Lines[_VisLogical[caretVisual]].Substring(_VisStart[caretVisual], _VisLen[caretVisual]);
+                DrawCaret(surface, seg, _Column - _VisStart[caretVisual], Math.Min(caretColumn, width - 1), caretVisual - top, width, height);
             }
         }
 
@@ -644,34 +789,37 @@ namespace TUIKit.Widgets
                 return;
             }
 
-            int i = 0;
-            while (i < length)
+            IReadOnlyList<Grapheme> clusters = Graphemes.Split(line);
+            int segStart = 0;
+            int segWidth = 0;
+            int index = 0;
+            int lastSpaceEnd = -1;
+            for (int i = 0; i < clusters.Count; i++)
             {
-                int remaining = length - i;
-                int segLen;
-                if (remaining <= width)
+                Grapheme cluster = clusters[i];
+                if (segWidth + cluster.Width > width && index > segStart)
                 {
-                    segLen = remaining;
-                }
-                else
-                {
-                    int limit = i + width; // exclusive
-                    int breakPos = -1;
-                    for (int j = limit - 1; j > i; j--)
-                    {
-                        if (line[j] == ' ')
-                        {
-                            breakPos = j;
-                            break;
-                        }
-                    }
-
-                    segLen = breakPos > i ? (breakPos - i + 1) : width;
+                    // Break after the last space within the width when there is one, otherwise hard-break.
+                    int breakAt = lastSpaceEnd > segStart + 1 ? lastSpaceEnd : index;
+                    emit(segStart, breakAt - segStart);
+                    segWidth = TextFit.Width(line.Substring(breakAt, index - breakAt));
+                    segStart = breakAt;
+                    lastSpaceEnd = -1;
                 }
 
-                emit(i, segLen);
-                i += segLen;
+                segWidth += cluster.Width;
+                index += cluster.Text.Length;
+                if (cluster.Text == " ")
+                    lastSpaceEnd = index;
             }
+
+            emit(segStart, length - segStart);
+        }
+
+        private void RaiseChanged()
+        {
+            TextChanged?.Invoke(this, EventArgs.Empty);
+            Changed?.Invoke(this, EventArgs.Empty);
         }
 
         private void InsertRaw(string segment)

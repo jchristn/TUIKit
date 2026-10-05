@@ -4,6 +4,7 @@ namespace TUIKit.Widgets
     using System.Collections.Generic;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// A list that filters its items as the user types, using fuzzy subsequence matching with the
@@ -232,11 +233,25 @@ namespace TUIKit.Widgets
 
                 List<int> positions = new List<int>();
                 Matches(item, _Query, positions);
-                for (int i = 0; i < item.Length && i < width; i++)
+                // Draw cluster by cluster so wide (CJK, emoji) glyphs occupy two cells and never split.
+                IReadOnlyList<Grapheme> clusters = Graphemes.Split(item);
+                int column = 0;
+                int charIndex = 0;
+                for (int i = 0; i < clusters.Count && column < width; i++)
                 {
-                    bool matched = positions.Contains(i);
+                    Grapheme cluster = clusters[i];
+                    bool matched = false;
+                    for (int k = 0; k < cluster.Text.Length && !matched; k++)
+                        matched = positions.Contains(charIndex + k);
+
                     CellStyle style = matched && !selected ? MatchStyle : baseStyle;
-                    surface.Set(i, y, Cell.Glyph(item[i].ToString(), style, 1));
+                    charIndex += cluster.Text.Length;
+                    if (cluster.Width == 0)
+                        continue;
+                    if (column + cluster.Width > width)
+                        break;
+
+                    column += surface.DrawText(column, y, cluster.Text, style);
                 }
             }
         }

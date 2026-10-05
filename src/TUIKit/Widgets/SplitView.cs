@@ -3,15 +3,24 @@ namespace TUIKit.Widgets
     using System;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Theming;
 
     /// <summary>
     /// Divides its region between two child widgets along one axis, drawing an optional divider
     /// between them. The split position is a ratio in [<see cref="MinRatio"/>, <see cref="MaxRatio"/>]
     /// that the user can drag with the arrow keys (Left/Right when horizontal, Up/Down when vertical),
     /// giving resizable panes. Because a child may itself be a <see cref="SplitView"/>, arbitrarily
-    /// nested layouts compose from this one widget.
+    /// nested layouts compose from this one widget. Dragging the divider with the left button also
+    /// resizes the split.
     /// </summary>
-    public sealed class SplitView : IWidget, IFocusable, IMouseAware
+    /// <remarks>
+    /// With <see cref="ForwardKeys"/> set the split view becomes a hierarchical focus scope
+    /// (<see cref="IFocusContainer"/>): keys go to the focused pane first, Tab and Shift+Tab move between
+    /// the panes (descending into nested containers and bubbling out at either end), a click focuses the
+    /// pane under the pointer, and the arrow keys resize only when held with <see cref="ResizeModifiers"/>
+    /// or when the focused pane does not consume them. Not thread-safe: use it from the UI loop.
+    /// </remarks>
+    public sealed class SplitView : IWidget, IFocusable, IMouseAware, IFocusContainer, IFocusAware, IThemeable
     {
         private readonly IWidget _First;
         private readonly IWidget _Second;
@@ -21,6 +30,67 @@ namespace TUIKit.Widgets
         private double _MinRatio = 0.1;
         private double _MaxRatio = 0.9;
         private double _ResizeStep = 0.05;
+        private int _FocusedPane;
+        private bool _Focused;
+        private bool _Dragging;
+        private int _LastExtent;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether keys are forwarded to the focused pane first, making the
+        /// split view a hierarchical focus scope. Defaults to false, which keeps the original behavior (the
+        /// arrow keys always resize and the panes never see keys).
+        /// </summary>
+        public bool ForwardKeys { get; set; }
+
+        /// <summary>
+        /// Gets or sets the modifiers that, held with an arrow key, always resize the split while
+        /// <see cref="ForwardKeys"/> is set (before the focused pane sees the key). Defaults to Ctrl+Shift.
+        /// </summary>
+        public KeyModifiers ResizeModifiers { get; set; } = KeyModifiers.Ctrl | KeyModifiers.Shift;
+
+        /// <summary>
+        /// Gets or sets the style of the divider line. Defaults to a grey (palette 8) foreground.
+        /// </summary>
+        public CellStyle DividerStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(8));
+
+        /// <summary>
+        /// Gets the first (left or top) child.
+        /// </summary>
+        public IWidget First
+        {
+            get { return _First; }
+        }
+
+        /// <summary>
+        /// Gets the second (right or bottom) child.
+        /// </summary>
+        public IWidget Second
+        {
+            get { return _Second; }
+        }
+
+        /// <summary>
+        /// Gets or sets the focused pane while <see cref="ForwardKeys"/> is set: 0 for the first child, 1 for
+        /// the second. Values are clamped to that range.
+        /// </summary>
+        public int FocusedPane
+        {
+            get { return _FocusedPane; }
+            set { SetPane(value <= 0 ? 0 : 1); }
+        }
+
+        /// <inheritdoc/>
+        public IFocusable? FocusedLeaf
+        {
+            get
+            {
+                IWidget pane = Pane(_FocusedPane);
+                if (pane is IFocusContainer container)
+                    return container.FocusedLeaf ?? container;
+
+                return pane as IFocusable ?? this;
+            }
+        }
 
         /// <summary>Gets or sets the split orientation.</summary>
         public SplitOrientation Orientation { get; set; }
@@ -96,6 +166,122 @@ namespace TUIKit.Widgets
         /// <returns><c>true</c> when the key resized the split; otherwise <c>false</c>.</returns>
         public bool HandleKey(KeyEvent key)
         {
+            if (ForwardKeys)
+                return HandleForwardedKey(key);
+
+            return HandleResizeKey(key);
+        }
+
+        /// <inheritdoc/>
+        public bool MoveFocus(bool forward)
+        {
+            if (!ForwardKeys)
+                return false;
+
+            if (Pane(_FocusedPane) is IFocusContainer container && FocusScope.IsFocusable(container) && container.MoveFocus(forward))
+                return true;
+
+            int target = forward ? _FocusedPane + 1 : _FocusedPane - 1;
+            while (target >= 0 && target <= 1)
+            {
+                if (Pane(target) is IFocusable focusable && FocusScope.IsFocusable(focusable))
+                {
+                    SetPane(target);
+                    if (focusable is IFocusContainer entered)
+                        entered.FocusEdge(forward);
+                    return true;
+                }
+
+                target += forward ? 1 : -1;
+            }
+
+            return false;
+        }
+
+        /// <inheritdoc/>
+        public void FocusEdge(bool first)
+        {
+            if (!ForwardKeys)
+                return;
+
+            int pane = first ? 0 : 1;
+            if (!(Pane(pane) is IFocusable candidate) || !FocusScope.IsFocusable(candidate))
+                pane = 1 - pane;
+
+            SetPane(pane);
+            if (Pane(pane) is IFocusContainer container)
+                container.FocusEdge(first);
+        }
+
+        /// <summary>
+        /// Tracks focus and, with <see cref="ForwardKeys"/> set, forwards it to the focused pane. Part of
+        /// <see cref="IFocusAware"/>.
+        /// </summary>
+        /// <param name="focused"><c>true</c> when the split view gained focus; otherwise <c>false</c>.</param>
+        public void OnFocusChanged(bool focused)
+        {
+            _Focused = focused;
+            if (ForwardKeys && Pane(_FocusedPane) is IFocusAware aware)
+                aware.OnFocusChanged(focused);
+        }
+
+        /// <summary>
+        /// Applies a theme: <see cref="DividerStyle"/> from <see cref="Theme.Border"/>, then forwards the
+        /// theme to both children.
+        /// </summary>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        public void ApplyTheme(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            DividerStyle = theme.Border;
+            ThemeApplier.Apply(_First, theme);
+            ThemeApplier.Apply(_Second, theme);
+        }
+
+        private bool HandleForwardedKey(KeyEvent key)
+        {
+            bool arrow = key.Code == KeyCode.Left || key.Code == KeyCode.Right || key.Code == KeyCode.Up || key.Code == KeyCode.Down;
+            if (arrow && ResizeModifiers != KeyModifiers.None && key.Modifiers == ResizeModifiers)
+                return HandleResizeKey(KeyEvent.Special(key.Code));
+
+            if (Pane(_FocusedPane) is IFocusable focusable && FocusScope.IsFocusable(focusable) && focusable.HandleKey(key))
+                return true;
+
+            if (key.Code == KeyCode.Tab && (key.Modifiers & ~KeyModifiers.Shift) == KeyModifiers.None)
+                return MoveFocus((key.Modifiers & KeyModifiers.Shift) == 0);
+
+            if (arrow && key.Modifiers == KeyModifiers.None)
+                return HandleResizeKey(key);
+
+            return false;
+        }
+
+        private IWidget Pane(int index)
+        {
+            return index == 0 ? _First : _Second;
+        }
+
+        private void SetPane(int pane)
+        {
+            if (pane == _FocusedPane)
+                return;
+
+            IWidget previous = Pane(_FocusedPane);
+            _FocusedPane = pane;
+            if (ForwardKeys)
+            {
+                if (previous is IFocusAware previousAware)
+                    previousAware.OnFocusChanged(false);
+                if (Pane(pane) is IFocusAware nextAware)
+                    nextAware.OnFocusChanged(_Focused);
+            }
+        }
+
+        private bool HandleResizeKey(KeyEvent key)
+        {
             if (Orientation == SplitOrientation.Horizontal)
             {
                 if (key.Code == KeyCode.Left)
@@ -147,6 +333,7 @@ namespace TUIKit.Widgets
 
             int divider = ShowDivider ? 1 : 0;
             _LastDivider = divider;
+            _LastExtent = Orientation == SplitOrientation.Horizontal ? width : height;
 
             if (Orientation == SplitOrientation.Horizontal)
             {
@@ -165,7 +352,7 @@ namespace TUIKit.Widgets
 
                 _First.Render(new SurfaceView(surface, new Rect(0, 0, firstWidth, height)));
                 if (divider > 0)
-                    surface.Fill(new Rect(firstWidth, 0, 1, height), Cell.Glyph("│", CellStyle.Default.WithForeground(Color.FromPalette(8)), 1));
+                    surface.Fill(new Rect(firstWidth, 0, 1, height), Cell.Glyph("\u2502", DividerStyle, 1));
                 _Second.Render(new SurfaceView(surface, new Rect(firstWidth + divider, 0, secondWidth, height)));
             }
             else
@@ -185,7 +372,7 @@ namespace TUIKit.Widgets
 
                 _First.Render(new SurfaceView(surface, new Rect(0, 0, width, firstHeight)));
                 if (divider > 0)
-                    surface.Fill(new Rect(0, firstHeight, width, 1), Cell.Glyph("─", CellStyle.Default.WithForeground(Color.FromPalette(8)), 1));
+                    surface.Fill(new Rect(0, firstHeight, width, 1), Cell.Glyph("\u2500", DividerStyle, 1));
                 _Second.Render(new SurfaceView(surface, new Rect(0, firstHeight + divider, width, secondHeight)));
             }
         }
@@ -203,23 +390,58 @@ namespace TUIKit.Widgets
             if (mouse == null)
                 throw new ArgumentNullException(nameof(mouse));
 
+            int position = Orientation == SplitOrientation.Horizontal ? mouse.X : mouse.Y;
+
+            // Divider drag: a left press on the divider starts it, moves with the button held resize, and
+            // the release ends it.
+            if (_Dragging)
+            {
+                if (mouse.Kind == MouseEventKind.Release || mouse.Kind == MouseEventKind.Leave)
+                {
+                    _Dragging = false;
+                    return true;
+                }
+
+                if (mouse.Kind == MouseEventKind.Move)
+                {
+                    int usable = _LastExtent - _LastDivider;
+                    if (usable >= 2)
+                        _Ratio = Clamp((double)position / usable);
+                    return true;
+                }
+            }
+
+            if (_LastDivider > 0 && position == _LastFirstExtent && mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
+            {
+                _Dragging = true;
+                return true;
+            }
+
             int secondStart = _LastFirstExtent + _LastDivider;
             if (Orientation == SplitOrientation.Horizontal)
             {
                 if (mouse.X < _LastFirstExtent)
-                    return ForwardTo(_First, mouse, mouse.X, mouse.Y);
+                    return ForwardToPane(0, mouse, mouse.X, mouse.Y);
                 if (mouse.X >= secondStart)
-                    return ForwardTo(_Second, mouse, mouse.X - secondStart, mouse.Y);
+                    return ForwardToPane(1, mouse, mouse.X - secondStart, mouse.Y);
             }
             else
             {
                 if (mouse.Y < _LastFirstExtent)
-                    return ForwardTo(_First, mouse, mouse.X, mouse.Y);
+                    return ForwardToPane(0, mouse, mouse.X, mouse.Y);
                 if (mouse.Y >= secondStart)
-                    return ForwardTo(_Second, mouse, mouse.X, mouse.Y - secondStart);
+                    return ForwardToPane(1, mouse, mouse.X, mouse.Y - secondStart);
             }
 
             return false;
+        }
+
+        private bool ForwardToPane(int pane, MouseEvent mouse, int localX, int localY)
+        {
+            if (ForwardKeys && mouse.Kind == MouseEventKind.Press && Pane(pane) is IFocusable focusable && FocusScope.IsFocusable(focusable))
+                SetPane(pane);
+
+            return ForwardTo(Pane(pane), mouse, localX, localY);
         }
 
         private static bool ForwardTo(IWidget child, MouseEvent mouse, int localX, int localY)

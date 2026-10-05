@@ -37,6 +37,65 @@ namespace TUIKit.Theming
             get { return "statusbar"; }
         }
 
+        /// <summary>
+        /// Gets the named-style role for level-1 Markdown headings (see <see cref="Content.MarkdownStyles.FromTheme"/>).
+        /// </summary>
+        public static string MarkdownHeadingRole
+        {
+            get { return "markdown.heading"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for level-2 and deeper Markdown headings.
+        /// </summary>
+        public static string MarkdownSubheadingRole
+        {
+            get { return "markdown.subheading"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for fenced Markdown code blocks.
+        /// </summary>
+        public static string MarkdownCodeRole
+        {
+            get { return "markdown.code"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for inline Markdown code spans.
+        /// </summary>
+        public static string MarkdownInlineCodeRole
+        {
+            get { return "markdown.inlinecode"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for Markdown block quotes.
+        /// </summary>
+        public static string MarkdownQuoteRole
+        {
+            get { return "markdown.quote"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for toast notification backgrounds (see
+        /// <see cref="Modals.NotificationCenter.ApplyTheme"/>). When not registered, toasts use
+        /// <see cref="Text"/>.
+        /// </summary>
+        public static string ToastRole
+        {
+            get { return "toast"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for focused buttons (see <see cref="Widgets.Button"/>). When not
+        /// registered, focused buttons use <see cref="Selection"/>.
+        /// </summary>
+        public static string ButtonFocusedRole
+        {
+            get { return "button.focused"; }
+        }
+
         private readonly Dictionary<string, CellStyle> _Named = new Dictionary<string, CellStyle>(StringComparer.Ordinal);
 
         /// <summary>
@@ -248,6 +307,36 @@ namespace TUIKit.Theming
                 throw new ArgumentNullException(nameof(name));
 
             return _Named.TryGetValue(name, out CellStyle style) ? style : Text;
+        }
+
+        /// <summary>
+        /// Gets a named style when one is registered, otherwise <paramref name="fallback"/>. Unlike
+        /// <see cref="GetStyle"/>, an unregistered name does not fall back to <see cref="Text"/>.
+        /// </summary>
+        /// <param name="name">The style name. Must not be null.</param>
+        /// <param name="fallback">The style returned when the name is not registered.</param>
+        /// <returns>The registered style or the fallback.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="name"/> is null.</exception>
+        public CellStyle Resolve(string name, CellStyle fallback)
+        {
+            if (name == null)
+                throw new ArgumentNullException(nameof(name));
+
+            return _Named.TryGetValue(name, out CellStyle style) ? style : fallback;
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether a named style is registered.
+        /// </summary>
+        /// <param name="name">The style name. Must not be null.</param>
+        /// <returns><c>true</c> when registered; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="name"/> is null.</exception>
+        public bool HasStyle(string name)
+        {
+            if (name == null)
+                throw new ArgumentNullException(nameof(name));
+
+            return _Named.ContainsKey(name);
         }
     }
 }

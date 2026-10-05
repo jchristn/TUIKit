@@ -13,7 +13,12 @@ namespace TUIKit.Modals
     /// nested modals render on top of the ones beneath them. Background panes keep updating behind the
     /// stack; only input is trapped.
     /// </summary>
-    /// <remarks>All members are thread-safe.</remarks>
+    /// <remarks>
+    /// All members are thread-safe. A modal that closes without input (for example from a posted
+    /// callback, a timer, or an awaited task) is pruned the next time the stack is queried or rendered,
+    /// so it never stays drawn and never swallows the next key; hosts no longer need to call
+    /// <see cref="RemoveClosed"/> after a programmatic close (calling it remains harmless).
+    /// </remarks>
     public sealed class ModalStack
     {
         private readonly object _Sync = new object();
@@ -24,7 +29,11 @@ namespace TUIKit.Modals
         /// </summary>
         public bool IsActive
         {
-            get { lock (_Sync) { return _Modals.Count > 0; } }
+            get
+            {
+                RemoveClosed();
+                lock (_Sync) { return _Modals.Count > 0; }
+            }
         }
 
         /// <summary>
@@ -32,7 +41,11 @@ namespace TUIKit.Modals
         /// </summary>
         public int Count
         {
-            get { lock (_Sync) { return _Modals.Count; } }
+            get
+            {
+                RemoveClosed();
+                lock (_Sync) { return _Modals.Count; }
+            }
         }
 
         /// <summary>
@@ -42,6 +55,7 @@ namespace TUIKit.Modals
         {
             get
             {
+                RemoveClosed();
                 lock (_Sync)
                 {
                     return _Modals.Count > 0 ? _Modals[_Modals.Count - 1] : null;
@@ -72,6 +86,7 @@ namespace TUIKit.Modals
         /// <returns><c>true</c> when a modal consumed the key; otherwise <c>false</c>.</returns>
         public bool HandleKey(KeyEvent key)
         {
+            RemoveClosed();
             Modal? top;
             lock (_Sync)
                 top = _Modals.Count > 0 ? _Modals[_Modals.Count - 1] : null;
@@ -91,6 +106,7 @@ namespace TUIKit.Modals
         /// <returns><c>true</c> when a modal consumed the paste; otherwise <c>false</c>.</returns>
         public bool HandlePaste(string text)
         {
+            RemoveClosed();
             Modal? top;
             lock (_Sync)
                 top = _Modals.Count > 0 ? _Modals[_Modals.Count - 1] : null;
@@ -110,6 +126,7 @@ namespace TUIKit.Modals
         /// <returns><c>true</c> when a modal consumed the event; otherwise <c>false</c>.</returns>
         public bool HandleMouse(MouseEvent mouse)
         {
+            RemoveClosed();
             Modal? top;
             lock (_Sync)
                 top = _Modals.Count > 0 ? _Modals[_Modals.Count - 1] : null;
@@ -196,12 +213,16 @@ namespace TUIKit.Modals
             if (surface == null)
                 throw new ArgumentNullException(nameof(surface));
 
+            RemoveClosed();
             Modal[] snapshot;
             lock (_Sync)
                 snapshot = _Modals.ToArray();
 
             for (int i = 0; i < snapshot.Length; i++)
-                snapshot[i].Render(surface);
+            {
+                if (!snapshot[i].IsClosed)
+                    snapshot[i].Render(surface);
+            }
         }
     }
 }

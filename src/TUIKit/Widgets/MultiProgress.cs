@@ -3,6 +3,7 @@ namespace TUIKit.Widgets
     using System;
     using System.Collections.Generic;
     using TUIKit;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// Displays several concurrent <see cref="ProgressTask"/> bars at once — one row each with a
@@ -64,8 +65,8 @@ namespace TUIKit.Widgets
             int labelWidth = 0;
             for (int i = 0; i < _Tasks.Count; i++)
             {
-                if (_Tasks[i].Label.Length > labelWidth)
-                    labelWidth = _Tasks[i].Label.Length;
+                if (TextFit.Width(_Tasks[i].Label) > labelWidth)
+                    labelWidth = TextFit.Width(_Tasks[i].Label);
             }
 
             labelWidth = Math.Min(labelWidth, Math.Max(1, width / 3));
@@ -73,7 +74,7 @@ namespace TUIKit.Widgets
             for (int row = 0; row < height && row < _Tasks.Count; row++)
             {
                 ProgressTask task = _Tasks[row];
-                string label = Fit(task.Label, labelWidth).PadRight(labelWidth);
+                string label = TextFit.PadRight(Fit(task.Label, labelWidth), labelWidth);
                 surface.DrawText(0, row, label, CellStyle.Default);
 
                 string percent = " " + ((int)Math.Round(task.Value * 100)).ToString() + "%";
@@ -96,12 +97,7 @@ namespace TUIKit.Widgets
 
         private static string Fit(string text, int width)
         {
-            if (text.Length <= width)
-                return text;
-            if (width <= 1)
-                return text.Substring(0, Math.Max(0, width));
-
-            return text.Substring(0, width - 1) + "…";
+            return TextFit.Ellipsize(text, width);
         }
     }
 }

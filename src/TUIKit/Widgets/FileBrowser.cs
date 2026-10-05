@@ -5,6 +5,7 @@ namespace TUIKit.Widgets
     using System.IO;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// Browses the file system: it lists the current directory (parent link first, then folders, then
@@ -372,12 +373,26 @@ namespace TUIKit.Widgets
 
         private static string Fit(string text, int width)
         {
-            if (text.Length <= width)
+            if (TextFit.Width(text) <= width)
                 return text;
             if (width <= 1)
-                return text.Substring(0, Math.Max(0, width));
+                return TextFit.Truncate(text, width);
 
-            return "…" + text.Substring(text.Length - (width - 1));
+            // Keep the tail (the most specific part of a path), prefixed with an ellipsis.
+            int index = text.Length;
+            int used = 0;
+            while (index > 0)
+            {
+                int previous = TextFit.PreviousBoundary(text, index);
+                int clusterWidth = TextFit.Width(text.Substring(previous, index - previous));
+                if (used + clusterWidth > width - 1)
+                    break;
+
+                used += clusterWidth;
+                index = previous;
+            }
+
+            return TextFit.DefaultEllipsis + text.Substring(index);
         }
     }
 }

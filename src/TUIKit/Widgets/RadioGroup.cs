@@ -3,15 +3,68 @@ namespace TUIKit.Widgets
     using System;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Theming;
 
     /// <summary>
     /// A vertical group of mutually exclusive options. Up/Down change the selection and Home/End jump
     /// to the first and last option.
     /// </summary>
-    public sealed class RadioGroup : IWidget, IFocusable, IMouseAware
+    public sealed class RadioGroup : IWidget, IFocusable, IMouseAware, IEnableable, IChangeNotifier, IThemeable
     {
         private readonly string[] _Options;
         private int _Selected;
+        private bool _Enabled = true;
+
+        /// <summary>
+        /// Raised after the selected option changes, whether from a key, a click, or a programmatic set of
+        /// <see cref="SelectedIndex"/>. The arguments carry the old and new index.
+        /// </summary>
+        public event EventHandler<ValueChangedEventArgs<int>>? SelectionChanged;
+
+        /// <summary>
+        /// Raised after any selection change; the untyped companion of <see cref="SelectionChanged"/>.
+        /// </summary>
+        public event EventHandler? Changed;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the group accepts input. A disabled group renders with
+        /// <see cref="DisabledStyle"/> and ignores keys and the mouse. Defaults to true.
+        /// </summary>
+        public bool IsEnabled
+        {
+            get { return _Enabled; }
+            set { _Enabled = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the style composed over <see cref="NormalStyle"/> while disabled. Defaults to dim text.
+        /// </summary>
+        public CellStyle DisabledStyle { get; set; } = CellStyle.Default.WithAttribute(CellAttributes.Dim, true);
+
+        /// <summary>
+        /// Gets the options. Never null.
+        /// </summary>
+        public System.Collections.Generic.IReadOnlyList<string> Options
+        {
+            get { return _Options; }
+        }
+
+        /// <summary>
+        /// Applies a theme: <see cref="NormalStyle"/> from <see cref="Theme.Text"/>,
+        /// <see cref="SelectedStyle"/> from <see cref="Theme.Accent"/>, and <see cref="DisabledStyle"/> from
+        /// <see cref="Theme.Disabled"/>.
+        /// </summary>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        public void ApplyTheme(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            NormalStyle = theme.Text;
+            SelectedStyle = theme.Accent;
+            DisabledStyle = theme.Disabled;
+        }
 
         /// <summary>
         /// Gets or sets the base style applied to unselected options and the surface fill. Defaults to
@@ -28,11 +81,13 @@ namespace TUIKit.Widgets
         public CellStyle SelectedStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(6));
 
         /// <summary>
-        /// Gets the zero-based index of the selected option.
+        /// Gets or sets the zero-based index of the selected option. Setting clamps to the valid range and
+        /// raises <see cref="SelectionChanged"/> when the index changes.
         /// </summary>
         public int SelectedIndex
         {
             get { return _Selected; }
+            set { SetSelected(Math.Max(0, Math.Min(_Options.Length - 1, value))); }
         }
 
         /// <summary>
@@ -66,19 +121,22 @@ namespace TUIKit.Widgets
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
         public bool HandleKey(KeyEvent key)
         {
+            if (!_Enabled)
+                return false;
+
             switch (key.Code)
             {
                 case KeyCode.Up:
-                    _Selected = Math.Max(0, _Selected - 1);
+                    SetSelected(Math.Max(0, _Selected - 1));
                     return true;
                 case KeyCode.Down:
-                    _Selected = Math.Min(_Options.Length - 1, _Selected + 1);
+                    SetSelected(Math.Min(_Options.Length - 1, _Selected + 1));
                     return true;
                 case KeyCode.Home:
-                    _Selected = 0;
+                    SetSelected(0);
                     return true;
                 case KeyCode.End:
-                    _Selected = _Options.Length - 1;
+                    SetSelected(_Options.Length - 1);
                     return true;
                 default:
                     return false;
@@ -97,21 +155,24 @@ namespace TUIKit.Widgets
             if (mouse == null)
                 throw new ArgumentNullException(nameof(mouse));
 
+            if (!_Enabled)
+                return false;
+
             if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left && mouse.Y >= 0 && mouse.Y < _Options.Length)
             {
-                _Selected = mouse.Y;
+                SetSelected(mouse.Y);
                 return true;
             }
 
             if (mouse.Kind == MouseEventKind.Wheel && mouse.Button == MouseButton.WheelUp)
             {
-                _Selected = Math.Max(0, _Selected - 1);
+                SetSelected(Math.Max(0, _Selected - 1));
                 return true;
             }
 
             if (mouse.Kind == MouseEventKind.Wheel && mouse.Button == MouseButton.WheelDown)
             {
-                _Selected = Math.Min(_Options.Length - 1, _Selected + 1);
+                SetSelected(Math.Min(_Options.Length - 1, _Selected + 1));
                 return true;
             }
 
@@ -139,8 +200,21 @@ namespace TUIKit.Widgets
                 CellStyle style = i == _Selected
                     ? SelectedStyle.Over(NormalStyle)
                     : NormalStyle;
+                if (!_Enabled)
+                    style = DisabledStyle.Over(style);
                 surface.DrawText(0, i, mark + _Options[i], style);
             }
+        }
+
+        private void SetSelected(int index)
+        {
+            if (index == _Selected)
+                return;
+
+            int before = _Selected;
+            _Selected = index;
+            SelectionChanged?.Invoke(this, new ValueChangedEventArgs<int>(before, index));
+            Changed?.Invoke(this, EventArgs.Empty);
         }
     }
 }

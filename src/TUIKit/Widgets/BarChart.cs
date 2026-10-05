@@ -4,6 +4,7 @@ namespace TUIKit.Widgets
     using System.Collections.Generic;
     using System.Globalization;
     using TUIKit;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// A horizontal bar chart. Each row shows a label, a proportional bar drawn with block glyphs
@@ -29,6 +30,46 @@ namespace TUIKit.Widgets
         {
             get { return _Entries.Count; }
         }
+
+        /// <summary>
+        /// Adds a horizontal stacked bar whose segments are drawn in <see cref="SegmentColors"/> and
+        /// <see cref="SegmentGlyphs"/>; the bar's total is the sum of the non-negative segments.
+        /// </summary>
+        /// <param name="label">The bar label. Must not be null.</param>
+        /// <param name="segments">The segment values. Must not be null.</param>
+        /// <returns>This chart, for chaining.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when an argument is null.</exception>
+        public BarChart AddStacked(string label, params double[] segments)
+        {
+            if (label == null)
+                throw new ArgumentNullException(nameof(label));
+            if (segments == null)
+                throw new ArgumentNullException(nameof(segments));
+
+            _Entries.Add(new BarEntry(label, (double[])segments.Clone()));
+            return this;
+        }
+
+        /// <summary>
+        /// Gets the segment colors for stacked bars, cycled by segment index. Defaults to green, cyan,
+        /// yellow, magenta, blue, red (palette 2, 6, 3, 5, 4, 1).
+        /// </summary>
+        public List<Color> SegmentColors { get; } = new List<Color>
+        {
+            Color.FromPalette(2), Color.FromPalette(6), Color.FromPalette(3), Color.FromPalette(5), Color.FromPalette(4), Color.FromPalette(1)
+        };
+
+        /// <summary>
+        /// Gets the segment glyphs for stacked bars, cycled by segment index, so segments differ without
+        /// color. Defaults to full, dark, medium, and light shade blocks.
+        /// </summary>
+        public List<string> SegmentGlyphs { get; } = new List<string> { "\u2588", "\u2593", "\u2592", "\u2591" };
+
+        /// <summary>
+        /// Gets or sets an optional formatter for the value printed at the right of each bar, or null for
+        /// the default invariant format (<c>0.##</c>).
+        /// </summary>
+        public Func<double, string>? ValueFormatter { get; set; }
 
         /// <summary>
         /// Adds a labeled bar.
@@ -75,8 +116,8 @@ namespace TUIKit.Widgets
             double max = 0;
             for (int i = 0; i < _Entries.Count; i++)
             {
-                if (_Entries[i].Label.Length > labelWidth)
-                    labelWidth = _Entries[i].Label.Length;
+                if (TextFit.Width(_Entries[i].Label) > labelWidth)
+                    labelWidth = TextFit.Width(_Entries[i].Label);
                 if (_Entries[i].Value > max)
                     max = _Entries[i].Value;
             }
@@ -88,14 +129,21 @@ namespace TUIKit.Widgets
             for (int row = 0; row < height && row < _Entries.Count; row++)
             {
                 BarEntry entry = _Entries[row];
-                string label = Fit(entry.Label, labelWidth).PadRight(labelWidth);
+                string label = TextFit.PadRight(Fit(entry.Label, labelWidth), labelWidth);
                 surface.DrawText(0, row, label, labelStyle);
 
-                string valueText = " " + entry.Value.ToString("0.##", CultureInfo.InvariantCulture);
-                int barArea = width - labelWidth - 1 - valueText.Length;
+                string valueText = " " + (ValueFormatter != null ? ValueFormatter(entry.Value) : entry.Value.ToString("0.##", CultureInfo.InvariantCulture));
+                int barArea = width - labelWidth - 1 - TextFit.Width(valueText);
                 if (barArea < 1)
                 {
                     surface.DrawText(labelWidth, row, valueText.TrimStart(), labelStyle);
+                    continue;
+                }
+
+                if (entry.Segments != null)
+                {
+                    DrawStacked(surface, entry, labelWidth + 1, row, barArea, max);
+                    surface.DrawText(width - TextFit.Width(valueText), row, valueText, labelStyle);
                     continue;
                 }
 
@@ -119,18 +167,30 @@ namespace TUIKit.Widgets
                     x++;
                 }
 
-                surface.DrawText(width - valueText.Length, row, valueText, labelStyle);
+                surface.DrawText(width - TextFit.Width(valueText), row, valueText, labelStyle);
+            }
+        }
+
+        private void DrawStacked(ISurface surface, BarEntry entry, int x, int row, int barArea, double max)
+        {
+            double[] segments = entry.Segments!;
+            double running = 0;
+            int drawn = 0;
+            for (int i = 0; i < segments.Length; i++)
+            {
+                running += Math.Max(0, segments[i]);
+                int end = max <= 0 ? 0 : (int)Math.Round(running / max * barArea);
+                Color color = SegmentColors.Count > 0 ? SegmentColors[i % SegmentColors.Count] : Color;
+                string glyph = SegmentGlyphs.Count > 0 ? SegmentGlyphs[i % SegmentGlyphs.Count] : "\u2588";
+                CellStyle style = CellStyle.Default.WithForeground(color);
+                for (; drawn < end && drawn < barArea; drawn++)
+                    surface.DrawText(x + drawn, row, glyph, style);
             }
         }
 
         private static string Fit(string text, int width)
         {
-            if (text.Length <= width)
-                return text;
-            if (width <= 1)
-                return text.Substring(0, Math.Max(0, width));
-
-            return text.Substring(0, width - 1) + "…";
+            return TextFit.Ellipsize(text, width);
         }
     }
 }

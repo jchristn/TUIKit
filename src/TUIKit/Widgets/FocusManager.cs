@@ -9,12 +9,30 @@ namespace TUIKit.Widgets
     /// Tab moves to the next widget, Shift+Tab to the previous; other keys go to the current widget.
     /// Used by forms and any multi-widget screen that needs a focus ring. Whenever focus moves, widgets
     /// that implement <see cref="IFocusAware"/> are notified through <see cref="IFocusAware.OnFocusChanged"/>
-    /// so their rendered focus state (caret, highlight) follows the routing.
+    /// so their rendered focus state (caret, highlight) follows the routing. Traversal skips disabled
+    /// widgets (<see cref="IEnableable"/>) and descends into <see cref="IFocusContainer"/> widgets: Tab
+    /// first moves focus within a focused container and only moves on once the container reports that
+    /// it is at its edge; entering a container focuses its first (or, backward, its last) descendant.
     /// </summary>
     public sealed class FocusManager
     {
         private readonly List<IFocusable> _Widgets = new List<IFocusable>();
         private int _Index;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether Tab wraps from the last widget to the first (and
+        /// Shift+Tab from the first to the last). Defaults to true, the original behavior. Set it to false
+        /// when the ring is nested inside another focus scope: <see cref="HandleKey"/> then returns
+        /// <c>false</c> for a Tab at either end so the parent moves focus on.
+        /// </summary>
+        public bool Wrap { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets an optional predicate deciding whether a registered widget can take focus by
+        /// traversal (for example to skip hidden form rows). Disabled widgets (<see cref="IEnableable"/>)
+        /// are always skipped. Null (the default) admits every enabled widget.
+        /// </summary>
+        public Func<IFocusable, bool>? CanFocus { get; set; }
 
         /// <summary>
         /// Gets the number of registered widgets.
@@ -81,8 +99,7 @@ namespace TUIKit.Widgets
         /// </summary>
         public void Next()
         {
-            if (_Widgets.Count > 1)
-                SetFocus((_Index + 1) % _Widgets.Count);
+            Step(1);
         }
 
         /// <summary>
@@ -90,8 +107,100 @@ namespace TUIKit.Widgets
         /// </summary>
         public void Previous()
         {
-            if (_Widgets.Count > 1)
-                SetFocus((_Index - 1 + _Widgets.Count) % _Widgets.Count);
+            Step(-1);
+        }
+
+        /// <summary>
+        /// Moves focus forward or backward, first within a focused <see cref="IFocusContainer"/>, then to
+        /// the next eligible widget. Honors <see cref="Wrap"/>.
+        /// </summary>
+        /// <param name="forward"><c>true</c> to move forward; <c>false</c> to move backward.</param>
+        /// <returns><c>true</c> when focus moved; <c>false</c> at an edge with <see cref="Wrap"/> off, or when nothing can take focus.</returns>
+        public bool MoveFocus(bool forward)
+        {
+            if (Focused is IFocusContainer container && Eligible(container) && container.MoveFocus(forward))
+                return true;
+
+            int direction = forward ? 1 : -1;
+            for (int candidate = _Index + direction; candidate >= 0 && candidate < _Widgets.Count; candidate += direction)
+            {
+                if (Eligible(_Widgets[candidate]))
+                {
+                    Enter(candidate, forward);
+                    return true;
+                }
+            }
+
+            if (!Wrap)
+                return false;
+
+            for (int candidate = forward ? 0 : _Widgets.Count - 1; candidate >= 0 && candidate < _Widgets.Count && candidate != _Index; candidate += direction)
+            {
+                if (Eligible(_Widgets[candidate]))
+                {
+                    Enter(candidate, forward);
+                    return true;
+                }
+            }
+
+            if (Focused is IFocusContainer only && Eligible(only))
+            {
+                only.FocusEdge(forward);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Focuses the first (or last) eligible widget, descending into a container.
+        /// </summary>
+        /// <param name="first"><c>true</c> for the first widget; <c>false</c> for the last.</param>
+        public void FocusEdge(bool first)
+        {
+            int direction = first ? 1 : -1;
+            for (int candidate = first ? 0 : _Widgets.Count - 1; candidate >= 0 && candidate < _Widgets.Count; candidate += direction)
+            {
+                if (Eligible(_Widgets[candidate]))
+                {
+                    Enter(candidate, first);
+                    return;
+                }
+            }
+        }
+
+        private void Enter(int index, bool forward)
+        {
+            SetFocus(index);
+            if (_Widgets[index] is IFocusContainer container)
+                container.FocusEdge(forward);
+        }
+
+        private bool Eligible(IFocusable widget)
+        {
+            if (!FocusScope.IsFocusable(widget))
+                return false;
+
+            Func<IFocusable, bool>? predicate = CanFocus;
+            return predicate == null || predicate(widget);
+        }
+
+        private void Step(int direction)
+        {
+            if (_Widgets.Count == 0)
+                return;
+
+            for (int offset = 1; offset <= _Widgets.Count; offset++)
+            {
+                int candidate = ((_Index + (direction * offset)) % _Widgets.Count + _Widgets.Count) % _Widgets.Count;
+                if (candidate == _Index && _Widgets.Count > 1)
+                    continue;
+                if (!Eligible(_Widgets[candidate]))
+                    continue;
+
+                Enter(candidate, direction > 0);
+                return;
+            }
         }
 
         /// <summary>
@@ -128,10 +237,17 @@ namespace TUIKit.Widgets
         {
             if (key.Code == KeyCode.Tab)
             {
-                if ((key.Modifiers & KeyModifiers.Shift) != 0)
-                    Previous();
-                else
+                bool forward = (key.Modifiers & KeyModifiers.Shift) == 0;
+                if (!Wrap)
+                    return MoveFocus(forward);
+
+                if (Focused is IFocusContainer container && Eligible(container) && container.MoveFocus(forward))
+                    return true;
+
+                if (forward)
                     Next();
+                else
+                    Previous();
 
                 return true;
             }

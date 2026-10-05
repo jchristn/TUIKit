@@ -4,6 +4,7 @@ namespace TUIKit.Widgets
     using System.Collections.Generic;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Theming;
 
     /// <summary>
     /// A vertical list of selectable items with keyboard navigation and scrolling. The selected item is
@@ -12,7 +13,7 @@ namespace TUIKit.Widgets
     /// <see cref="string"/>), so the selection can be read back as the original object.
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
-    public sealed class ListView<T> : IWidget, IFocusable, IFocusAware, IMouseAware
+    public sealed class ListView<T> : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable
     {
         private readonly List<T> _Items = new List<T>();
         private readonly Func<T, string> _Display;
@@ -20,6 +21,7 @@ namespace TUIKit.Widgets
         private int _Top;
         private int _LastViewportHeight = 1;
         private int _HoverIndex = -1;
+        private bool _Enabled = true;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ListView{T}"/> class.
@@ -53,6 +55,69 @@ namespace TUIKit.Widgets
         /// automatically by the host focus ring and <see cref="FocusManager"/> through <see cref="IFocusAware"/>.
         /// </summary>
         public bool IsFocused { get; set; } = true;
+
+        /// <summary>
+        /// Raised after the selected index changes, whether from a key, the mouse, or a programmatic call
+        /// (<see cref="Select"/>, <see cref="SetItems"/>, the navigation methods). The arguments carry the
+        /// old and new <see cref="SelectedIndex"/> (-1 when empty). Raised on the thread that made the change.
+        /// </summary>
+        public event EventHandler<ValueChangedEventArgs<int>>? SelectionChanged;
+
+        /// <summary>
+        /// Raised after any selection change; the untyped companion of <see cref="SelectionChanged"/>.
+        /// </summary>
+        public event EventHandler? Changed;
+
+        /// <summary>
+        /// Raised with the selected index when the user activates an item with Enter or a double click.
+        /// While no handler is attached Enter is not consumed (it falls through to the host, as before).
+        /// </summary>
+        public event Action<int>? ItemActivated;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the list accepts input. A disabled list renders with
+        /// <see cref="DisabledStyle"/> and ignores keys and the mouse. Defaults to true.
+        /// </summary>
+        public bool IsEnabled
+        {
+            get { return _Enabled; }
+            set { _Enabled = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the style composed over <see cref="NormalStyle"/> while the list is disabled.
+        /// Defaults to dim text.
+        /// </summary>
+        public CellStyle DisabledStyle { get; set; } = CellStyle.Default.WithAttribute(CellAttributes.Dim, true);
+
+        /// <summary>
+        /// Applies a theme: <see cref="NormalStyle"/> from <see cref="Theme.Text"/>, the highlight from
+        /// <see cref="Theme.Accent"/>, and <see cref="DisabledStyle"/> from <see cref="Theme.Disabled"/>.
+        /// </summary>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        public void ApplyTheme(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            NormalStyle = theme.Text;
+            HighlightColor = theme.Accent.Foreground;
+            DisabledStyle = theme.Disabled;
+        }
+
+        /// <summary>
+        /// Selects the item at an index, clamped to the valid range, and scrolls it into view on the next
+        /// render. A no-op when the list is empty.
+        /// </summary>
+        /// <param name="index">The zero-based index.</param>
+        public void Select(int index)
+        {
+            if (_Items.Count == 0)
+                return;
+
+            SetSelected(Math.Max(0, Math.Min(_Items.Count - 1, index)));
+        }
 
         /// <summary>
         /// Updates the focused state so the selection highlight reflects focus on the next frame. Part of
@@ -109,7 +174,8 @@ namespace TUIKit.Widgets
         public CellStyle HoverStyle { get; set; } = CellStyle.Default.WithAttributes(CellAttributes.Underline);
 
         /// <summary>
-        /// Replaces the list items and resets the selection to the first item.
+        /// Replaces the list items and resets the selection to the first item. Raises
+        /// <see cref="SelectionChanged"/> when the selected index or the selected item changed.
         /// </summary>
         /// <param name="items">The items. Must not be null.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="items"/> is null.</exception>
@@ -118,10 +184,22 @@ namespace TUIKit.Widgets
             if (items == null)
                 throw new ArgumentNullException(nameof(items));
 
+            int before = SelectedIndex;
+            T? beforeItem = SelectedItem;
             _Items.Clear();
             _Items.AddRange(items);
             _Selected = 0;
             _Top = 0;
+            if (before == SelectedIndex && before >= 0 && !EqualityComparer<T>.Default.Equals(beforeItem!, SelectedItem!))
+            {
+                // Same index, different item: the selection still changed for anyone showing its details.
+                SelectionChanged?.Invoke(this, new ValueChangedEventArgs<int>(before, before));
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+            else
+            {
+                RaiseIfChanged(before);
+            }
         }
 
         /// <summary>
@@ -132,7 +210,7 @@ namespace TUIKit.Widgets
             if (_Items.Count == 0)
                 return;
 
-            _Selected = Math.Min(_Items.Count - 1, _Selected + 1);
+            SetSelected(Math.Min(_Items.Count - 1, _Selected + 1));
         }
 
         /// <summary>
@@ -143,7 +221,7 @@ namespace TUIKit.Widgets
             if (_Items.Count == 0)
                 return;
 
-            _Selected = Math.Max(0, _Selected - 1);
+            SetSelected(Math.Max(0, _Selected - 1));
         }
 
         /// <summary>
@@ -154,7 +232,7 @@ namespace TUIKit.Widgets
             if (_Items.Count == 0)
                 return;
 
-            _Selected = 0;
+            SetSelected(0);
         }
 
         /// <summary>
@@ -165,7 +243,7 @@ namespace TUIKit.Widgets
             if (_Items.Count == 0)
                 return;
 
-            _Selected = _Items.Count - 1;
+            SetSelected(_Items.Count - 1);
         }
 
         /// <summary>
@@ -177,7 +255,7 @@ namespace TUIKit.Widgets
             if (_Items.Count == 0)
                 return;
 
-            _Selected = Math.Min(_Items.Count - 1, _Selected + Math.Max(1, _LastViewportHeight));
+            SetSelected(Math.Min(_Items.Count - 1, _Selected + Math.Max(1, _LastViewportHeight)));
         }
 
         /// <summary>
@@ -189,7 +267,7 @@ namespace TUIKit.Widgets
             if (_Items.Count == 0)
                 return;
 
-            _Selected = Math.Max(0, _Selected - Math.Max(1, _LastViewportHeight));
+            SetSelected(Math.Max(0, _Selected - Math.Max(1, _LastViewportHeight)));
         }
 
         /// <summary>
@@ -200,8 +278,18 @@ namespace TUIKit.Widgets
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
         public bool HandleKey(KeyEvent key)
         {
+            if (!_Enabled)
+                return false;
+
             switch (key.Code)
             {
+                case KeyCode.Enter:
+                    Action<int>? activated = ItemActivated;
+                    if (activated == null || _Items.Count == 0 || key.Modifiers != KeyModifiers.None)
+                        return false;
+
+                    activated(_Selected);
+                    return true;
                 case KeyCode.Up:
                     SelectPrevious();
                     return true;
@@ -238,6 +326,9 @@ namespace TUIKit.Widgets
             if (mouse == null)
                 throw new ArgumentNullException(nameof(mouse));
 
+            if (!_Enabled)
+                return false;
+
             switch (mouse.Kind)
             {
                 case MouseEventKind.Press:
@@ -246,7 +337,9 @@ namespace TUIKit.Widgets
                         int pressed = RowIndexAt(mouse.Y);
                         if (pressed >= 0)
                         {
-                            _Selected = pressed;
+                            SetSelected(pressed);
+                            if (mouse.ClickCount >= 2)
+                                ItemActivated?.Invoke(pressed);
                             return true;
                         }
                     }
@@ -309,7 +402,13 @@ namespace TUIKit.Widgets
                 int index = _Top + row;
                 bool selected = index == _Selected;
                 CellStyle style;
-                if (selected && IsFocused)
+                if (!_Enabled)
+                {
+                    style = selected
+                        ? DisabledStyle.Over(NormalStyle).WithAttribute(CellAttributes.Bold, true)
+                        : DisabledStyle.Over(NormalStyle);
+                }
+                else if (selected && IsFocused)
                 {
                     style = NormalStyle.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(HighlightColor);
                     surface.Fill(new Rect(0, row, width, 1), Cell.Blank(style));
@@ -329,6 +428,23 @@ namespace TUIKit.Widgets
 
                 surface.DrawText(0, row, _Display(_Items[index]), style);
             }
+        }
+
+        private void SetSelected(int index)
+        {
+            int before = SelectedIndex;
+            _Selected = index;
+            RaiseIfChanged(before);
+        }
+
+        private void RaiseIfChanged(int before)
+        {
+            int after = SelectedIndex;
+            if (before == after)
+                return;
+
+            SelectionChanged?.Invoke(this, new ValueChangedEventArgs<int>(before, after));
+            Changed?.Invoke(this, EventArgs.Empty);
         }
 
         private int RowIndexAt(int y)

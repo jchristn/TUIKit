@@ -5,10 +5,52 @@ namespace TUIKit.Modals
     /// <summary>
     /// A transient notification (toast). Notifications never take focus; they appear, optionally time
     /// out, and can be dismissed. Timing is supplied by the caller as millisecond timestamps so the
-    /// lifecycle is deterministic to test.
+    /// lifecycle is deterministic to test. A notification may carry a title and action buttons; once
+    /// added to a <see cref="NotificationCenter"/> it stays in the center's history after its toast
+    /// expires or is dismissed.
     /// </summary>
+    /// <remarks>The read, dismissed, and identifier state is updated by the owning center under its lock.</remarks>
     public sealed class Notification
     {
+        private static readonly NotificationAction[] _NoActions = new NotificationAction[0];
+        private volatile bool _Dismissed;
+        private volatile bool _Read;
+
+        /// <summary>
+        /// Gets the identifier assigned by the <see cref="NotificationCenter"/> that added the notification,
+        /// increasing with each addition; zero before it is added.
+        /// </summary>
+        public long Id { get; internal set; }
+
+        /// <summary>
+        /// Gets the optional title shown in bold above the text, or null.
+        /// </summary>
+        public string? Title { get; }
+
+        /// <summary>
+        /// Gets the action buttons. Never null; empty when the notification has no actions.
+        /// </summary>
+        public System.Collections.Generic.IReadOnlyList<NotificationAction> Actions { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the toast was dismissed (by the user, an action, or the
+        /// application). A dismissed notification is no longer shown as a toast but stays in history.
+        /// </summary>
+        public bool IsDismissed
+        {
+            get { return _Dismissed; }
+            internal set { _Dismissed = value; }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the notification was read (dismissed, acted on, or marked read
+        /// in the center).
+        /// </summary>
+        public bool IsRead
+        {
+            get { return _Read; }
+            internal set { _Read = value; }
+        }
         /// <summary>
         /// Gets the notification text. Never null.
         /// </summary>
@@ -50,15 +92,48 @@ namespace TUIKit.Modals
             Severity = severity;
             CreatedAtMilliseconds = createdAtMilliseconds;
             TimeoutMilliseconds = timeoutMilliseconds;
+            Actions = _NoActions;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Notification"/> class with a title and actions.
+        /// </summary>
+        /// <param name="text">The text. Must not be null.</param>
+        /// <param name="severity">The severity.</param>
+        /// <param name="createdAtMilliseconds">The creation timestamp in milliseconds.</param>
+        /// <param name="timeoutMilliseconds">The timeout in milliseconds; zero means sticky (no auto-expiry).</param>
+        /// <param name="title">An optional title, or null.</param>
+        /// <param name="actions">Optional action buttons, or null. Null entries are not allowed.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> or an action is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeoutMilliseconds"/> is negative.</exception>
+        public Notification(string text, NotificationSeverity severity, long createdAtMilliseconds, int timeoutMilliseconds, string? title, System.Collections.Generic.IEnumerable<NotificationAction>? actions)
+            : this(text, severity, createdAtMilliseconds, timeoutMilliseconds)
+        {
+            Title = string.IsNullOrEmpty(title) ? null : title;
+            if (actions != null)
+            {
+                System.Collections.Generic.List<NotificationAction> copy = new System.Collections.Generic.List<NotificationAction>();
+                foreach (NotificationAction action in actions)
+                {
+                    if (action == null)
+                        throw new ArgumentNullException(nameof(actions), "Actions must not contain null.");
+                    copy.Add(action);
+                }
+
+                Actions = copy;
+            }
         }
 
         /// <summary>
         /// Determines whether the notification has expired at the supplied time.
         /// </summary>
         /// <param name="nowMilliseconds">The current time in milliseconds.</param>
-        /// <returns><c>true</c> when the timeout has elapsed; otherwise <c>false</c>.</returns>
+        /// <returns><c>true</c> when the toast was dismissed or its timeout has elapsed; otherwise <c>false</c>.</returns>
         public bool IsExpired(long nowMilliseconds)
         {
+            if (_Dismissed)
+                return true;
+
             if (TimeoutMilliseconds <= 0)
                 return false;
 

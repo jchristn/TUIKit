@@ -13,97 +13,117 @@ namespace TUIKit.Content
     public static class MarkdownRenderer
     {
         /// <summary>
-        /// Renders Markdown into one styled text per output line.
+        /// Renders Markdown into one styled text per output line, using <see cref="MarkdownStyles.Default"/>.
         /// </summary>
         /// <param name="markdown">The Markdown source. Must not be null.</param>
         /// <returns>The rendered lines. Never null.</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> is null.</exception>
         public static IReadOnlyList<StyledText> Render(string markdown)
         {
+            return Render(markdown, MarkdownStyles.Default);
+        }
+
+        /// <summary>
+        /// Renders Markdown into one styled text per output line with the supplied element styles (for
+        /// example <see cref="MarkdownStyles.FromTheme"/>).
+        /// </summary>
+        /// <param name="markdown">The Markdown source. Must not be null.</param>
+        /// <param name="styles">The element styles. Must not be null.</param>
+        /// <returns>The rendered lines. Never null.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when an argument is null.</exception>
+        public static IReadOnlyList<StyledText> Render(string markdown, MarkdownStyles styles)
+        {
             if (markdown == null)
                 throw new ArgumentNullException(nameof(markdown));
+            if (styles == null)
+                throw new ArgumentNullException(nameof(styles));
 
             List<StyledText> output = new List<StyledText>();
             string[] lines = markdown.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
             bool inCodeBlock = false;
-            CellStyle codeStyle = CellStyle.Default.WithForeground(Color.FromPalette(2));
 
             for (int i = 0; i < lines.Length; i++)
             {
-                string line = lines[i];
-                string trimmed = line.TrimStart();
-
-                if (trimmed.StartsWith("```", StringComparison.Ordinal))
-                {
-                    inCodeBlock = !inCodeBlock;
-                    continue;
-                }
-
-                if (inCodeBlock)
-                {
-                    output.Add(Text.From("  " + line, codeStyle));
-                    continue;
-                }
-
-                if (IsHorizontalRule(trimmed))
-                {
-                    output.Add(Text.From(new string('─', 24), CellStyle.Default.WithForeground(Color.FromPalette(8))));
-                    continue;
-                }
-
-                if (trimmed.StartsWith("#", StringComparison.Ordinal))
-                {
-                    output.Add(RenderHeading(trimmed));
-                    continue;
-                }
-
-                if (trimmed.StartsWith("> ", StringComparison.Ordinal))
-                {
-                    CellStyle quote = CellStyle.Default.WithAttribute(CellAttributes.Dim, true);
-                    output.Add(Text.From("│ ", quote).Append(RenderInline(trimmed.Substring(2), quote)));
-                    continue;
-                }
-
-                int indent = line.Length - trimmed.Length;
-                string pad = indent > 0 ? new string(' ', Math.Min(indent, 8)) : string.Empty;
-
-                if (trimmed.StartsWith("- [ ] ", StringComparison.Ordinal) || IsTaskItem(trimmed))
-                {
-                    bool done = trimmed.Length > 3 && (trimmed[3] == 'x' || trimmed[3] == 'X');
-                    CellStyle mark = CellStyle.Default.WithForeground(Color.FromPalette((byte)(done ? 2 : 6)));
-                    output.Add(Text.From(pad + (done ? "☑ " : "☐ "), mark)
-                        .Append(RenderInline(trimmed.Substring(6), CellStyle.Default)));
-                    continue;
-                }
-
-                if (trimmed.StartsWith("- ", StringComparison.Ordinal) || trimmed.StartsWith("* ", StringComparison.Ordinal))
-                {
-                    output.Add(Text.From(pad + "• ", CellStyle.Default.WithForeground(Color.FromPalette(6)))
-                        .Append(RenderInline(trimmed.Substring(2), CellStyle.Default)));
-                    continue;
-                }
-
-                int orderedLength = OrderedMarkerLength(trimmed);
-                if (orderedLength > 0)
-                {
-                    output.Add(Text.From(pad + trimmed.Substring(0, orderedLength), CellStyle.Default.WithForeground(Color.FromPalette(6)))
-                        .Append(RenderInline(trimmed.Substring(orderedLength), CellStyle.Default)));
-                    continue;
-                }
-
-                if (trimmed.IndexOf('|') >= 0)
-                {
-                    output.Add(RenderTableRow(trimmed));
-                    continue;
-                }
-
-                output.Add(RenderInline(line, CellStyle.Default));
+                StyledText? rendered = RenderLine(lines[i], styles, ref inCodeBlock);
+                if (rendered != null)
+                    output.Add(rendered);
             }
 
             if (output.Count == 0)
                 output.Add(StyledText.Empty);
 
             return output;
+        }
+
+        /// <summary>
+        /// Renders one source line of a Markdown block, carrying fenced-code state across calls, so a
+        /// stream can be rendered incrementally line by line with output identical to
+        /// <see cref="Render(string, MarkdownStyles)"/> over the whole block.
+        /// </summary>
+        /// <param name="line">One source line without its line terminator. Must not be null.</param>
+        /// <param name="styles">The element styles. Must not be null.</param>
+        /// <param name="inCodeBlock">The fenced-code state: false at the start of a block; updated by fence lines.</param>
+        /// <returns>The rendered line, or null when the line produces no output (a code fence).</returns>
+        /// <exception cref="ArgumentNullException">Thrown when an argument is null.</exception>
+        public static StyledText? RenderLine(string line, MarkdownStyles styles, ref bool inCodeBlock)
+        {
+            if (line == null)
+                throw new ArgumentNullException(nameof(line));
+            if (styles == null)
+                throw new ArgumentNullException(nameof(styles));
+
+            string trimmed = line.TrimStart();
+            CellStyle text = styles.Text;
+
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inCodeBlock = !inCodeBlock;
+                return null;
+            }
+
+            if (inCodeBlock)
+                return Text.From("  " + line, MarkdownStyles.Overlay(text, styles.CodeBlock));
+
+            if (IsHorizontalRule(trimmed))
+                return Text.From(new string('\u2500', 24), MarkdownStyles.Overlay(text, styles.Rule));
+
+            if (trimmed.StartsWith("#", StringComparison.Ordinal))
+                return RenderHeading(trimmed, styles);
+
+            if (trimmed.StartsWith("> ", StringComparison.Ordinal))
+            {
+                CellStyle quote = MarkdownStyles.Overlay(text, styles.Quote);
+                return Text.From("\u2502 ", quote).Append(RenderInline(trimmed.Substring(2), quote, styles));
+            }
+
+            int indent = line.Length - trimmed.Length;
+            string pad = indent > 0 ? new string(' ', Math.Min(indent, 8)) : string.Empty;
+
+            if (trimmed.StartsWith("- [ ] ", StringComparison.Ordinal) || IsTaskItem(trimmed))
+            {
+                bool done = trimmed.Length > 3 && (trimmed[3] == 'x' || trimmed[3] == 'X');
+                CellStyle mark = MarkdownStyles.Overlay(text, done ? styles.TaskDone : styles.TaskOpen);
+                return Text.From(pad + (done ? "\u2611 " : "\u2610 "), mark)
+                    .Append(RenderInline(trimmed.Substring(6), text, styles));
+            }
+
+            if (trimmed.StartsWith("- ", StringComparison.Ordinal) || trimmed.StartsWith("* ", StringComparison.Ordinal))
+            {
+                return Text.From(pad + "\u2022 ", MarkdownStyles.Overlay(text, styles.Bullet))
+                    .Append(RenderInline(trimmed.Substring(2), text, styles));
+            }
+
+            int orderedLength = OrderedMarkerLength(trimmed);
+            if (orderedLength > 0)
+            {
+                return Text.From(pad + trimmed.Substring(0, orderedLength), MarkdownStyles.Overlay(text, styles.Bullet))
+                    .Append(RenderInline(trimmed.Substring(orderedLength), text, styles));
+            }
+
+            if (trimmed.IndexOf('|') >= 0)
+                return RenderTableRow(trimmed, styles);
+
+            return RenderInline(line, text, styles);
         }
 
         private static bool IsTaskItem(string trimmed)
@@ -124,9 +144,9 @@ namespace TUIKit.Content
             return 0;
         }
 
-        private static StyledText RenderTableRow(string trimmed)
+        private static StyledText RenderTableRow(string trimmed, MarkdownStyles styles)
         {
-            CellStyle muted = CellStyle.Default.WithForeground(Color.FromPalette(8));
+            CellStyle muted = MarkdownStyles.Overlay(styles.Text, styles.Rule);
 
             bool separator = trimmed.Length > 0;
             for (int i = 0; i < trimmed.Length; i++)
@@ -140,7 +160,7 @@ namespace TUIKit.Content
             }
 
             if (separator)
-                return Text.From(new string('─', Math.Min(24, Math.Max(1, trimmed.Length))), muted);
+                return Text.From(new string('\u2500', Math.Min(24, Math.Max(1, trimmed.Length))), muted);
 
             string body = trimmed.Trim('|');
             string[] cells = body.Split('|');
@@ -148,9 +168,9 @@ namespace TUIKit.Content
             for (int i = 0; i < cells.Length; i++)
             {
                 if (i > 0)
-                    row = row.Append(Text.From(" │ ", muted));
+                    row = row.Append(Text.From(" \u2502 ", muted));
 
-                row = row.Append(RenderInline(cells[i].Trim(), CellStyle.Default));
+                row = row.Append(RenderInline(cells[i].Trim(), styles.Text, styles));
             }
 
             return row;
@@ -165,8 +185,23 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public static StyledText RenderInline(string text, CellStyle baseStyle)
         {
+            return RenderInline(text, baseStyle, MarkdownStyles.Default);
+        }
+
+        /// <summary>
+        /// Parses a single line of inline Markdown into styled text with the supplied element styles.
+        /// </summary>
+        /// <param name="text">The inline source. Must not be null.</param>
+        /// <param name="baseStyle">The base style to apply to unmarked text.</param>
+        /// <param name="styles">The element styles (inline code uses <see cref="MarkdownStyles.InlineCode"/>). Must not be null.</param>
+        /// <returns>The styled text. Never null.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> or <paramref name="styles"/> is null.</exception>
+        public static StyledText RenderInline(string text, CellStyle baseStyle, MarkdownStyles styles)
+        {
             if (text == null)
                 throw new ArgumentNullException(nameof(text));
+            if (styles == null)
+                throw new ArgumentNullException(nameof(styles));
 
             List<StyledSpan> spans = new List<StyledSpan>();
             System.Text.StringBuilder plain = new System.Text.StringBuilder();
@@ -177,7 +212,7 @@ namespace TUIKit.Content
                 if (Match(text, i, "`"))
                 {
                     FlushPlain(spans, plain, baseStyle);
-                    i = EmitDelimited(text, i, "`", spans, baseStyle.WithForeground(Color.FromPalette(3)));
+                    i = EmitDelimited(text, i, "`", spans, MarkdownStyles.Overlay(baseStyle, styles.InlineCode));
                     continue;
                 }
 
@@ -213,17 +248,15 @@ namespace TUIKit.Content
             return new StyledText(spans);
         }
 
-        private static StyledText RenderHeading(string trimmed)
+        private static StyledText RenderHeading(string trimmed, MarkdownStyles styles)
         {
             int level = 0;
             while (level < trimmed.Length && trimmed[level] == '#')
                 level++;
 
             string content = trimmed.Substring(level).TrimStart();
-            CellStyle style = CellStyle.Default
-                .WithForeground(Color.FromPalette((byte)(level <= 1 ? 6 : 4)))
-                .WithAttribute(CellAttributes.Bold, true);
-            return RenderInline(content, style);
+            CellStyle style = MarkdownStyles.Overlay(styles.Text, level <= 1 ? styles.Heading1 : styles.Heading);
+            return RenderInline(content, style, styles);
         }
 
         private static bool IsHorizontalRule(string trimmed)

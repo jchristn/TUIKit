@@ -3,6 +3,7 @@ namespace TUIKit.Widgets
     using System;
     using System.Collections.Generic;
     using TUIKit;
+    using TUIKit.Unicode;
 
     /// <summary>
     /// A columnar table with a styled header row. By default columns split the available width evenly
@@ -297,14 +298,14 @@ namespace TUIKit.Widgets
             int count = _Headers.Length;
             int[] widths = new int[count];
             for (int c = 0; c < count; c++)
-                widths[c] = (_Headers[c] ?? string.Empty).Length;
+                widths[c] = TextFit.Width(_Headers[c]);
 
             for (int r = 0; r < _Rows.Count; r++)
             {
                 StyledText[] row = _Rows[r];
                 for (int c = 0; c < count && c < row.Length; c++)
                 {
-                    int len = row[c] == null ? 0 : row[c].ToPlainString().Length;
+                    int len = row[c] == null ? 0 : row[c].Width;
                     if (len > widths[c])
                         widths[c] = len;
                 }
@@ -358,7 +359,7 @@ namespace TUIKit.Widgets
                 return;
 
             StyledText clipped = Clip(text, innerWidth);
-            int length = clipped.ToPlainString().Length;
+            int length = clipped.Width;
             int offset = 0;
             if (alignment == CellAlignment.Right)
                 offset = innerWidth - length;
@@ -376,8 +377,7 @@ namespace TUIKit.Widgets
             if (maxWidth <= 0)
                 return StyledText.Empty;
 
-            string plain = text.ToPlainString();
-            if (plain.Length <= maxWidth)
+            if (text.Width <= maxWidth)
                 return text;
 
             List<StyledSpan> spans = new List<StyledSpan>();
@@ -386,20 +386,21 @@ namespace TUIKit.Widgets
             for (int i = 0; i < source.Count && remaining > 0; i++)
             {
                 StyledSpan span = source[i];
-                if (span.Text.Length <= remaining)
+                int spanWidth = TextFit.Width(span.Text);
+                if (spanWidth <= remaining)
                 {
                     spans.Add(span);
-                    remaining -= span.Text.Length;
+                    remaining -= spanWidth;
                 }
                 else
                 {
-                    spans.Add(new StyledSpan(span.Text.Substring(0, remaining), span.Style));
+                    spans.Add(new StyledSpan(TextFit.Truncate(span.Text, remaining), span.Style));
                     remaining = 0;
                 }
             }
 
             CellStyle ellipsisStyle = spans.Count > 0 ? spans[spans.Count - 1].Style : CellStyle.Default;
-            spans.Add(new StyledSpan("…", ellipsisStyle));
+            spans.Add(new StyledSpan(TextFit.DefaultEllipsis, ellipsisStyle));
             return new StyledText(spans);
         }
     }
