@@ -70,6 +70,7 @@ namespace TUIKit.Example
             _App.Commands.Register(KeyChord.Parse("ctrl+l"), "multiselect");
             _App.Commands.Register(KeyChord.Parse("ctrl+n"), "notify");
             _App.Commands.Register(KeyChord.Parse("f12"), "mouse");
+            _App.Commands.Register(KeyChord.Parse("ctrl+o"), "open-latest");
 
             _App.RegisterCommand("quit", () => _App.RequestStop());
             _App.RegisterCommand("help", () => { _ShowHelp = !_ShowHelp; Log(_ShowHelp ? "F1 was pressed, opening help" : "Help closed"); });
@@ -79,6 +80,8 @@ namespace TUIKit.Example
             _App.RegisterCommand("multiselect", MultiSelectDemo);
             _App.RegisterCommand("notify", () => { _App.Notify("This is a TUIKit notification toast.", NotificationSeverity.Info, 2500); Log("Ctrl+N was pressed, showing a notification toast"); });
             _App.RegisterCommand("mouse", ToggleMouse);
+            _App.RegisterCommand("open-latest", () => Log(_App.InvokeLatestNotificationAction() ? "Ctrl+O ran the newest toast's action" : "Ctrl+O: no toast with an action"));
+            _App.Notifications.ShowSeverityLabels = true;
 
             _App.CtrlCPolicy = CtrlCPolicy.DoubleTapToExit;
             _App.KeyReceived += OnKey;
@@ -563,6 +566,7 @@ namespace TUIKit.Example
                 "  " + Hint("ctrl+t").PadRight(16) + "cycle theme (dark/light/high-contrast)",
                 "  " + Hint("ctrl+k").PadRight(16) + "confirmation dialog demo",
                 "  " + Hint("ctrl+n").PadRight(16) + "show a notification toast",
+                "  " + Hint("ctrl+o").PadRight(16) + "run the newest toast's action",
                 "  " + Hint("f12").PadRight(16) + "toggle mouse capture (native text select)",
                 "  " + (Hint("f1") + " / ?").PadRight(16) + "toggle this help",
                 "  " + Hint("ctrl+q").PadRight(16) + "quit",
@@ -677,7 +681,7 @@ namespace TUIKit.Example
 
             pages.Add(new TourPage(
                 "Clickable rows",
-                "Click a row's buttons, or press [bold]o[/] / [bold]x[/]. Do one twice to see the toast count.",
+                "Click a row's buttons, or press [bold]o[/] / [bold]x[/]. Repeats coalesce even with fresh lambdas; [bold]Ctrl+O[/] opens the newest.",
                 new ClickableRowsWidget(app, new[] { "invoice-0042", "invoice-0043", "invoice-0044", "invoice-0045" }),
                 new[]
                 {
@@ -689,7 +693,45 @@ namespace TUIKit.Example
                     "  \"Open\", \"o\", new RowAction(i, true), map);",
                     "// in HandleMouse:",
                     "return map.HandleMouse(mouse);",
-                    "map.Invoked += r => Act(r.Action);"
+                    "map.Invoked += r => Act(r.Action);",
+                    "// toasts coalesce by action key:",
+                    "new NotificationAction(\"Open\",",
+                    "  () => Open(id), key: id)"
+                }));
+
+            pages.Add(new TourPage(
+                "Framed screens",
+                "[bold]Tab[/] walks the panes; the focused frame is drawn whole. Type in the composer: [bold]/[/] stays, [bold]?[/] reads F1. [bold]F2[/] opens a drawer.",
+                new FramedScreenDemoWidget(),
+                new[]
+                {
+                    "FramedStack right = new FramedStack()",
+                    "  .Add(transcript, StackSize.Weighted(1), \"Transcript\")",
+                    "  .Add(composer, StackSize.Fixed(2), \"Composer\");",
+                    "FramedStack screen = new FramedStack(",
+                    "    SplitOrientation.Horizontal)",
+                    "  .Add(channels, StackSize.Weighted(1, 10))",
+                    "  .Add(right, StackSize.Weighted(3));",
+                    "screen.Overlay = drawer; // F2",
+                    "new KeyHint(\"?\", \"Help\")",
+                    "  .WithTypingAlternative(",
+                    "    KeyHint.For(\"f1\", \"Help\"));"
+                }));
+
+            pages.Add(new TourPage(
+                "Tab strip",
+                "A [bold]TabStrip[/] without content: [bold]Left/Right[/] switch, brackets keep tabs in place when focus moves.",
+                new TabStripDemoWidget(),
+                new[]
+                {
+                    "TabStrip strip = new TabStrip",
+                    "{",
+                    "  TabPrefix = \"[\", TabSuffix = \"]\",",
+                    "  TabFocusPrefix = \">\",",
+                    "  TabFocusSuffix = \"<\"",
+                    "};",
+                    "strip.ActiveTabChanged += (s, e) =>",
+                    "  router.Go(routes[e.NewValue]);"
                 }));
 
             Pane backgrounds = new Pane("backgrounds");

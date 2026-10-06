@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-05
+
+The first large app to adopt all of 1.4.0 still had to keep its own code in a few places, and each
+place was a limit any TUIKit app reaches past a few panes: a focused frame that broke into mixed
+glyphs where it met a neighbour, toasts that never coalesced because the caller built a fresh lambda
+each time, a focus audit that needed the process's only terminal slot, and key hints that advertised
+keys a text field swallowed. This release fixes those limits and adds the container that framed
+screens kept writing by hand. Everything is additive; the defaults that change are listed under
+"Changed".
+
+### Added
+- **Framed screens.** `FramedStack` lays out child panes along one axis and frames each of them,
+  with neighbours sharing one border line and the focused pane drawn whole in the focus style.
+  Children are sized with `StackSize.Fixed`, `StackSize.Weighted`, and `StackSize.Min` (`StackSizeKind`);
+  when the minimums do not fit, children are dropped from the end and skipped by focus. A stack nested
+  in a stack joins its lines with the parent's, so stacks form a grid. `Overlay`, `OverlayRect`, and
+  `OverlayTitle` show a drawer that takes focus and the focused frame; a click outside closes it.
+  Clicks focus the child under the pointer and reach it in its own content coordinates
+  (`ContentRectOf`). Focus runs on an inactive `FocusScope`, and the focused child's own key hints
+  reach the resolver through the focus path.
+- **Whole focused frames.** `JoinMode` (`Merge`, `OverlayWhole`, `None`), a
+  `SurfaceExtensions.DrawJoinedBox` overload that takes it, and `FocusFrameOptions.FocusedJoinMode` and
+  `UnfocusedJoinMode`. `OverlayWhole` draws every cell of the outline in the box's own weight, so a
+  heavy focused frame shows only heavy glyphs (`┳`, never `┱`) and stays connected to its neighbours.
+- **Frame geometry and titles.** `FocusFrame.ContentRect`, `OuterRect`, and `UsesGutter` say where
+  framed content goes at every size. `TitleAlignment` (`Left`, `Center`, `Right`) with
+  `FocusFrameOptions.TitleAlignment` and `TitleInset`, and `DrawBox`/`DrawJoinedBox` overloads that
+  take them.
+- **Gutter fallback.** `FocusFrameOptions.FocusedGutterGlyph` (with `GutterGlyph` kept as an alias),
+  `AsciiFocusedGutterGlyph`, `UnfocusedGutterGlyph`, `AsciiUnfocusedGutterGlyph`, and
+  `MinimumGutterWidth`. Below it a pane keeps all its columns for content and shows focus by a reverse
+  first column (`FocusFrame.ApplyNarrowFocus`, applied by `SplitView` and `FramedStack`).
+- **Dialog focus styles.** `DialogModal.FocusedBorderStyle`, `FocusedTitleStyle`, `UseThemeFocusStyles`,
+  and `ApplyFocusTheme`, so the topmost dialog can use the same focus color as regions. The host hands
+  its theme to dialogs it shows.
+- **Focus repair.** `FocusScope.RepairFocus` and `AutoRepair` move focus off a child that became
+  hidden, disabled, removed, or empty; `TuiApplication.AutoRepairFocus` runs it for every scope on the
+  focus path at the start of each frame and moves the region ring off a region whose widget is hidden
+  or empty. `IFocusStop` and `FocusScope.IsTabStop` mark children that are enabled and focusable but
+  not Tab stops. A `FocusScope(bool startsActive)` constructor builds a scope that sends no focus
+  notifications until it is entered.
+- **Headless apps that share the process.** `ISharedTerminalBackend` and
+  `HeadlessBackend.ClaimsTerminal`: an application on a backend that does not claim the terminal can
+  start beside others, skips the Ctrl+C and process-exit handlers, and stays out of the process-wide
+  session telemetry. The focus path is rebuilt after every frame, so `CurrentFocusPath` is fresh right
+  after rendering.
+- **Key hints for real text fields.** `ITextEntryKeys` (`ConsumesChord`, `LeaveHint`), implemented by
+  `TextField` and `TextEditor`, hides hints for keys a field consumes and gives each field its own leave
+  hint. `KeyHint.WhileTyping` and `WithTypingAlternative` keep a hint while typing or swap it (`?` Help
+  becomes `F1` Help). `IKeyHintSourceOptions` with `KeyHintOrder` (`InnerFirst`, `OwnFirst`) and
+  `Exclusive` order and limit sources. `StatusBar.RightText`, `RightTextStyle`, and `ReservedHint`.
+- **Tabs.** `TabStrip`, the strip of `TabView` on its own, for apps that host tab content themselves.
+  `TabPrefix`, `TabSuffix`, `TabFocusPrefix`, and `TabFocusSuffix` on both (`TabView.TabFocusMarker`
+  stays as shorthand for the focus prefix), so bracket markers keep tab positions stable.
+- **Toasts.** `NotificationAction.Key`, `NotificationOptions` (with `CoalesceKey`) and matching
+  `NotificationCenter.Add` and `TuiApplication.Notify` overloads, `NotificationCenter.CoalesceBy`
+  (`CoalesceMatch`), `ShowSeverityLabels` and `SeverityLabels`, `InvokeLatestAction` (and
+  `TuiApplication.InvokeLatestNotificationAction`), `TopOffset`, and `Notification.CoalesceKey`.
+- **Tail-follow.** `TailFollow.OnContentRemoved` lowers the "N new below" count, and
+  `PaneLineHandle.Remove` calls it for counted lines; `TailFollow.OnJumpedAway` lets custom scrolling
+  widgets report a deliberate jump.
+
+### Changed
+- Joined focused frames are drawn whole (`FocusedJoinMode = OverlayWhole`): where a focused frame
+  shares a line with a neighbour you now see a single-weight junction such as `┳` instead of the mixed
+  `┱`. Set `FocusedJoinMode = JoinMode.Merge` for the 1.4.0 output.
+- The ASCII focused gutter is `#` instead of `|`, and an unfocused gutter writes its column (a space by
+  default) instead of leaving whatever was there.
+- Toasts coalesce when their actions match by key or label, not only by instance. Two toasts with the
+  same text whose actions target different items now merge, and only the newest target survives; give
+  those actions distinct keys, or set `CoalesceBy = CoalesceMatch.ContentAndActionInstances`.
+- Focus is repaired after layout: focus resting on a hidden, disabled, or emptied child moves to a
+  sibling, Tab no longer lands on an empty `FocusScope`, and the host leaves a region whose widget is
+  hidden or empty. Set `FocusScope.AutoRepair` or `TuiApplication.AutoRepairFocus` to false for 1.4.0.
+- `TextField` and `TextEditor` hints hide the non-printable keys they consume (Enter and the arrows in
+  an editor; Backspace, Delete, Left, Right, Home, and End in a field), so a bound status bar shows fewer
+  hints while typing.
+- `FocusFrameOptions.GutterGlyph` rejects a glyph that is not exactly one cell wide, and null raises
+  `ArgumentNullException` (still an `ArgumentException`).
+
 ## [1.4.0] - 2026-10-05
 
 Usability you can see, drawn from what a large client (Armada's terminal UI) had to build for

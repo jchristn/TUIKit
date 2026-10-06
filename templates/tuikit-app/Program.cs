@@ -5,12 +5,14 @@ namespace TuiKitApp
     using TUIKit;
     using TUIKit.Content;
     using TUIKit.Hosting;
+    using TUIKit.Layout;
     using TUIKit.Widgets;
 
     /// <summary>
-    /// A minimal TUIKit terminal application: a header, a list and a notes field in framed regions, and
-    /// a footer. The focused region draws a heavy frame, Tab moves focus, the footer lists the keys that
-    /// work for whatever has focus, and Ctrl+Q quits. Extend it by binding more chords and widgets.
+    /// A minimal TUIKit terminal application: a header, a two-pane framed screen (a list beside a notes
+    /// field), and a footer. The panes share one border line, the focused pane is drawn whole in the
+    /// focus style, Tab moves focus, the footer lists the keys that work for whatever has focus, and
+    /// Ctrl+Q quits. Extend it by adding panes to the stack and binding more chords.
     /// </summary>
     internal static class Program
     {
@@ -18,21 +20,22 @@ namespace TuiKitApp
         {
             await TuiApp.RunAsync(app =>
             {
-                // Bordered regions show which one has focus, so keys never go somewhere unexpected.
-                app.HighlightFocusedRegion = true;
-
                 Pane header = app.AddPane("header", region => region.TopAnchored(0, 1).FillWidth().WithPadding(0));
                 header.WriteMarkup("[bold]TuiKitApp[/]  -  [yellow]Tab[/] moves focus, [yellow]Ctrl+Q[/] quits");
 
-                ListView<string> items = app.AddWidget("items", new ListView<string>(), region => region
-                    .ProportionalWidth(0.0, 0.4).FillHeight(1, 1).WithPadding(0).WithBorder(BorderStyle.Rounded, "Items"));
+                ListView<string> items = new ListView<string>();
                 items.SetItems(new[] { "First item", "Second item", "Third item" });
+                TextField notes = new TextField { Placeholder = "Type a note" };
 
-                app.AddWidget("notes", new TextField { Placeholder = "Type a note" }, region => region
-                    .ProportionalWidth(0.4, 0.6).FillHeight(1, 1).WithPadding(0).WithBorder(BorderStyle.Rounded, "Notes"));
+                // One framed screen: the panes share a line, and the focused pane's frame is drawn whole.
+                FramedStack screen = new FramedStack(SplitOrientation.Horizontal)
+                    .Add(items, StackSize.Weighted(2), "Items")
+                    .Add(notes, StackSize.Weighted(3), "Notes");
+                screen.FrameOptions.TitleAlignment = TitleAlignment.Left;
+                app.AddWidget("screen", screen, region => region.FillWidth().FillHeight(1, 1).WithPadding(0));
 
                 // The footer follows focus: it lists the focused widget's keys, then the app's.
-                StatusBar footer = app.AddWidget("footer", new StatusBar(), region => region.BottomAnchored(0, 1).FillWidth().WithPadding(0));
+                StatusBar footer = app.AddWidget("footer", new StatusBar { RightText = "TuiKitApp" }, region => region.BottomAnchored(0, 1).FillWidth().WithPadding(0));
                 app.BindKeyHints(footer).AddAppHint("ctrl+q", "Quit");
 
                 app.Bind("Ctrl+Q", () => app.Quit());

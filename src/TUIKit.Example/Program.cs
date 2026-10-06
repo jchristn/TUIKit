@@ -161,7 +161,9 @@ namespace TUIKit.Example
 
         private static int RunFocusAudit()
         {
-            HeadlessBackend backend = new HeadlessBackend(100, 20);
+            // The audit app does not claim the terminal (1.5.0), so it can run beside another application
+            // in the same process, the way a parallel UI test would.
+            HeadlessBackend backend = new HeadlessBackend(100, 20) { ClaimsTerminal = false };
             using (TuiApplication app = new TuiApplication(backend))
             using (FocusShowcase showcase = new FocusShowcase(app))
             {

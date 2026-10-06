@@ -133,7 +133,16 @@ namespace TUIKit.Example
         {
             _Selected = action.Row;
             string verb = action.Open ? "Opened " : "Archived ";
-            _App.Notify(verb + _Items[action.Row], action.Open ? NotificationSeverity.Info : NotificationSeverity.Success, 3000);
+            string item = _Items[action.Row];
+
+            // A fresh lambda on every call: 1.5.0 coalesces repeats by the action's key, and the newest
+            // callback wins. Ctrl+O runs it (TuiApplication.InvokeLatestNotificationAction).
+            NotificationOptions options = new NotificationOptions
+            {
+                TimeoutMilliseconds = 3000,
+                Actions = new[] { new NotificationAction("Show", () => _Selected = _Items.IndexOf(item), item) }
+            };
+            _App.Notify(verb + item, action.Open ? NotificationSeverity.Info : NotificationSeverity.Success, options);
         }
     }
 }

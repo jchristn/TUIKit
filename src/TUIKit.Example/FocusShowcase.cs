@@ -31,6 +31,9 @@ namespace TUIKit.Example
         {
             _App = app ?? throw new ArgumentNullException(nameof(app));
             _App.HighlightFocusedRegion = true;
+            _App.FocusFrameOptions.TitleAlignment = TitleAlignment.Left;
+            _App.Notifications.ShowSeverityLabels = true;
+            _App.Notifications.TopOffset = 1;
             _App.Layout = Layout.Create()
                 .Add("files", r => r.ProportionalWidth(0.0, 0.25).Vertical(AxisConstraint.Stretch(0, 1)).WithPadding(0).WithBorder(BorderStyle.Rounded, "Files"))
                 .Add("details", r => r.ProportionalWidth(0.25, 0.4).Vertical(AxisConstraint.Stretch(0, 1)).WithPadding(0).WithBorder(BorderStyle.Rounded, "Details"))
@@ -66,6 +69,8 @@ namespace TUIKit.Example
 
             _App.Bind("ctrl+q", _App.Quit);
             _App.Bind("ctrl+s", () => _App.Notify("Saved", NotificationSeverity.Success, 3000));
+            _App.Bind("ctrl+o", () => _App.InvokeLatestNotificationAction());
+            hints.AddAppHint("ctrl+o", "Open toast");
             _App.ApplyThemeToWidgets = true;
         }
 

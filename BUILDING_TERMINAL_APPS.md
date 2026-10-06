@@ -579,6 +579,25 @@ var tabs = new TabView().Add("Logs", logsPane).Add("Stats", statsWidget);
 var section = new Collapsible("Read src/foo.cs", detailWidget) { Expanded = false };
 ```
 
+### Composing framed screens
+
+Most real screens have more structure than a handful of regions: a filter row above a grid above a detail strip, or a channel list beside a transcript above a composer. `FramedStack` lays children out along one axis, frames each of them, and lets neighbours share one border line. Nest one stack in another and the lines join into a grid.
+
+```csharp
+FramedStack right = new FramedStack(SplitOrientation.Vertical)
+    .Add(transcript, StackSize.Weighted(1), "Transcript")
+    .Add(composer, StackSize.Fixed(3), "Composer");
+FramedStack screen = new FramedStack(SplitOrientation.Horizontal)
+    .Add(channels, StackSize.Weighted(1, 12), "Channels")
+    .Add(right, StackSize.Weighted(3));
+screen.FrameOptions.TitleAlignment = TitleAlignment.Left;
+screen.Overlay = pinnedDrawer; // takes focus; set null to give it back
+```
+
+Fixed children get their rows first, weighted children share the rest, and when the minimums no longer fit the stack drops children from the end rather than squeezing them into nothing. A dropped child is skipped by focus, and if it held focus, focus repair moves it to a neighbour on the next frame.
+
+The focused frame is drawn whole. A heavy frame merged into a light neighbour's line produces mixed junctions such as `┱`, which many terminal fonts render from a fallback font, so the focused pane stops reading as one shape. `FocusFrameOptions.FocusedJoinMode` defaults to `JoinMode.OverlayWhole`: every cell of the focused outline uses the heavy family (`┳`, `┣`), and the neighbour's light line still meets it. Set `JoinMode.Merge` if you prefer the 1.4.0 look.
+
 ### Form inputs
 
 ```csharp
@@ -787,6 +806,8 @@ recording.Replay(headlessBackend);
 ---
 
 ## 11. Testing your UI headlessly
+
+Since 1.5.0 a `HeadlessBackend` created with `ClaimsTerminal = false` does not take the process's one terminal slot, so tests can start many applications at once (in parallel test runners, or two apps side by side in one test), each with its own frame capture, mouse input, and `FocusAudit`. Counters on the TUIKit meter are process-wide, so a test that asserts a counter delta should still run on its own.
 
 TUIKit renders into an in-memory buffer, so you can assert your UI as text — the same way TUIKit tests itself. Drive a `HeadlessBackend`, feed input, and snapshot a frame.
 

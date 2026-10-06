@@ -4,6 +4,24 @@
 
 This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
+## 1.5.0 additions (feature/v1.5.0)
+
+The 1.5.0 work (see `archive/IMPROVEMENTS_FOCUS_HINTS_TOASTS.md`) added the public surface below, each with positive, negative, and boundary Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **845 console cases** (846 through the xUnit/NUnit wrappers), all green. Rather than growing the 1.4.0 suites, every item got its own suite, so a failure names the feature.
+
+| New/changed public surface | Test suite |
+|---|---|
+| `FocusFrame.ContentRect`/`OuterRect`/`UsesGutter`, `TitleAlignment`, `FocusFrameOptions.TitleAlignment`/`TitleInset`, `SurfaceExtensions.DrawBox` (alignment overload) | `FrameGeometry` |
+| `FocusFrameOptions.FocusedGutterGlyph`/`AsciiFocusedGutterGlyph`/`UnfocusedGutterGlyph`/`AsciiUnfocusedGutterGlyph`/`MinimumGutterWidth`, `FocusFrame.ApplyNarrowFocus` | `GutterFallback` |
+| `JoinMode`, `SurfaceExtensions.DrawJoinedBox` (mode overloads), `FocusFrameOptions.FocusedJoinMode`/`UnfocusedJoinMode` | `WholeFocusedFrame` |
+| `DialogModal.FocusedBorderStyle`/`FocusedTitleStyle`/`UseThemeFocusStyles`/`ApplyFocusTheme` | `DialogFocusStyle` |
+| `IFocusStop`, `FocusScope(bool)`, `FocusScope.RepairFocus`/`AutoRepair`/`IsTabStop`, `TuiApplication.AutoRepairFocus` | `FocusRepair` |
+| `ISharedTerminalBackend`, `HeadlessBackend.ClaimsTerminal`, fresh `CurrentFocusPath` after a frame | `HeadlessHost` |
+| `TailFollow.OnContentRemoved`/`OnJumpedAway`, `PaneLineHandle.Remove` lowering the count | `TailFollowShrink` |
+| `NotificationAction.Key`, `NotificationOptions`, `CoalesceMatch`, `NotificationCenter.CoalesceBy`/`ShowSeverityLabels`/`SeverityLabels`/`InvokeLatestAction`/`TopOffset`, `Notification.CoalesceKey`, `TuiApplication.Notify(options)`/`InvokeLatestNotificationAction` | `ToastKey` |
+| `FramedStack`, `StackSize`, `StackSizeKind` | `FramedStack` |
+| `TabStrip`, `TabView.TabPrefix`/`TabSuffix`/`TabFocusPrefix`/`TabFocusSuffix` | `TabStrip` |
+| `ITextEntryKeys`, `KeyHint.WorksWhileTyping`/`TypingAlternative`/`WhileTyping`/`WithTypingAlternative`, `IKeyHintSourceOptions`, `KeyHintOrder`, `StatusBar.RightText`/`RightTextStyle`/`ReservedHint`, `TextField`/`TextEditor` `ConsumesChord`/`LeaveHint` | `TypingHints` |
+
 ## 1.4.0 additions (feature/v1.4.0)
 
 The 1.4.0 usability work (see `archive/IMPROVEMENTS_FROM_ARMADA.md`) added the public surface below. Each item has positive and negative Touchstone cases, run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **776 console cases** (777 through the xUnit/NUnit wrappers), all green. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **81.6%** (`Test.Shared` 99.4%).

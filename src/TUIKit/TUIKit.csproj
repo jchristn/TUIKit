@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.4.0</Version>
-    <AssemblyVersion>1.4.0.0</AssemblyVersion>
-    <FileVersion>1.4.0.0</FileVersion>
+    <Version>1.5.0</Version>
+    <AssemblyVersion>1.5.0.0</AssemblyVersion>
+    <FileVersion>1.5.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -32,7 +32,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
     <PackageTags>tui;focus;accessibility;keyboard;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.4.0 - usability you can see: focused regions and split panes draw a heavy focus frame (HighlightFocusedRegion, FocusFrame, FocusPath), TabView shows when its tab strip holds focus, status bars list the keys of whatever has focus and hide keys that would type into a text field (KeyHintResolver, BindKeyHints), lists and panes follow new content without fighting the reader (TailFollow), custom rows get clickable inline buttons (ClickRegionMap, InlineButton), repeated toasts coalesce with a count, and tests gain real mouse input (HeadlessBackend.FeedClick and friends), frame capture, and a focus audit (FocusAudit). All additive. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.5.0 - focus layout, hints, toasts, and testing: FramedStack frames the panes of a whole screen with shared lines, nested grids, and an overlay drawer; the focused frame is drawn whole where it meets neighbours (JoinMode); frame geometry helpers and left/right titles; a gutter that shows focus in ASCII; focus repair moves focus off hidden or emptied children (FocusScope.RepairFocus, IFocusStop); headless apps that share the process (ISharedTerminalBackend); key hints that understand real text fields (ITextEntryKeys, KeyHint.WhileTyping, WithTypingAlternative); a standalone TabStrip; toasts that coalesce by key with severity labels and InvokeLatestAction. Additive; a few defaults change, listed under Changed. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

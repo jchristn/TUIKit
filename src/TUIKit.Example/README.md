@@ -11,7 +11,12 @@ finding, menus, nested splits, the color picker, diffs, the key-binding editor, 
 (pane frames and the tab-strip marker; Tab moves inside the demo), **Keys follow focus** (the bar
 hides keys that would type once you Tab into the search field), **Streaming without losing your
 place** (a feed that follows unless you scroll away; End returns), and **Clickable rows** (inline
-buttons with `o`/`x` keys; do one twice to see the toast count).
+buttons with `o`/`x` keys; repeats coalesce even though each raise builds a fresh lambda, toasts carry
+severity labels, and **Ctrl+O** runs the newest toast's action). Pages 6 and 7 cover 1.5: **Framed
+screens** (a `FramedStack` of channels, transcript, and composer with whole focused frames, left titles,
+a composer whose hints keep `/` and show `F1` for help while typing, a status bar with a reserved hint
+and right text, and an **F2** drawer that takes focus) and **Tab strip** (a `TabStrip` with bracket
+markers above content the app routes itself).
 
 Global keys open live UI on top of the tour:
 
@@ -46,8 +51,10 @@ A fourth demo, the **focus showcase** (`--focus`, [`FocusShowcase.cs`](FocusShow
 small app built from real regions: the focused region draws a heavy frame, the Details tab view's
 strip is its own focus stop, the footer lists the keys of whatever has focus, the Log tab follows new
 output, the Activity rows have clickable inline buttons, and **Ctrl+S** shows a "Saved" toast that
-coalesces with a count when repeated. `--focus-audit-once` runs `FocusAudit` over it and exits 1 if
-it finds a problem.
+coalesces with a count when repeated. `--focus-audit-once` runs `FocusAudit` over it on a backend that
+does not claim the terminal (`ClaimsTerminal = false`, so it could run beside another app) and exits 1
+if it finds a problem. Frame titles are left-aligned and toasts show severity labels below a one-row
+top offset.
 
 ## Running it
 
