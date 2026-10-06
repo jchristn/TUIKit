@@ -66,6 +66,7 @@ namespace TUIKit.Hosting
         private bool _EnableMouseRouting = true;
         private bool _IncrementalRegions;
         private bool _Started;
+        private bool _ClaimedTerminal;
         private bool _Disposed;
         private bool _MouseCaptureEnabled = true;
         private bool _ForceFullRepaint;
@@ -109,6 +110,8 @@ namespace TUIKit.Hosting
         private bool _HighlightFocusedRegion;
         private FocusFrameOptions _FocusFrameOptions = new FocusFrameOptions();
         private bool _JoinRegionBorders;
+        private bool _AutoRepairFocus = true;
+        private readonly List<FocusScope> _RepairScratch = new List<FocusScope>();
         private Size _FrameSize;
 
         /// <summary>
@@ -357,6 +360,23 @@ namespace TUIKit.Hosting
                 _HighlightFocusedRegion = value;
                 _RenderRequested = true;
             }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the host repairs focus at the start of each composed
+        /// frame, before anything is drawn: every <see cref="FocusScope"/> on the focus path whose
+        /// <see cref="FocusScope.AutoRepair"/> is on gets <see cref="FocusScope.RepairFocus"/>, innermost
+        /// first, so focus never rests on a child that became hidden, disabled, or empty; and when the
+        /// focused region's widget itself became hidden (<see cref="IHideable"/>) or is a container left
+        /// with nothing focusable, focus moves to the next region as if Tab had been pressed. The focus
+        /// path (<see cref="CurrentFocusPath"/>) is then rebuilt, raising <see cref="FocusPathChanged"/>
+        /// once when it changed. Defaults to true. Set false for the 1.4.0 behavior. Read and set on the
+        /// UI thread.
+        /// </summary>
+        public bool AutoRepairFocus
+        {
+            get { return _AutoRepairFocus; }
+            set { _AutoRepairFocus = value; }
         }
 
         /// <summary>
@@ -1247,19 +1267,31 @@ namespace TUIKit.Hosting
         /// Starts the terminal session: enters raw mode and, when interactive, the alternate screen
         /// with mouse, paste, and enhanced keyboard enabled.
         /// </summary>
-        /// <exception cref="InvalidOperationException">Thrown when another application is already running.</exception>
+        /// <remarks>
+        /// Only one application per process may hold the terminal. A backend implementing
+        /// <see cref="ISharedTerminalBackend"/> with <see cref="ISharedTerminalBackend.ClaimsTerminal"/> false
+        /// (for example a <see cref="HeadlessBackend"/> with <c>ClaimsTerminal = false</c>) does not take that
+        /// slot, so several such applications can run at once; they also skip the Ctrl+C and process-exit
+        /// handlers and the process-wide session telemetry.
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">Thrown when the backend claims the terminal and
+        /// another application that claims it is already running.</exception>
         public void Start()
         {
             if (_Started)
                 return;
 
-            if (Interlocked.Increment(ref _ActiveCount) != 1)
+            // Read once per session: the stop path releases exactly what this start claimed, even if the
+            // backend's answer changes in between.
+            bool claims = !(_Backend is ISharedTerminalBackend shared) || shared.ClaimsTerminal;
+            if (claims && Interlocked.Increment(ref _ActiveCount) != 1)
             {
                 Interlocked.Decrement(ref _ActiveCount);
                 TuiKitInstruments.Add(TuiKitInstruments.SessionStarts, 1, TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeRejected);
                 throw new InvalidOperationException("The terminal is a singleton resource; only one TuiApplication may run at a time.");
             }
 
+            _ClaimedTerminal = claims;
             _Started = true;
             Interlocked.Exchange(ref _TornDown, 0);
             _Clock.Start();
@@ -1274,15 +1306,19 @@ namespace TUIKit.Hosting
 
             _SessionStartTimestamp = TuiKitInstruments.Timestamp();
             TuiKitInstruments.Add(TuiKitInstruments.SessionStarts, 1, TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeOk);
-            TuiKitInstruments.Add(TuiKitInstruments.SessionsActive, 1);
-            TuiKitInstruments.SetSessionShape(_TargetFps, _Renderer.Size.Width, _Renderer.Size.Height);
+            if (claims)
+            {
+                TuiKitInstruments.Add(TuiKitInstruments.SessionsActive, 1);
+                TuiKitInstruments.SetSessionShape(_TargetFps, _Renderer.Size.Width, _Renderer.Size.Height);
+            }
 
             if (_Backend.IsInteractive)
             {
                 EnterInteractiveModes();
                 _Backend.Flush();
 
-                InstallSafetyNet();
+                if (claims)
+                    InstallSafetyNet();
             }
         }
 
@@ -1413,6 +1449,10 @@ namespace TUIKit.Hosting
 
             _Backend.Stop();
             _Started = false;
+            if (!_ClaimedTerminal)
+                return;
+
+            _ClaimedTerminal = false;
             Interlocked.Decrement(ref _ActiveCount);
 
             TuiKitInstruments.Add(TuiKitInstruments.SessionsActive, -1);
@@ -1584,7 +1624,9 @@ namespace TUIKit.Hosting
             }
 
             _Renderer.Render(_Backend, Compose);
-            TuiKitInstruments.SetSessionShape(_TargetFps, _Renderer.Size.Width, _Renderer.Size.Height);
+            RefreshFocusPath();
+            if (_ClaimedTerminal)
+                TuiKitInstruments.SetSessionShape(_TargetFps, _Renderer.Size.Width, _Renderer.Size.Height);
         }
 
         /// <summary>
@@ -1683,6 +1725,7 @@ namespace TUIKit.Hosting
             Size size = root.Size;
             _FrameSize = size;
             _HitMap.Clear();
+            RepairFocusPath();
             RefreshFocusPath();
 
             if (_MouseTextSelectionEnabled)
@@ -2487,7 +2530,7 @@ namespace TUIKit.Hosting
             for (int attempt = 0; attempt < _FocusOrder.Count; attempt++)
             {
                 int candidate = (next + (direction * attempt) + (_FocusOrder.Count * _FocusOrder.Count)) % _FocusOrder.Count;
-                if (_Content.TryGetValue(_FocusOrder[candidate], out IWidget? widget) && FocusScope.IsFocusable(widget) && IsRegionShown(_FocusOrder[candidate]))
+                if (_Content.TryGetValue(_FocusOrder[candidate], out IWidget? widget) && IsRegionTabStop(widget) && IsRegionShown(_FocusOrder[candidate]))
                 {
                     next = candidate;
                     break;
@@ -2567,6 +2610,73 @@ namespace TUIKit.Hosting
             }
 
             return builder.ToString();
+        }
+
+        // Repairs focus that rests on something that can no longer hold it: scopes on the focus path
+        // first (innermost first, so an emptied inner scope lets its parent move on), then the region
+        // ring when the region's own widget is hidden or an empty container.
+        private void RepairFocusPath()
+        {
+            if (!_AutoRepairFocus)
+                return;
+
+            string? region = _FocusedRegion;
+            if (region == null || !_Content.TryGetValue(region, out IWidget? root))
+                return;
+
+            _RepairScratch.Clear();
+            object? current = root;
+            for (int depth = 0; current != null && depth < 64; depth++)
+            {
+                if (current is FocusScope scope)
+                    _RepairScratch.Add(scope);
+                if (!(current is IFocusPathNode node))
+                    break;
+
+                IFocusable? child = node.FocusedChild;
+                if (child == null || ReferenceEquals(child, current))
+                    break;
+                current = child;
+            }
+
+            for (int i = _RepairScratch.Count - 1; i >= 0; i--)
+            {
+                if (_RepairScratch[i].AutoRepair)
+                    _RepairScratch[i].RepairFocus();
+            }
+
+            _RepairScratch.Clear();
+            bool hidden = root is IHideable hideable && !hideable.IsVisible;
+            if ((hidden || IsEmptyContainer(root)) && HasOtherTabStopRegion(region))
+                MoveFocus(1);
+        }
+
+        // A region widget with nothing to focus: an empty FocusScope (or FramedStack), or a widget that
+        // exposes an empty FocusScope as its focused child on the focus path.
+        private static bool IsEmptyContainer(IWidget widget)
+        {
+            return (widget is IFocusChildren children && !children.HasFocusableChild)
+                || (widget is IFocusPathNode wrapper && wrapper.FocusedChild is FocusScope inner && !FocusScope.IsFocusable(inner));
+        }
+
+        private static bool IsRegionTabStop(IWidget widget)
+        {
+            return FocusScope.IsTabStop(widget) && !IsEmptyContainer(widget);
+        }
+
+        private bool HasOtherTabStopRegion(string region)
+        {
+            for (int i = 0; i < _FocusOrder.Count; i++)
+            {
+                string candidate = _FocusOrder[i];
+                if (!string.Equals(candidate, region, StringComparison.Ordinal)
+                    && _Content.TryGetValue(candidate, out IWidget? widget)
+                    && IsRegionTabStop(widget)
+                    && IsRegionShown(candidate))
+                    return true;
+            }
+
+            return false;
         }
 
         // Rebuilds the focus path into a reusable scratch list and publishes a new snapshot only when it

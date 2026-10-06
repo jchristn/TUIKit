@@ -355,6 +355,7 @@ namespace Test.Shared.Suites
                                     .Build();
                                 app.Bind("row", new ButtonRow());
                                 app.Bind("list", new ListView<string>());
+                                app.AutoRepairFocus = false;
                                 app.Start();
 
                                 FocusAuditResult result = FocusAudit.Run(app);

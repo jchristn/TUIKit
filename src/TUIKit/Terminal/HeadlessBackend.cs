@@ -10,7 +10,7 @@ namespace TUIKit.Terminal
     /// simulate a resize. Nothing touches a real console, so behavior is fully deterministic.
     /// </summary>
     /// <remarks>This type is thread-safe for concurrent writes and reads.</remarks>
-    public sealed class HeadlessBackend : ITerminalBackend
+    public sealed class HeadlessBackend : ITerminalBackend, ISharedTerminalBackend
     {
         private readonly object _Sync = new object();
         private readonly StringBuilder _Output = new StringBuilder();
@@ -20,6 +20,7 @@ namespace TUIKit.Terminal
         private bool _Interactive;
         private bool _Started;
         private bool _Stopped;
+        private bool _ClaimsTerminal = true;
 
         /// <inheritdoc/>
         public TerminalCapabilities Capabilities
@@ -37,6 +38,20 @@ namespace TUIKit.Terminal
         public bool IsInteractive
         {
             get { lock (_Sync) { return _Interactive; } }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether an application started on this backend takes the
+        /// process's one terminal slot (see <see cref="ISharedTerminalBackend"/>). Defaults to true, the
+        /// 1.4.0 behavior, so a second application in the same process still throws on start. Set false
+        /// before starting to run several headless applications side by side, for example in parallel
+        /// tests; those applications also skip the process-wide session telemetry and safety net. Safe
+        /// to read from any thread.
+        /// </summary>
+        public bool ClaimsTerminal
+        {
+            get { lock (_Sync) { return _ClaimsTerminal; } }
+            set { lock (_Sync) { _ClaimsTerminal = value; } }
         }
 
         /// <summary>

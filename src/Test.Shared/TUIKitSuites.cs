@@ -113,7 +113,9 @@ namespace Test.Shared
                     FrameGeometrySuite.Suite(),
                     GutterFallbackSuite.Suite(),
                     WholeFocusedFrameSuite.Suite(),
-                    DialogFocusStyleSuite.Suite()
+                    DialogFocusStyleSuite.Suite(),
+                    FocusRepairSuite.Suite(),
+                    HeadlessHostSuite.Suite()
                 };
             }
         }
