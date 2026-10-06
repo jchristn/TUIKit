@@ -26,14 +26,11 @@ namespace TUIKit.Widgets
     /// </remarks>
     public sealed class TabView : IWidget, IFocusable, IMouseAware, IFocusContainer, IFocusAware, IThemeable, IFocusPathNode, IKeyHintSource
     {
-        private readonly List<string> _Names = new List<string>();
+        private readonly TabStrip _Strip = new TabStrip();
         private readonly List<IWidget> _Widgets = new List<IWidget>();
-        private int _Active;
-        private int _HoverTab = -1;
         private bool _Focused;
         private bool _ChildHovered;
         private bool _StripFocused = true;
-        private string _TabFocusMarker = ">";
 
         /// <summary>
         /// Raised after the active tab changes, from a key, a click, or <see cref="Activate"/>. The
@@ -44,18 +41,30 @@ namespace TUIKit.Widgets
         /// <summary>
         /// Gets or sets the style of the active tab. Defaults to reversed cyan.
         /// </summary>
-        public CellStyle ActiveStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(6));
+        public CellStyle ActiveStyle
+        {
+            get { return _Strip.ActiveStyle; }
+            set { _Strip.ActiveStyle = value; }
+        }
 
         /// <summary>
         /// Gets or sets the style of inactive tabs. Defaults to muted.
         /// </summary>
-        public CellStyle InactiveStyle { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(8));
+        public CellStyle InactiveStyle
+        {
+            get { return _Strip.InactiveStyle; }
+            set { _Strip.InactiveStyle = value; }
+        }
 
         /// <summary>
         /// Gets or sets the style of an inactive tab header under the pointer. The active tab keeps
         /// <see cref="ActiveStyle"/> while hovered. Defaults to underlined default text.
         /// </summary>
-        public CellStyle HoverStyle { get; set; } = CellStyle.Default.WithAttributes(CellAttributes.Underline);
+        public CellStyle HoverStyle
+        {
+            get { return _Strip.HoverStyle; }
+            set { _Strip.HoverStyle = value; }
+        }
 
         /// <summary>
         /// Gets or sets a value indicating whether keys are forwarded to the active tab's content first,
@@ -92,7 +101,11 @@ namespace TUIKit.Widgets
         /// bold and underline, so the cue never depends on color alone. <see cref="ApplyTheme"/> sets it
         /// from <see cref="Theme.TabFocusedRole"/> when the theme registers that role. Defaults to null.
         /// </summary>
-        public CellStyle? FocusedTabStyle { get; set; }
+        public CellStyle? FocusedTabStyle
+        {
+            get { return _Strip.FocusedTabStyle; }
+            set { _Strip.FocusedTabStyle = value; }
+        }
 
         /// <summary>
         /// Gets or sets the marker drawn in place of the selected tab's left padding while the strip
@@ -103,7 +116,7 @@ namespace TUIKit.Widgets
         /// <exception cref="ArgumentException">Thrown when the value is wider than one cell.</exception>
         public string TabFocusMarker
         {
-            get { return _TabFocusMarker; }
+            get { return _Strip.TabFocusPrefix; }
             set
             {
                 if (value == null)
@@ -111,8 +124,54 @@ namespace TUIKit.Widgets
                 if (TextFit.Width(value) > 1)
                     throw new ArgumentException("The tab focus marker must be empty or one cell wide.", nameof(value));
 
-                _TabFocusMarker = value;
+                _Strip.TabFocusPrefix = value;
             }
+        }
+
+        /// <summary>
+        /// Gets or sets the text drawn before every tab's name, except the selected tab while the strip
+        /// holds focus. Defaults to a space, the 1.4.0 padding. Never null. See <see cref="TabStrip.TabPrefix"/>.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        public string TabPrefix
+        {
+            get { return _Strip.TabPrefix; }
+            set { _Strip.TabPrefix = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the text drawn after every tab's name, except the selected tab while the strip
+        /// holds focus. Defaults to a space. Never null.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        public string TabSuffix
+        {
+            get { return _Strip.TabSuffix; }
+            set { _Strip.TabSuffix = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the text drawn before the selected tab's name while the strip holds focus. Defaults
+        /// to <c>"&gt;"</c>; <see cref="TabFocusMarker"/> is a shorthand for it. Empty falls back to
+        /// <see cref="TabPrefix"/>. Unlike <see cref="TabFocusMarker"/>, any width is allowed; keep it the
+        /// width of <see cref="TabPrefix"/> so tabs do not shift. Never null.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        public string TabFocusPrefix
+        {
+            get { return _Strip.TabFocusPrefix; }
+            set { _Strip.TabFocusPrefix = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the text drawn after the selected tab's name while the strip holds focus. Defaults
+        /// to a space. Empty falls back to <see cref="TabSuffix"/>. Never null.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        public string TabFocusSuffix
+        {
+            get { return _Strip.TabFocusSuffix; }
+            set { _Strip.TabFocusSuffix = value; }
         }
 
         /// <summary>
@@ -127,7 +186,7 @@ namespace TUIKit.Widgets
         /// </summary>
         public int ActiveIndex
         {
-            get { return _Widgets.Count == 0 ? -1 : _Active; }
+            get { return _Widgets.Count == 0 ? -1 : _Strip.ActiveIndex; }
         }
 
         /// <summary>
@@ -143,7 +202,7 @@ namespace TUIKit.Widgets
         /// </summary>
         public IReadOnlyList<string> TabNames
         {
-            get { return _Names; }
+            get { return _Strip.Tabs; }
         }
 
         /// <summary>
@@ -151,7 +210,7 @@ namespace TUIKit.Widgets
         /// </summary>
         public IWidget? ActiveContent
         {
-            get { return _Widgets.Count == 0 ? null : _Widgets[_Active]; }
+            get { return _Widgets.Count == 0 ? null : _Widgets[_Strip.ActiveIndex]; }
         }
 
         /// <inheritdoc/>
@@ -200,7 +259,7 @@ namespace TUIKit.Widgets
             if (widget == null)
                 throw new ArgumentNullException(nameof(widget));
 
-            _Names.Add(name);
+            _Strip.Add(name);
             _Widgets.Add(widget);
             return this;
         }
@@ -214,10 +273,10 @@ namespace TUIKit.Widgets
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="name"/> is null.</exception>
         public void SetTabName(int index, string name)
         {
-            if (index < 0 || index >= _Names.Count)
+            if (index < 0 || index >= _Widgets.Count)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
-            _Names[index] = name ?? throw new ArgumentNullException(nameof(name));
+            _Strip.SetTabName(index, name ?? throw new ArgumentNullException(nameof(name)));
         }
 
         /// <summary>
@@ -276,13 +335,13 @@ namespace TUIKit.Widgets
 
             if (key.Code == KeyCode.Tab || key.Code == KeyCode.Right)
             {
-                SetActive((_Active + 1) % _Widgets.Count);
+                SetActive((_Strip.ActiveIndex + 1) % _Widgets.Count);
                 return true;
             }
 
             if (key.Code == KeyCode.Left)
             {
-                SetActive((_Active - 1 + _Widgets.Count) % _Widgets.Count);
+                SetActive((_Strip.ActiveIndex - 1 + _Widgets.Count) % _Widgets.Count);
                 return true;
             }
 
@@ -359,10 +418,7 @@ namespace TUIKit.Widgets
             if (theme == null)
                 throw new ArgumentNullException(nameof(theme));
 
-            ActiveStyle = theme.Selection;
-            FocusedTabStyle = theme.HasStyle(Theme.TabFocusedRole) ? theme.GetStyle(Theme.TabFocusedRole) : (CellStyle?)null;
-            InactiveStyle = theme.Muted;
-            HoverStyle = theme.Text.WithAttribute(CellAttributes.Underline, true);
+            _Strip.ApplyTheme(theme);
             for (int i = 0; i < _Widgets.Count; i++)
                 ThemeApplier.Apply(_Widgets[i], theme);
         }
@@ -383,7 +439,7 @@ namespace TUIKit.Widgets
 
             if (ForwardMouse && mouse.Y >= 1 && mouse.Kind != MouseEventKind.Leave)
             {
-                _HoverTab = -1;
+                _Strip.HoverTab = -1;
                 _ChildHovered = true;
                 if (mouse.Kind == MouseEventKind.Press && ForwardKeys && StripFocusStop && _StripFocused)
                     EnterContent(true);
@@ -418,10 +474,10 @@ namespace TUIKit.Widgets
                     return false;
                 case MouseEventKind.Enter:
                 case MouseEventKind.Move:
-                    _HoverTab = TabIndexAt(mouse.X, mouse.Y);
+                    _Strip.HoverTab = TabIndexAt(mouse.X, mouse.Y);
                     return false;
                 case MouseEventKind.Leave:
-                    _HoverTab = -1;
+                    _Strip.HoverTab = -1;
                     return false;
                 default:
                     return false;
@@ -445,25 +501,10 @@ namespace TUIKit.Widgets
             if (width <= 0 || height <= 0 || _Widgets.Count == 0)
                 return;
 
-            bool stripFocused = IsStripFocused;
-            int cursor = 0;
-            for (int i = 0; i < _Names.Count && cursor < width; i++)
-            {
-                string label = " " + _Names[i] + " ";
-                CellStyle style = i == _Active ? ActiveStyle : (i == _HoverTab ? HoverStyle : InactiveStyle);
-                if (i == _Active && stripFocused)
-                {
-                    style = FocusedTabStyle ?? ActiveStyle.WithAttribute(CellAttributes.Bold, true).WithAttribute(CellAttributes.Underline, true);
-                    if (_TabFocusMarker.Length > 0)
-                        label = _TabFocusMarker + _Names[i] + " ";
-                }
-
-                cursor += surface.DrawText(cursor, 0, label, style);
-                cursor += surface.DrawText(cursor, 0, " ", InactiveStyle);
-            }
+            _Strip.RenderStrip(surface, IsStripFocused);
 
             if (height > 1)
-                _Widgets[_Active].Render(new SurfaceView(surface, new Rect(0, 1, width, height - 1)));
+                _Widgets[_Strip.ActiveIndex].Render(new SurfaceView(surface, new Rect(0, 1, width, height - 1)));
         }
 
         private bool ContentBypassed
@@ -505,13 +546,13 @@ namespace TUIKit.Widgets
             bool ctrlOnly = key.Modifiers == KeyModifiers.Ctrl;
             if ((plain && key.Code == KeyCode.Right) || (ctrlOnly && key.Code == KeyCode.PageDown))
             {
-                SetActive((_Active + 1) % _Widgets.Count);
+                SetActive((_Strip.ActiveIndex + 1) % _Widgets.Count);
                 return true;
             }
 
             if ((plain && key.Code == KeyCode.Left) || (ctrlOnly && key.Code == KeyCode.PageUp))
             {
-                SetActive((_Active - 1 + _Widgets.Count) % _Widgets.Count);
+                SetActive((_Strip.ActiveIndex - 1 + _Widgets.Count) % _Widgets.Count);
                 return true;
             }
 
@@ -529,13 +570,13 @@ namespace TUIKit.Widgets
             bool ctrlOnly = key.Modifiers == KeyModifiers.Ctrl;
             if (ctrlOnly && key.Code == KeyCode.PageDown)
             {
-                SetActive((_Active + 1) % _Widgets.Count);
+                SetActive((_Strip.ActiveIndex + 1) % _Widgets.Count);
                 return true;
             }
 
             if (ctrlOnly && key.Code == KeyCode.PageUp)
             {
-                SetActive((_Active - 1 + _Widgets.Count) % _Widgets.Count);
+                SetActive((_Strip.ActiveIndex - 1 + _Widgets.Count) % _Widgets.Count);
                 return true;
             }
 
@@ -550,13 +591,13 @@ namespace TUIKit.Widgets
 
             if (key.Modifiers == KeyModifiers.None && key.Code == KeyCode.Right)
             {
-                SetActive((_Active + 1) % _Widgets.Count);
+                SetActive((_Strip.ActiveIndex + 1) % _Widgets.Count);
                 return true;
             }
 
             if (key.Modifiers == KeyModifiers.None && key.Code == KeyCode.Left)
             {
-                SetActive((_Active - 1 + _Widgets.Count) % _Widgets.Count);
+                SetActive((_Strip.ActiveIndex - 1 + _Widgets.Count) % _Widgets.Count);
                 return true;
             }
 
@@ -565,12 +606,12 @@ namespace TUIKit.Widgets
 
         private void SetActive(int index)
         {
-            if (index == _Active)
+            int before = _Strip.ActiveIndex;
+            if (index == before)
                 return;
 
-            int before = _Active;
             IWidget previous = _Widgets[before];
-            _Active = index;
+            _Strip.SetActive(index, false);
 
             if (ForwardKeys)
             {
@@ -585,21 +626,7 @@ namespace TUIKit.Widgets
 
         private int TabIndexAt(int x, int y)
         {
-            if (y != 0 || x < 0)
-                return -1;
-
-            // Mirrors the render pass: each header occupies " name " followed by a one-cell gap.
-            int cursor = 0;
-            for (int i = 0; i < _Names.Count; i++)
-            {
-                int headerWidth = TextFit.Width(_Names[i]) + 2;
-                if (x >= cursor && x < cursor + headerWidth)
-                    return i;
-
-                cursor += headerWidth + 1;
-            }
-
-            return -1;
+            return _Strip.TabIndexAt(x, y, IsStripFocused);
         }
     }
 }

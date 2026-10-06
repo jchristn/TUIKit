@@ -67,6 +67,53 @@ namespace TUIKit.Input
         }
 
         /// <summary>
+        /// Gets a value indicating whether the hint stays visible while a text field is typing, even when
+        /// its key would type a character (a <c>/</c> command prefix in a chat box). Set it with
+        /// <see cref="WhileTyping"/>. Defaults to false.
+        /// </summary>
+        public bool WorksWhileTyping { get; private set; }
+
+        /// <summary>
+        /// Gets the hint shown instead of this one while a text field is typing (for example <c>F1</c>
+        /// Help in place of <c>?</c> Help), or null. Set it with <see cref="WithTypingAlternative"/>.
+        /// </summary>
+        public KeyHint? TypingAlternative { get; private set; }
+
+        /// <summary>
+        /// Returns a copy of this hint that stays visible while typing (see <see cref="WorksWhileTyping"/>).
+        /// This instance is unchanged.
+        /// </summary>
+        /// <returns>The new hint.</returns>
+        public KeyHint WhileTyping()
+        {
+            KeyHint copy = Copy();
+            copy.WorksWhileTyping = true;
+            return copy;
+        }
+
+        /// <summary>
+        /// Returns a copy of this hint that is replaced by <paramref name="alternative"/> while a text field
+        /// is typing. This instance is unchanged.
+        /// </summary>
+        /// <param name="alternative">The hint shown while typing. Must not be null, and must not be a key
+        /// that types text (as decided by <see cref="KeyHintResolver.WouldType"/>; a hint without a parsed
+        /// chord is judged by its label).</param>
+        /// <returns>The new hint.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="alternative"/> is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="alternative"/> would type text.</exception>
+        public KeyHint WithTypingAlternative(KeyHint alternative)
+        {
+            if (alternative == null)
+                throw new ArgumentNullException(nameof(alternative));
+            if (KeyHintResolver.WouldType(alternative))
+                throw new ArgumentException("A typing alternative must not be a key that types text: " + alternative.Key + ".", nameof(alternative));
+
+            KeyHint copy = Copy();
+            copy.TypingAlternative = alternative;
+            return copy;
+        }
+
+        /// <summary>
         /// Creates a hint from chord text in <see cref="KeyChord.Parse"/> syntax, for example
         /// <c>KeyHint.For("ctrl+s", "Save")</c>.
         /// </summary>
@@ -80,6 +127,14 @@ namespace TUIKit.Input
         public static KeyHint For(string chord, string description, int priority = 0)
         {
             return new KeyHint(KeyChord.Parse(chord), description, priority);
+        }
+
+        private KeyHint Copy()
+        {
+            KeyHint copy = Chord.HasValue ? new KeyHint(Chord.Value, Description, Priority) : new KeyHint(Key, Description, Priority);
+            copy.WorksWhileTyping = WorksWhileTyping;
+            copy.TypingAlternative = TypingAlternative;
+            return copy;
         }
 
         /// <summary>

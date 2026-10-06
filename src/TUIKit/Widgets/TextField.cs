@@ -12,7 +12,7 @@ namespace TUIKit.Widgets
     /// line up), and a value wider than the field scrolls horizontally to keep the caret visible.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class TextField : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry
+    public sealed class TextField : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, ITextEntryKeys
     {
         private string _Value = string.Empty;
         private int _Caret;
@@ -201,6 +201,40 @@ namespace TUIKit.Widgets
             _Value = _Value.Insert(_Caret, sanitized);
             _Caret += sanitized.Length;
             RaiseIfChanged(before);
+        }
+
+        /// <summary>
+        /// Gets or sets the hint shown in the status bar for leaving this field while typing (for example
+        /// <c>Esc</c> Back), or null for <see cref="KeyHintResolver.LeaveTextHint"/>. Part of
+        /// <see cref="ITextEntryKeys"/>. Defaults to null.
+        /// </summary>
+        public KeyHint? LeaveHint { get; set; }
+
+        /// <summary>
+        /// Returns whether the field consumes a chord while it accepts text: Backspace, Delete, Left,
+        /// Right, Home, and End. Enter, Tab, Esc, and Up and Down reach the application. Part of
+        /// <see cref="ITextEntryKeys"/>.
+        /// </summary>
+        /// <param name="chord">The chord.</param>
+        /// <returns><c>true</c> when the field consumes it.</returns>
+        public bool ConsumesChord(KeyChord chord)
+        {
+            if (!_Enabled)
+                return false;
+
+            switch (chord.Code)
+            {
+                case KeyCode.Backspace:
+                case KeyCode.Delete:
+                    return !IsReadOnly;
+                case KeyCode.Left:
+                case KeyCode.Right:
+                case KeyCode.Home:
+                case KeyCode.End:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         /// <summary>

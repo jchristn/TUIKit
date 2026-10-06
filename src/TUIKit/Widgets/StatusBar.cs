@@ -37,6 +37,25 @@ namespace TUIKit.Widgets
         public Func<IReadOnlyList<KeyHint>>? HintSource { get; set; }
 
         /// <summary>
+        /// Gets or sets text drawn right-aligned at the end of the bar (a mode, a clock, a connection
+        /// state), or null for none. Hints keep priority: when space runs out, this text is truncated
+        /// first, and dropped when no room is left after the hints. Defaults to null.
+        /// </summary>
+        public string? RightText { get; set; }
+
+        /// <summary>
+        /// Gets or sets a hint that is always shown first and never dropped or pushed out by other hints
+        /// (for example <c>F1</c> Help), or null. A hint from <see cref="HintSource"/> with the same key is
+        /// not repeated. On a bar narrower than the hint, as much of it as fits is drawn. Defaults to null.
+        /// </summary>
+        public KeyHint? ReservedHint { get; set; }
+
+        /// <summary>
+        /// Gets or sets the style of <see cref="RightText"/>. Defaults to <see cref="CellStyle.Default"/>.
+        /// </summary>
+        public CellStyle RightTextStyle { get; set; } = CellStyle.Default;
+
+        /// <summary>
         /// Gets the number of hints.
         /// </summary>
 
@@ -90,6 +109,14 @@ namespace TUIKit.Widgets
                 return;
 
             int cursor = 0;
+            KeyHint? reserved = ReservedHint;
+            if (reserved != null)
+            {
+                cursor += surface.DrawText(cursor, 0, reserved.Key, KeyStyle);
+                if (cursor < width)
+                    cursor += surface.DrawText(cursor, 0, " " + reserved.Description + "   ", LabelStyle);
+            }
+
             IReadOnlyList<KeyHint>? hints = HintSource?.Invoke();
             if (hints != null)
             {
@@ -97,6 +124,8 @@ namespace TUIKit.Widgets
                 {
                     KeyHint? hint = hints[i];
                     if (hint == null)
+                        continue;
+                    if (reserved != null && string.Equals(hint.Key, reserved.Key, StringComparison.Ordinal))
                         continue;
 
                     // A dynamic hint is drawn whole or not at all, so a narrow bar never shows half a key.
@@ -114,6 +143,19 @@ namespace TUIKit.Widgets
                 cursor += surface.DrawText(cursor, 0, _Keys[i], KeyStyle);
                 if (cursor < width)
                     cursor += surface.DrawText(cursor, 0, " " + _Labels[i] + "   ", LabelStyle);
+            }
+
+            string? right = RightText;
+            if (!string.IsNullOrEmpty(right))
+            {
+                int room = width - cursor;
+                if (room > 0)
+                {
+                    string fitted = TUIKit.Unicode.TextFit.Ellipsize(right, room);
+                    int fittedWidth = TUIKit.Unicode.TextFit.Width(fitted);
+                    if (fittedWidth > 0)
+                        surface.DrawText(width - fittedWidth, 0, fitted, RightTextStyle);
+                }
             }
         }
     }

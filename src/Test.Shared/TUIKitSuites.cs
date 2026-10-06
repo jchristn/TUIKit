@@ -118,7 +118,9 @@ namespace Test.Shared
                     HeadlessHostSuite.Suite(),
                     TailFollowShrinkSuite.Suite(),
                     ToastKeySuite.Suite(),
-                    FramedStackSuite.Suite()
+                    FramedStackSuite.Suite(),
+                    TabStripSuite.Suite(),
+                    TypingHintsSuite.Suite()
                 };
             }
         }

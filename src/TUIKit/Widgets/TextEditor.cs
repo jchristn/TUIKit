@@ -17,7 +17,7 @@ namespace TUIKit.Widgets
     /// scroll horizontally to keep the caret visible.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, IKeyHintSource
+    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, ITextEntryKeys, IKeyHintSource
     {
         private readonly List<string> _Lines = new List<string> { string.Empty };
         private readonly Stack<EditorSnapshot> _Undo = new Stack<EditorSnapshot>();
@@ -82,6 +82,52 @@ namespace TUIKit.Widgets
         public bool AcceptsText
         {
             get { return _Enabled && !IsReadOnly; }
+        }
+
+        /// <summary>
+        /// Gets or sets the hint shown in the status bar for leaving this field while typing (for example
+        /// <c>Esc</c> Back), or null for <see cref="KeyHintResolver.LeaveTextHint"/>. Part of
+        /// <see cref="ITextEntryKeys"/>. Defaults to null.
+        /// </summary>
+        public KeyHint? LeaveHint { get; set; }
+
+        /// <summary>
+        /// Returns whether the editor consumes a chord while it accepts text: Enter, Backspace, Delete,
+        /// the arrows, Home, End, its Ctrl+Z/Y/K/U editing chords, and any other Ctrl+letter while
+        /// <see cref="ConsumeUnboundControlKeys"/> is on. Part of <see cref="ITextEntryKeys"/>.
+        /// </summary>
+        /// <param name="chord">The chord.</param>
+        /// <returns><c>true</c> when the editor consumes it.</returns>
+        public bool ConsumesChord(KeyChord chord)
+        {
+            if (!_Enabled)
+                return false;
+
+            bool ctrl = (chord.Modifiers & KeyModifiers.Ctrl) != 0;
+            if (ctrl && chord.Code == KeyCode.Character)
+            {
+                int rune = char.ToLowerInvariant((char)chord.Rune);
+                if (rune == 'z' || rune == 'y' || rune == 'k' || rune == 'u')
+                    return !IsReadOnly;
+                return ConsumeUnboundControlKeys;
+            }
+
+            switch (chord.Code)
+            {
+                case KeyCode.Enter:
+                case KeyCode.Backspace:
+                case KeyCode.Delete:
+                    return !IsReadOnly;
+                case KeyCode.Left:
+                case KeyCode.Right:
+                case KeyCode.Up:
+                case KeyCode.Down:
+                case KeyCode.Home:
+                case KeyCode.End:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         /// <summary>

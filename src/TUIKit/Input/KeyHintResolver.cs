@@ -143,19 +143,21 @@ namespace TUIKit.Input
                 throw new ArgumentNullException(nameof(path));
 
             bool typing = path.Leaf is ITextEntry entry && entry.AcceptsText;
+            ITextEntryKeys? keys = typing ? path.Leaf as ITextEntryKeys : null;
             List<KeyHint> result = new List<KeyHint>();
             HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
 
             if (typing && ShowLeaveTextHint)
-                Accept(_LeaveTextHint, false, result, seen);
-
-            for (int i = path.Nodes.Count - 1; i >= 0; i--)
             {
-                if (path.Nodes[i] is IKeyHintSource source)
-                    AddOrdered(source.GetKeyHints(), typing, result, seen);
+                KeyHint leave = keys?.LeaveHint ?? _LeaveTextHint;
+                if (seen.Add(leave.Key))
+                    result.Add(leave);
             }
 
-            AddOrdered(_AppHints, typing, result, seen);
+            foreach (IKeyHintSource source in OrderedSources(path.Nodes))
+                AddOrdered(source.GetKeyHints(), typing, keys, result, seen);
+
+            AddOrdered(_AppHints, typing, keys, result, seen);
             for (int r = 0; r < _Registries.Count; r++)
             {
                 List<KeyHint> commands = new List<KeyHint>();
@@ -167,7 +169,7 @@ namespace TUIKit.Input
                         commands.Add(new KeyHint(command.Chord.Value, command.Title));
                 }
 
-                AddOrdered(commands, typing, result, seen);
+                AddOrdered(commands, typing, keys, result, seen);
             }
 
             if (result.Count > _MaxHints)
@@ -195,7 +197,36 @@ namespace TUIKit.Input
             return hint.Key.Length == 1 && !char.IsControl(hint.Key[0]) && !char.IsWhiteSpace(hint.Key[0]);
         }
 
-        private void AddOrdered(IReadOnlyList<KeyHint>? hints, bool typing, List<KeyHint> result, HashSet<string> seen)
+        // Leaf to root by default. A source with OwnFirst moves ahead of everything inside it, and an
+        // exclusive source (the innermost one wins) cuts off the sources outside it.
+        private static List<IKeyHintSource> OrderedSources(IReadOnlyList<object> nodes)
+        {
+            int cut = 0;
+            for (int i = nodes.Count - 1; i >= 0; i--)
+            {
+                if (nodes[i] is IKeyHintSource && nodes[i] is IKeyHintSourceOptions options && options.Exclusive)
+                {
+                    cut = i;
+                    break;
+                }
+            }
+
+            List<IKeyHintSource> ordered = new List<IKeyHintSource>();
+            for (int i = nodes.Count - 1; i >= cut; i--)
+            {
+                if (!(nodes[i] is IKeyHintSource source))
+                    continue;
+
+                if (nodes[i] is IKeyHintSourceOptions options && options.HintOrder == KeyHintOrder.OwnFirst)
+                    ordered.Insert(0, source);
+                else
+                    ordered.Add(source);
+            }
+
+            return ordered;
+        }
+
+        private void AddOrdered(IReadOnlyList<KeyHint>? hints, bool typing, ITextEntryKeys? keys, List<KeyHint> result, HashSet<string> seen)
         {
             if (hints == null || hints.Count == 0)
                 return;
@@ -209,17 +240,38 @@ namespace TUIKit.Input
 
             StableSortByPriority(ordered);
             for (int i = 0; i < ordered.Count; i++)
-                Accept(ordered[i], typing, result, seen);
+                Accept(ordered[i], typing, keys, result, seen);
         }
 
-        private void Accept(KeyHint hint, bool typing, List<KeyHint> result, HashSet<string> seen)
+        private void Accept(KeyHint hint, bool typing, ITextEntryKeys? keys, List<KeyHint> result, HashSet<string> seen)
         {
-            if (typing && HideTypingChords && WouldType(hint))
-                return;
-            if (!seen.Add(hint.Key))
+            KeyHint shown = hint;
+            if (typing)
+            {
+                if (hint.TypingAlternative != null)
+                {
+                    shown = hint.TypingAlternative;
+                    if (Consumed(shown, keys))
+                        return;
+                }
+                else if (!hint.WorksWhileTyping)
+                {
+                    if (HideTypingChords && WouldType(hint))
+                        return;
+                    if (Consumed(hint, keys))
+                        return;
+                }
+            }
+
+            if (!seen.Add(shown.Key))
                 return;
 
-            result.Add(hint);
+            result.Add(shown);
+        }
+
+        private static bool Consumed(KeyHint hint, ITextEntryKeys? keys)
+        {
+            return keys != null && hint.Chord.HasValue && keys.ConsumesChord(hint.Chord.Value);
         }
 
         private static void StableSortByPriority(List<KeyHint> hints)
