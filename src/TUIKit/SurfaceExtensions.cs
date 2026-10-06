@@ -12,6 +12,10 @@ namespace TUIKit
     /// </summary>
     public static class SurfaceExtensions
     {
+        private const int DefaultTitleInset = 1;
+        private const int MinimumTitleInset = 0;
+        private const int MaximumTitleInset = 4;
+
         /// <summary>
         /// Draws text starting at the supplied coordinate, honoring grapheme clustering and wide
         /// glyphs. A wide glyph that would overflow the right edge is replaced by a blank space.
@@ -189,8 +193,30 @@ namespace TUIKit
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
         public static void DrawBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title, CellStyle titleStyle)
         {
+            DrawBox(surface, rect, style, border, title, titleStyle, TitleAlignment.Center, DefaultTitleInset);
+        }
+
+        /// <summary>
+        /// Draws a single-cell box (border) with an optional title placed on the top edge according to
+        /// <paramref name="alignment"/>. <see cref="TitleAlignment.Center"/> draws exactly as the overload
+        /// without an alignment. A title too long for the edge is truncated so it never overwrites a corner.
+        /// </summary>
+        /// <param name="surface">The target surface. Must not be null.</param>
+        /// <param name="rect">The rectangle to outline, in local coordinates. Smaller than 2x2 draws nothing.</param>
+        /// <param name="style">The style for the border glyphs.</param>
+        /// <param name="border">The border style. <see cref="BorderStyle.None"/> draws nothing.</param>
+        /// <param name="title">An optional title drawn on the top edge, or null.</param>
+        /// <param name="titleStyle">The style for the title text.</param>
+        /// <param name="alignment">Where the title sits on the top edge.</param>
+        /// <param name="titleInset">The number of border cells kept between a corner and a left- or
+        /// right-aligned title. Minimum 0, maximum 4; the overloads without it use 1. Ignored when centered.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="titleInset"/> is outside 0 to 4.</exception>
+        public static void DrawBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title, CellStyle titleStyle, TitleAlignment alignment, int titleInset)
+        {
             if (surface == null)
                 throw new ArgumentNullException(nameof(surface));
+            ValidateTitleInset(titleInset);
             if (border == BorderStyle.None || rect.Width < 2 || rect.Height < 2)
                 return;
 
@@ -224,7 +250,7 @@ namespace TUIKit
                 surface.Set(right, y, Cell.Glyph(vertical, style, 1));
             }
 
-            DrawBoxTitle(surface, left, right, top, title, titleStyle);
+            DrawBoxTitle(surface, left, right, top, title, titleStyle, alignment, titleInset);
         }
 
         /// <summary>
@@ -245,14 +271,57 @@ namespace TUIKit
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
         public static void DrawJoinedBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title, CellStyle titleStyle)
         {
+            DrawJoinedBox(surface, rect, style, border, title, titleStyle, JoinMode.Merge, TitleAlignment.Center, DefaultTitleInset);
+        }
+
+        /// <summary>
+        /// Draws a box that treats box lines already on the surface according to <paramref name="mode"/>:
+        /// <see cref="JoinMode.Merge"/> draws exactly as the overload without a mode,
+        /// <see cref="JoinMode.OverlayWhole"/> keeps every cell of this box's outline in its own weight
+        /// (the default for focused frames, see <see cref="Widgets.FocusFrameOptions.FocusedJoinMode"/>),
+        /// and <see cref="JoinMode.None"/> draws a plain box over whatever is there.
+        /// </summary>
+        /// <param name="surface">The target surface. Must not be null.</param>
+        /// <param name="rect">The rectangle to outline, in local coordinates. Smaller than 2x2 draws nothing.</param>
+        /// <param name="style">The style for the border glyphs.</param>
+        /// <param name="border">The border style. <see cref="BorderStyle.None"/> draws nothing.</param>
+        /// <param name="title">An optional title drawn on the top edge, or null.</param>
+        /// <param name="titleStyle">The style for the title text.</param>
+        /// <param name="mode">How existing lines under the outline are treated.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
+        public static void DrawJoinedBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title, CellStyle titleStyle, JoinMode mode)
+        {
+            DrawJoinedBox(surface, rect, style, border, title, titleStyle, mode, TitleAlignment.Center, DefaultTitleInset);
+        }
+
+        /// <summary>
+        /// Draws a joined box (see <see cref="DrawJoinedBox(ISurface, Rect, CellStyle, BorderStyle, string?, CellStyle, JoinMode)"/>)
+        /// with its title placed according to <paramref name="alignment"/> and <paramref name="titleInset"/>.
+        /// On a surface that is not an <see cref="IReadableSurface"/> this draws a plain box.
+        /// </summary>
+        /// <param name="surface">The target surface. Must not be null.</param>
+        /// <param name="rect">The rectangle to outline, in local coordinates. Smaller than 2x2 draws nothing.</param>
+        /// <param name="style">The style for the border glyphs.</param>
+        /// <param name="border">The border style. <see cref="BorderStyle.None"/> draws nothing.</param>
+        /// <param name="title">An optional title drawn on the top edge, or null.</param>
+        /// <param name="titleStyle">The style for the title text.</param>
+        /// <param name="mode">How existing lines under the outline are treated.</param>
+        /// <param name="alignment">Where the title sits on the top edge.</param>
+        /// <param name="titleInset">The number of border cells kept between a corner and a left- or
+        /// right-aligned title. Minimum 0, maximum 4. Ignored when centered.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="titleInset"/> is outside 0 to 4.</exception>
+        public static void DrawJoinedBox(this ISurface surface, Rect rect, CellStyle style, BorderStyle border, string? title, CellStyle titleStyle, JoinMode mode, TitleAlignment alignment, int titleInset)
+        {
             if (surface == null)
                 throw new ArgumentNullException(nameof(surface));
+            ValidateTitleInset(titleInset);
             if (border == BorderStyle.None || rect.Width < 2 || rect.Height < 2)
                 return;
 
-            if (!(surface is IReadableSurface readable))
+            if (mode == JoinMode.None || !(surface is IReadableSurface readable))
             {
-                DrawBox(surface, rect, style, border, title, titleStyle);
+                DrawBox(surface, rect, style, border, title, titleStyle, alignment, titleInset);
                 return;
             }
 
@@ -260,25 +329,26 @@ namespace TUIKit
             int right = rect.Right - 1;
             int top = rect.Top;
             int bottom = rect.Bottom - 1;
+            bool whole = mode == JoinMode.OverlayWhole;
 
-            JoinCell(readable, left, top, style, border, BoxJunctions.Pack(0, 1, 0, 1), true);
-            JoinCell(readable, right, top, style, border, BoxJunctions.Pack(0, 1, 1, 0), true);
-            JoinCell(readable, left, bottom, style, border, BoxJunctions.Pack(1, 0, 0, 1), true);
-            JoinCell(readable, right, bottom, style, border, BoxJunctions.Pack(1, 0, 1, 0), true);
+            JoinCell(readable, left, top, style, border, BoxJunctions.Pack(0, 1, 0, 1), true, whole);
+            JoinCell(readable, right, top, style, border, BoxJunctions.Pack(0, 1, 1, 0), true, whole);
+            JoinCell(readable, left, bottom, style, border, BoxJunctions.Pack(1, 0, 0, 1), true, whole);
+            JoinCell(readable, right, bottom, style, border, BoxJunctions.Pack(1, 0, 1, 0), true, whole);
 
             for (int x = left + 1; x < right; x++)
             {
-                JoinCell(readable, x, top, style, border, BoxJunctions.Pack(0, 0, 1, 1), false);
-                JoinCell(readable, x, bottom, style, border, BoxJunctions.Pack(0, 0, 1, 1), false);
+                JoinCell(readable, x, top, style, border, BoxJunctions.Pack(0, 0, 1, 1), false, whole);
+                JoinCell(readable, x, bottom, style, border, BoxJunctions.Pack(0, 0, 1, 1), false, whole);
             }
 
             for (int y = top + 1; y < bottom; y++)
             {
-                JoinCell(readable, left, y, style, border, BoxJunctions.Pack(1, 1, 0, 0), false);
-                JoinCell(readable, right, y, style, border, BoxJunctions.Pack(1, 1, 0, 0), false);
+                JoinCell(readable, left, y, style, border, BoxJunctions.Pack(1, 1, 0, 0), false, whole);
+                JoinCell(readable, right, y, style, border, BoxJunctions.Pack(1, 1, 0, 0), false, whole);
             }
 
-            DrawBoxTitle(surface, left, right, top, title, titleStyle);
+            DrawBoxTitle(surface, left, right, top, title, titleStyle, alignment, titleInset);
         }
 
         /// <summary>
@@ -296,7 +366,7 @@ namespace TUIKit
             DrawJoinedBox(surface, rect, style, border, title, style);
         }
 
-        private static void JoinCell(IReadableSurface surface, int x, int y, CellStyle style, BorderStyle border, int unitArms, bool corner)
+        private static void JoinCell(IReadableSurface surface, int x, int y, CellStyle style, BorderStyle border, int unitArms, bool corner, bool whole)
         {
             string existing = surface.Get(x, y).Grapheme;
             string glyph;
@@ -325,7 +395,8 @@ namespace TUIKit
                         arms |= weight << shift;
                 }
 
-                glyph = BoxJunctions.Merge(existing, arms);
+                string? wholeGlyph = whole ? BoxJunctions.Whole(existing, arms, weight) : null;
+                glyph = wholeGlyph ?? BoxJunctions.Merge(existing, arms);
                 if (border == BorderStyle.Rounded && corner && BoxJunctions.TryGetArms(glyph, out int result) && result == arms)
                     glyph = BoxJunctions.RoundedCorner(arms);
             }
@@ -333,19 +404,45 @@ namespace TUIKit
             surface.Set(x, y, Cell.Glyph(glyph, style, 1));
         }
 
-        private static void DrawBoxTitle(ISurface surface, int left, int right, int top, string? title, CellStyle titleStyle)
+        private static void ValidateTitleInset(int titleInset)
+        {
+            if (titleInset < MinimumTitleInset || titleInset > MaximumTitleInset)
+                throw new ArgumentOutOfRangeException(nameof(titleInset), titleInset, "Title inset must be between " + MinimumTitleInset + " and " + MaximumTitleInset + ".");
+        }
+
+        private static void DrawBoxTitle(ISurface surface, int left, int right, int top, string? title, CellStyle titleStyle, TitleAlignment alignment, int titleInset)
         {
             if (string.IsNullOrEmpty(title))
                 return;
 
             string label = " " + title + " ";
-            int available = right - left - 1;
-            if (available > 1 && label.Length > available)
-                label = label.Substring(0, available);
+            if (alignment == TitleAlignment.Center)
+            {
+                // The original centered placement, unchanged.
+                int available = right - left - 1;
+                if (available > 1 && label.Length > available)
+                    label = label.Substring(0, available);
 
-            int titleWidth = TUIKit.Unicode.Graphemes.MeasureWidth(label);
-            int start = left + 1 + Math.Max(0, ((right - left - 1) - titleWidth) / 2);
-            surface.DrawText(start, top, label, titleStyle);
+                int titleWidth = TUIKit.Unicode.Graphemes.MeasureWidth(label);
+                int start = left + 1 + Math.Max(0, ((right - left - 1) - titleWidth) / 2);
+                surface.DrawText(start, top, label, titleStyle);
+                return;
+            }
+
+            // Left and right titles stay between the corners: the room is the edge minus the inset.
+            int room = right - left - 1 - titleInset;
+            if (room <= 0)
+                return;
+
+            string fitted = TextFit.Truncate(label, room);
+            int width = TextFit.Width(fitted);
+            if (width <= 0)
+                return;
+
+            int x = alignment == TitleAlignment.Left
+                ? left + 1 + titleInset
+                : right - titleInset - width;
+            surface.DrawText(x, top, fitted, titleStyle);
         }
 
         private static void SelectGlyphs(BorderStyle border, out string horizontal, out string vertical, out string topLeft, out string topRight, out string bottomLeft, out string bottomRight)

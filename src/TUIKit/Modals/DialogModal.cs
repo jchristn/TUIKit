@@ -22,6 +22,8 @@ namespace TUIKit.Modals
     /// </remarks>
     public abstract class DialogModal : Modal
     {
+        private CellStyle? _ThemeFocusBorderStyle;
+        private CellStyle? _ThemeFocusTitleStyle;
         private string? _Title;
         private string? _FooterHint;
         private int _MinContentWidth = 1;
@@ -151,6 +153,50 @@ namespace TUIKit.Modals
         public BorderStyle? FocusedBorder { get; set; }
 
         /// <summary>
+        /// Gets or sets the style of the border glyphs while this dialog is the topmost modal, or null.
+        /// A non-null value always applies while topmost. Null means "resolve
+        /// <see cref="Theme.FocusBorderRole"/>" when <see cref="UseThemeFocusStyles"/> is on, and
+        /// <see cref="BorderStyleColor"/> (the 1.4.0 rendering) when it is off. Defaults to null.
+        /// </summary>
+        public CellStyle? FocusedBorderStyle { get; set; }
+
+        /// <summary>
+        /// Gets or sets the style of the title while this dialog is the topmost modal, or null. A non-null
+        /// value always applies while topmost. Null means "resolve <see cref="Theme.FocusTitleRole"/>" when
+        /// <see cref="UseThemeFocusStyles"/> is on (falling back to the focused border style), and the
+        /// border style (the 1.4.0 rendering) when it is off. Defaults to null.
+        /// </summary>
+        public CellStyle? FocusedTitleStyle { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the topmost dialog draws its border and title in the
+        /// theme's focus styles, so focus reads the same way on dialogs as on regions and panes. The theme
+        /// comes from <see cref="ApplyFocusTheme"/>, which the host calls when it shows the dialog; before
+        /// any theme is applied, the focus border falls back to <see cref="BorderStyleColor"/> in bold.
+        /// Defaults to false, which keeps the 1.4.0 rendering exactly.
+        /// </summary>
+        public bool UseThemeFocusStyles { get; set; }
+
+        /// <summary>
+        /// Records the focus styles of a theme (<see cref="Theme.FocusBorderRole"/> and
+        /// <see cref="Theme.FocusTitleRole"/>, resolved as <see cref="Widgets.FocusFrame.FocusedStyle"/>
+        /// does) for use while <see cref="UseThemeFocusStyles"/> is on. Changes nothing else about the
+        /// dialog. <c>TuiApplication.ShowAsync</c> calls it, and so does <see cref="ApplyBorderTheme"/>.
+        /// Call it on the UI thread.
+        /// </summary>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        public void ApplyFocusTheme(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            CellStyle border = Widgets.FocusFrame.FocusedStyle(theme);
+            _ThemeFocusBorderStyle = border;
+            _ThemeFocusTitleStyle = theme.Resolve(Theme.FocusTitleRole, border);
+        }
+
+        /// <summary>
         /// Switches <see cref="Border"/> between ASCII and the rounded box-drawing border to match a
         /// theme's <see cref="Theme.UseAsciiBorders"/>. Call it from a derived dialog's theme handling.
         /// </summary>
@@ -161,6 +207,7 @@ namespace TUIKit.Modals
             if (theme == null)
                 throw new ArgumentNullException(nameof(theme));
 
+            ApplyFocusTheme(theme);
             if (theme.UseAsciiBorders)
                 Border = BorderStyle.Ascii;
             else if (Border == BorderStyle.Ascii)
@@ -246,8 +293,19 @@ namespace TUIKit.Modals
             Rect box = new Rect(boxX, boxY, boxWidth, boxHeight);
 
             surface.Fill(box, Cell.Blank(BackgroundStyle));
-            BorderStyle border = IsTopmost && FocusedBorder.HasValue ? FocusedBorder.Value : Border;
-            surface.DrawBox(box, BorderStyleColor, border, _Title);
+            bool topmost = IsTopmost;
+            BorderStyle border = topmost && FocusedBorder.HasValue ? FocusedBorder.Value : Border;
+            CellStyle borderStyle = BorderStyleColor;
+            CellStyle titleStyle = BorderStyleColor;
+            if (topmost)
+            {
+                CellStyle? themeBorder = UseThemeFocusStyles ? _ThemeFocusBorderStyle ?? BorderStyleColor.WithAttribute(CellAttributes.Bold, true) : (CellStyle?)null;
+                CellStyle? themeTitle = UseThemeFocusStyles ? _ThemeFocusTitleStyle : null;
+                borderStyle = FocusedBorderStyle ?? themeBorder ?? BorderStyleColor;
+                titleStyle = FocusedTitleStyle ?? themeTitle ?? borderStyle;
+            }
+
+            surface.DrawBox(box, borderStyle, border, _Title, titleStyle);
             FrameBounds = box;
             DrawFooter(surface, box);
 

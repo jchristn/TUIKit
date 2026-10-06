@@ -109,7 +109,11 @@ namespace Test.Shared
                     TailFollowSuite.Suite(),
                     ClickRegionSuite.Suite(),
                     FocusAuditSuite.Suite(),
-                    FocusFollowUpSuite.Suite()
+                    FocusFollowUpSuite.Suite(),
+                    FrameGeometrySuite.Suite(),
+                    GutterFallbackSuite.Suite(),
+                    WholeFocusedFrameSuite.Suite(),
+                    DialogFocusStyleSuite.Suite()
                 };
             }
         }

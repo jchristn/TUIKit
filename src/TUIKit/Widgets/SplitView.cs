@@ -464,6 +464,8 @@ namespace TUIKit.Widgets
 
             if (inner.Width > 0 && inner.Height > 0)
                 Pane(pane).Render(new SurfaceView(surface, inner));
+            if (ShowPaneFrames)
+                FocusFrame.ApplyNarrowFocus(surface, rect, _Focused && ForwardKeys && pane == _FocusedPane, _FrameOptions);
         }
 
         // Joined frames share the divider line: both frames include it, the unfocused one is drawn first
@@ -484,15 +486,13 @@ namespace TUIKit.Widgets
                 _First.Render(new SurfaceView(surface, _FirstInner));
             if (_SecondInner.Width > 0 && _SecondInner.Height > 0)
                 _Second.Render(new SurfaceView(surface, _SecondInner));
+            FocusFrame.ApplyNarrowFocus(surface, firstFrame, focused == 0, _FrameOptions);
+            FocusFrame.ApplyNarrowFocus(surface, secondFrame, focused == 1, _FrameOptions);
         }
 
         private Rect InnerRect(Rect rect)
         {
-            int minimum = _FrameOptions.MinimumBoxSize;
-            if (rect.Width >= minimum && rect.Height >= minimum)
-                return new Rect(rect.X + 1, rect.Y + 1, rect.Width - 2, rect.Height - 2);
-
-            return rect.Width > 1 ? new Rect(rect.X + 1, rect.Y, rect.Width - 1, rect.Height) : new Rect(rect.X, rect.Y, 0, 0);
+            return FocusFrame.ContentRect(rect, _FrameOptions);
         }
 
         /// <summary>

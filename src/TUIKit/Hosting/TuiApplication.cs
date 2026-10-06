@@ -158,6 +158,8 @@ namespace TUIKit.Hosting
                 _Theme = value ?? throw new ArgumentNullException(nameof(value));
                 if (_ApplyThemeToWidgets)
                     ApplyThemeToAll();
+                if (_Modals.Top is DialogModal dialog)
+                    dialog.ApplyFocusTheme(_Theme);
                 _RenderRequested = true;
                 _Renderer?.Invalidate();
             }
@@ -1052,6 +1054,8 @@ namespace TUIKit.Hosting
 
             if (_ApplyThemeToWidgets)
                 ThemeApplier.Apply(modal, _Theme);
+            if (modal is DialogModal dialog)
+                dialog.ApplyFocusTheme(_Theme);
             _Modals.Push(modal);
             _RenderRequested = true;
             return modal.Completion;

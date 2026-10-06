@@ -135,14 +135,19 @@ namespace Test.Shared.Suites
                             split.OnFocusChanged(true);
 
                             WidgetTester tester = WidgetTester.For(split, 21, 6).Render();
-                            Check.Equal("┱", tester.CellAt(10, 0).Grapheme, "focused left pane's heavy corner joins the right pane's light edge");
+                            Check.Equal("┳", tester.CellAt(10, 0).Grapheme, "focused left pane is drawn whole: the junction is heavy only");
                             Check.Equal("┃", tester.CellAt(10, 2).Grapheme, "shared line drawn heavy for the focused pane");
-                            Check.Equal("┹", tester.CellAt(10, 5).Grapheme, "bottom junction");
+                            Check.Equal("┻", tester.CellAt(10, 5).Grapheme, "bottom junction, heavy only");
                             Check.Equal("l0", tester.Row(1).Substring(1, 2), "left content inside the frame");
                             Check.Equal("r0", tester.Row(1).Substring(11, 2), "right content inside the frame");
 
                             tester.Press(KeyEvent.Special(KeyCode.Tab)).Render();
-                            Check.Equal("┲", tester.CellAt(10, 0).Grapheme, "focus moved right: the right pane's heavy corner wins");
+                            Check.Equal("┳", tester.CellAt(10, 0).Grapheme, "focus moved right: the right pane is drawn whole");
+                            Check.Equal("─", tester.CellAt(5, 0).Grapheme, "the unfocused left pane keeps its light line");
+
+                            split.FrameOptions.FocusedJoinMode = JoinMode.Merge;
+                            tester.Render();
+                            Check.Equal("┲", tester.CellAt(10, 0).Grapheme, "Merge restores the 1.4.0 mixed junction");
 
                             tester.Click(11, 3);
                             Check.Equal(2, right.SelectedIndex, "click maps into the right pane's third row");
@@ -171,13 +176,18 @@ namespace Test.Shared.Suites
 
                                 app.RenderOnce();
                                 CellBuffer frame = app.CaptureFrame()!;
-                                Check.Equal("┱", frame.Get(10, 0).Grapheme, "a focused: heavy corner joins b's light edge");
+                                Check.Equal("┳", frame.Get(10, 0).Grapheme, "a focused: drawn whole, heavy junction where b's light edge meets it");
+                                Check.Equal("─", frame.Get(15, 0).Grapheme, "b's top edge stays light");
                                 Check.Equal("aaa", Snapshot.ToText(frame).Split('\n')[1].Substring(1, 3), "a's content drawn");
                                 Check.Equal("bbb", Snapshot.ToText(frame).Split('\n')[1].Substring(11, 3), "b's content drawn");
 
                                 app.FocusNext();
                                 app.RenderOnce();
-                                Check.Equal("┲", app.CaptureFrame()!.Get(10, 0).Grapheme, "b focused: b's heavy corner wins");
+                                Check.Equal("┳", app.CaptureFrame()!.Get(10, 0).Grapheme, "b focused: b drawn whole");
+
+                                app.FocusFrameOptions.FocusedJoinMode = JoinMode.Merge;
+                                app.RenderOnce();
+                                Check.Equal("┲", app.CaptureFrame()!.Get(10, 0).Grapheme, "Merge restores the 1.4.0 mixed junction");
 
                                 app.JoinRegionBorders = false;
                                 app.RenderOnce();

@@ -104,6 +104,26 @@ namespace TUIKit
             return glyph ?? plain ?? " ";
         }
 
+        // Draws a cell of a box that must stay whole: every arm in the cell, the new box's and any line
+        // already there, takes the new box's weight, so the result is a single-weight glyph that still
+        // connects to the neighbours. Returns null when that family has no such glyph (double lines with
+        // a half arm), so the caller can fall back to Merge.
+        internal static string? Whole(string? existing, int newArms, int weight)
+        {
+            int oldArms;
+            if (!TryGetArms(existing, out oldArms))
+                oldArms = 0;
+
+            int promoted = 0;
+            for (int shift = 0; shift <= 6; shift += 2)
+            {
+                if (Arm(newArms, shift) != 0 || Arm(oldArms, shift) != 0)
+                    promoted |= weight << shift;
+            }
+
+            return Glyph(promoted);
+        }
+
         internal static string RoundedCorner(int arms)
         {
             if (arms == Pack(0, 1, 0, 1))
