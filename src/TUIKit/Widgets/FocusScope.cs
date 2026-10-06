@@ -314,7 +314,7 @@ namespace TUIKit.Widgets
         /// <summary>
         /// Gets a value indicating whether a widget can hold focus: it is not disabled
         /// (<see cref="IEnableable"/>), not hidden (<see cref="IHideable"/>), and, for a
-        /// <see cref="FocusScope"/> or <c>FramedStack</c>, contains at least one focusable child (an empty
+        /// <see cref="FocusScope"/> or <see cref="FramedStack"/>, contains at least one focusable child (an empty
         /// scope is not focusable, so Tab no longer lands on it). Traversal additionally honors
         /// <see cref="IFocusStop"/>; see <see cref="IsTabStop"/>. Stateless and thread-safe.
         /// </summary>
@@ -337,7 +337,7 @@ namespace TUIKit.Widgets
         /// <summary>
         /// Returns whether Tab and Shift+Tab stop on a widget: it must be focusable (see
         /// <see cref="IsFocusable"/>), must not opt out through <see cref="IFocusStop"/>, and, for a
-        /// <see cref="FocusScope"/> or <c>FramedStack</c>, must contain a child that is itself a
+        /// <see cref="FocusScope"/> or <see cref="FramedStack"/>, must contain a child that is itself a
         /// tab stop. Focus traversal and the host's region ring use this; <see cref="SetFocus(IFocusable)"/> and <see cref="RepairFocus"/> accept any
         /// focusable widget. Stateless and thread-safe.
         /// </summary>

@@ -117,7 +117,8 @@ namespace Test.Shared
                     FocusRepairSuite.Suite(),
                     HeadlessHostSuite.Suite(),
                     TailFollowShrinkSuite.Suite(),
-                    ToastKeySuite.Suite()
+                    ToastKeySuite.Suite(),
+                    FramedStackSuite.Suite()
                 };
             }
         }

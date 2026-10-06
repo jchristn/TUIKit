@@ -173,7 +173,7 @@ namespace TUIKit.Widgets
         /// framed content has rendered, since content drawn later would replace the attribute. Does
         /// nothing for a full box, a gutter, an unfocused frame, or a surface that is not an
         /// <see cref="IReadableSurface"/>. Containers that frame children (<see cref="SplitView"/>,
-        /// <c>FramedStack</c>) call it for you. Stateless and thread-safe; draw from the render thread.
+        /// <see cref="FramedStack"/>) call it for you. Stateless and thread-safe; draw from the render thread.
         /// </summary>
         /// <param name="surface">The target surface. Must not be null.</param>
         /// <param name="outer">The rectangle the frame occupies.</param>

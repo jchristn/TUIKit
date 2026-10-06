@@ -155,6 +155,8 @@ namespace TUIKit.Testing
                 object node = path.Nodes[i];
                 if (node is SplitView split && split.ShowPaneFrames && split.ForwardKeys)
                     return true;
+                if (node is FramedStack stack && stack.ShowFrames)
+                    return true;
                 if (node is TabView tabs && tabs.IsStripFocused)
                     return true;
             }
