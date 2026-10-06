@@ -67,7 +67,7 @@ namespace Test.Shared.Suites
                     new TestCaseDescriptor("NotificationCoalescing", "DistinctRaisesStaySeparate", "A different severity, text, title, or action set makes a separate toast",
                         _ =>
                         {
-                            NotificationCenter center = new NotificationCenter();
+                            NotificationCenter center = new NotificationCenter { CoalesceBy = CoalesceMatch.ContentAndActionInstances };
                             center.MaxConcurrent = 10;
                             NotificationAction undo = new NotificationAction("Undo", () => { });
                             NotificationAction undoAgain = new NotificationAction("Undo", () => { });
@@ -78,7 +78,12 @@ namespace Test.Shared.Suites
                             center.Add("Saved", NotificationSeverity.Info, 0, null, "File", null);
                             center.Add("Saved", NotificationSeverity.Info, 0, null, null, new[] { undo });
                             center.Add("Saved", NotificationSeverity.Info, 0, null, null, new[] { undoAgain });
-                            Check.Equal(6, center.Active(0).Count, "six distinct toasts");
+                            Check.Equal(6, center.Active(0).Count, "six distinct toasts under the 1.4.0 instance rule");
+
+                            NotificationCenter byContent = new NotificationCenter { MaxConcurrent = 10 };
+                            byContent.Add("Saved", NotificationSeverity.Info, 0, null, null, new[] { undo });
+                            byContent.Add("Saved", NotificationSeverity.Info, 0, null, null, new[] { undoAgain });
+                            Check.Equal(1, byContent.Active(0).Count, "the 1.5.0 default merges actions with the same label");
 
                             Notification merged = center.Add("Saved", NotificationSeverity.Info, 5, null, null, new[] { undo });
                             Check.Equal(2, merged.RepeatCount, "the same action instance merges");

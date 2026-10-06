@@ -58,7 +58,9 @@ namespace TUIKit.Content
 
         /// <summary>
         /// Removes the line from the pane, for content that turned out not to need a line (for example a
-        /// streamed Markdown fence). Later updates through this handle are ignored.
+        /// streamed Markdown fence). Later updates through this handle are ignored. Removing a line that is
+        /// still counted in the pane's "N new below" indicator lowers the count (see
+        /// <see cref="TailFollow.OnContentRemoved"/>).
         /// </summary>
         /// <returns><c>true</c> when the line was found and removed; <c>false</c> when it was already gone.</returns>
         public bool Remove()

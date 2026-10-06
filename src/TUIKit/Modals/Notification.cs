@@ -18,6 +18,10 @@ namespace TUIKit.Modals
         private volatile bool _Read;
         private int _RepeatCount = 1;
         private long _LastRaisedAtMilliseconds;
+        private volatile string _Text;
+        private volatile string? _Title;
+        private volatile System.Collections.Generic.IReadOnlyList<NotificationAction> _Actions;
+        private int _Severity;
 
         /// <summary>
         /// Gets the identifier assigned by the <see cref="NotificationCenter"/> that added the notification,
@@ -28,12 +32,24 @@ namespace TUIKit.Modals
         /// <summary>
         /// Gets the optional title shown in bold above the text, or null.
         /// </summary>
-        public string? Title { get; }
+        public string? Title
+        {
+            get { return _Title; }
+        }
 
         /// <summary>
         /// Gets the action buttons. Never null; empty when the notification has no actions.
         /// </summary>
-        public System.Collections.Generic.IReadOnlyList<NotificationAction> Actions { get; }
+        public System.Collections.Generic.IReadOnlyList<NotificationAction> Actions
+        {
+            get { return _Actions; }
+        }
+
+        /// <summary>
+        /// Gets the coalesce key the notification was raised with (see
+        /// <see cref="NotificationOptions.CoalesceKey"/>), or null when it coalesces by content.
+        /// </summary>
+        public string? CoalesceKey { get; internal set; }
 
         /// <summary>
         /// Gets a value indicating whether the toast was dismissed (by the user, an action, or the
@@ -57,12 +73,18 @@ namespace TUIKit.Modals
         /// <summary>
         /// Gets the notification text. Never null.
         /// </summary>
-        public string Text { get; }
+        public string Text
+        {
+            get { return _Text; }
+        }
 
         /// <summary>
         /// Gets the severity.
         /// </summary>
-        public NotificationSeverity Severity { get; }
+        public NotificationSeverity Severity
+        {
+            get { return (NotificationSeverity)Volatile.Read(ref _Severity); }
+        }
 
         /// <summary>
         /// Gets the creation timestamp in milliseconds.
@@ -111,12 +133,12 @@ namespace TUIKit.Modals
             if (timeoutMilliseconds < 0)
                 throw new ArgumentOutOfRangeException(nameof(timeoutMilliseconds), timeoutMilliseconds, "Timeout must be zero or greater.");
 
-            Text = text;
-            Severity = severity;
+            _Text = text;
+            _Severity = (int)severity;
             CreatedAtMilliseconds = createdAtMilliseconds;
             _LastRaisedAtMilliseconds = createdAtMilliseconds;
             TimeoutMilliseconds = timeoutMilliseconds;
-            Actions = _NoActions;
+            _Actions = _NoActions;
         }
 
         /// <summary>
@@ -133,7 +155,7 @@ namespace TUIKit.Modals
         public Notification(string text, NotificationSeverity severity, long createdAtMilliseconds, int timeoutMilliseconds, string? title, System.Collections.Generic.IEnumerable<NotificationAction>? actions)
             : this(text, severity, createdAtMilliseconds, timeoutMilliseconds)
         {
-            Title = string.IsNullOrEmpty(title) ? null : title;
+            _Title = string.IsNullOrEmpty(title) ? null : title;
             if (actions != null)
             {
                 System.Collections.Generic.List<NotificationAction> copy = new System.Collections.Generic.List<NotificationAction>();
@@ -144,7 +166,7 @@ namespace TUIKit.Modals
                     copy.Add(action);
                 }
 
-                Actions = copy;
+                _Actions = copy;
             }
         }
 
@@ -163,6 +185,16 @@ namespace TUIKit.Modals
                 return false;
 
             return nowMilliseconds - LastRaisedAtMilliseconds >= TimeoutMilliseconds;
+        }
+
+        // A coalesced raise brings the newest content (and callbacks) to the toast already on screen.
+        // Called by the owning center under its lock.
+        internal void ReplaceContent(string text, NotificationSeverity severity, string? title, System.Collections.Generic.IReadOnlyList<NotificationAction>? actions)
+        {
+            _Text = text;
+            Volatile.Write(ref _Severity, (int)severity);
+            _Title = string.IsNullOrEmpty(title) ? null : title;
+            _Actions = actions == null || actions.Count == 0 ? _NoActions : new System.Collections.Generic.List<NotificationAction>(actions);
         }
 
         internal void RecordRepeat(long nowMilliseconds)

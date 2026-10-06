@@ -48,6 +48,10 @@ namespace TUIKit.Modals
         private bool _DismissOnClick;
         private bool _CoalesceRepeats = true;
         private string _RepeatSuffixFormat = " (x{0})";
+        private CoalesceMatch _CoalesceBy = CoalesceMatch.Content;
+        private bool _ShowSeverityLabels;
+        private IReadOnlyDictionary<NotificationSeverity, string> _SeverityLabels = DefaultSeverityLabels();
+        private int _TopOffset;
 
         /// <summary>
         /// Raised after a notification is added, dismissed, read, or removed, or the history changes.
@@ -161,18 +165,90 @@ namespace TUIKit.Modals
         }
 
         /// <summary>
-        /// Gets or sets a value indicating whether raising a notification identical to one still on
-        /// screen refreshes that toast instead of stacking a duplicate. Identical means the same
-        /// severity, text, and title, and either no actions on both or the very same action instances in
-        /// the same order (two actions with equal labels but different callbacks never merge). A
-        /// coalesced raise increments <see cref="Notification.RepeatCount"/>, restarts the timeout from
-        /// the new raise, moves the toast to the newest position, marks it unread, and shows
-        /// <see cref="RepeatSuffixFormat"/> after its text. Defaults to true. Thread-safe.
+        /// Gets or sets a value indicating whether raising a notification that repeats one still on
+        /// screen refreshes that toast instead of stacking a duplicate. What counts as a repeat is set by
+        /// <see cref="CoalesceBy"/> (and by a coalesce key, see <see cref="NotificationOptions.CoalesceKey"/>).
+        /// A coalesced raise increments <see cref="Notification.RepeatCount"/>, restarts the timeout from
+        /// the new raise, moves the toast to the newest position, marks it unread, brings in the newest
+        /// action callbacks, and shows <see cref="RepeatSuffixFormat"/> after its text. Defaults to true.
+        /// Thread-safe.
         /// </summary>
         public bool CoalesceRepeats
         {
             get { lock (_Sync) { return _CoalesceRepeats; } }
             set { lock (_Sync) { _CoalesceRepeats = value; } }
+        }
+
+        /// <summary>
+        /// Gets or sets what makes a raise without a coalesce key repeat a toast still on screen. Defaults
+        /// to <see cref="CoalesceMatch.Content"/> (since 1.5.0): same severity, text, and title, with actions
+        /// matching by <see cref="NotificationAction.Key"/> when both have one and by label otherwise, so
+        /// actions built fresh on every call still coalesce. The trade-off: two toasts with the same text
+        /// whose "Open" actions target different items now merge, and only the newest target survives.
+        /// Give those actions distinct keys (for example the item id), use a coalesce key, or set
+        /// <see cref="CoalesceMatch.ContentAndActionInstances"/> for the 1.4.0 rule. Thread-safe.
+        /// </summary>
+        public CoalesceMatch CoalesceBy
+        {
+            get { lock (_Sync) { return _CoalesceBy; } }
+            set { lock (_Sync) { _CoalesceBy = value; } }
+        }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether each toast starts with a text label for its severity
+        /// (<see cref="SeverityLabels"/>), so severity is never shown by color alone. Defaults to false,
+        /// which keeps 1.4.0 toast text and width. Thread-safe.
+        /// </summary>
+        public bool ShowSeverityLabels
+        {
+            get { lock (_Sync) { return _ShowSeverityLabels; } }
+            set { lock (_Sync) { _ShowSeverityLabels = value; } }
+        }
+
+        /// <summary>
+        /// Gets or sets the label shown before a toast's text for each severity while
+        /// <see cref="ShowSeverityLabels"/> is on. Defaults to <c>[i]</c> (info), <c>[ok]</c> (success),
+        /// <c>[!]</c> (warning), and <c>[x]</c> (error). The map is copied when set. It must have an entry
+        /// for every <see cref="NotificationSeverity"/>; an empty label shows no prefix for that severity.
+        /// Thread-safe.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null or a label is null.</exception>
+        /// <exception cref="ArgumentException">Thrown when a severity has no entry.</exception>
+        public IReadOnlyDictionary<NotificationSeverity, string> SeverityLabels
+        {
+            get { lock (_Sync) { return _SeverityLabels; } }
+            set
+            {
+                if (value == null)
+                    throw new ArgumentNullException(nameof(value));
+
+                Dictionary<NotificationSeverity, string> copy = new Dictionary<NotificationSeverity, string>();
+                foreach (NotificationSeverity severity in _AllSeverities)
+                {
+                    if (!value.TryGetValue(severity, out string? label))
+                        throw new ArgumentException("Severity labels must include an entry for " + severity + ".", nameof(value));
+
+                    copy[severity] = label ?? throw new ArgumentNullException(nameof(value), "The label for " + severity + " must not be null.");
+                }
+
+                lock (_Sync) { _SeverityLabels = copy; }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the number of rows left free above the toast stack, so toasts do not cover a header
+        /// bar at the top of the screen. Defaults to 0. Minimum 0, maximum 10. Thread-safe.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set outside 0 to 10.</exception>
+        public int TopOffset
+        {
+            get { lock (_Sync) { return _TopOffset; } }
+            set
+            {
+                if (value < 0 || value > 10)
+                    throw new ArgumentOutOfRangeException(nameof(value), value, "Top offset must be between 0 and 10.");
+                lock (_Sync) { _TopOffset = value; }
+            }
         }
 
         /// <summary>
@@ -330,6 +406,54 @@ namespace TUIKit.Modals
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> or an action is null.</exception>
         public Notification Add(string text, NotificationSeverity severity, long nowMilliseconds, int? timeoutMilliseconds, string? title, IEnumerable<NotificationAction>? actions)
         {
+            return AddCore(text, severity, nowMilliseconds, timeoutMilliseconds, title, actions, null);
+        }
+
+        /// <summary>
+        /// Adds a notification described by <paramref name="options"/>: timeout, title, actions, and an
+        /// optional coalesce key. A raise with a key that matches a toast still on screen updates that
+        /// toast with this raise's text, severity, title, and actions (see
+        /// <see cref="NotificationOptions.CoalesceKey"/>); without a key, <see cref="CoalesceBy"/> applies.
+        /// </summary>
+        /// <param name="text">The text. Must not be null.</param>
+        /// <param name="severity">The severity.</param>
+        /// <param name="nowMilliseconds">The current time in milliseconds.</param>
+        /// <param name="options">The options. Must not be null.</param>
+        /// <returns>The created notification, or the existing one this raise coalesced into.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/>,
+        /// <paramref name="options"/>, or an action is null.</exception>
+        public Notification Add(string text, NotificationSeverity severity, long nowMilliseconds, NotificationOptions options)
+        {
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+
+            string? key = string.IsNullOrEmpty(options.CoalesceKey) ? null : options.CoalesceKey;
+            return AddCore(text, severity, nowMilliseconds, options.TimeoutMilliseconds, options.Title, options.Actions, key);
+        }
+
+        /// <summary>
+        /// Runs the first action of the newest active toast that has an action, as a key binding for "open
+        /// the latest notification" would. Running it dismisses the toast, as a click does.
+        /// </summary>
+        /// <param name="nowMilliseconds">The current time in milliseconds, to skip expired toasts.</param>
+        /// <returns><c>true</c> when an action ran; <c>false</c> when no active toast has an action.</returns>
+        public bool InvokeLatestAction(long nowMilliseconds)
+        {
+            IReadOnlyList<Notification> active = Active(nowMilliseconds);
+            for (int i = 0; i < active.Count; i++)
+            {
+                if (active[i].Actions.Count > 0)
+                {
+                    InvokeAction(active[i], 0);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private Notification AddCore(string text, NotificationSeverity severity, long nowMilliseconds, int? timeoutMilliseconds, string? title, IEnumerable<NotificationAction>? actions, string? coalesceKey)
+        {
             if (text == null)
                 throw new ArgumentNullException(nameof(text));
 
@@ -348,9 +472,11 @@ namespace TUIKit.Modals
             lock (_Sync)
             {
                 TuiKitInstruments.Add(TuiKitInstruments.Notifications, 1, TuiKitTelemetryNames.AttrSeverity, SeverityName(severity));
-                Notification? repeat = _CoalesceRepeats ? FindRepeat(text, severity, title, actionList, nowMilliseconds) : null;
+                Notification? repeat = _CoalesceRepeats ? FindRepeat(text, severity, title, actionList, coalesceKey, nowMilliseconds) : null;
                 if (repeat != null)
                 {
+                    if (coalesceKey != null || _CoalesceBy == CoalesceMatch.Content)
+                        repeat.ReplaceContent(text, severity, title, actionList);
                     repeat.RecordRepeat(nowMilliseconds);
                     _Items.Remove(repeat);
                     _Items.Add(repeat);
@@ -362,6 +488,7 @@ namespace TUIKit.Modals
                 else
                 {
                     notification = AddNew(text, severity, nowMilliseconds, timeoutMilliseconds, title, actionList);
+                    notification.CoalesceKey = coalesceKey;
                 }
             }
 
@@ -391,7 +518,7 @@ namespace TUIKit.Modals
             return notification;
         }
 
-        private Notification? FindRepeat(string text, NotificationSeverity severity, string? title, List<NotificationAction>? actions, long nowMilliseconds)
+        private Notification? FindRepeat(string text, NotificationSeverity severity, string? title, List<NotificationAction>? actions, string? coalesceKey, long nowMilliseconds)
         {
             string? normalizedTitle = string.IsNullOrEmpty(title) ? null : title;
             List<NotificationAction> requested = actions ?? new List<NotificationAction>();
@@ -400,6 +527,15 @@ namespace TUIKit.Modals
                 Notification candidate = _Items[i];
                 if (candidate.IsExpired(nowMilliseconds))
                     continue;
+
+                // A key decides alone; keyed and unkeyed notifications never match each other.
+                if (coalesceKey != null || candidate.CoalesceKey != null)
+                {
+                    if (string.Equals(candidate.CoalesceKey, coalesceKey, StringComparison.Ordinal))
+                        return candidate;
+                    continue;
+                }
+
                 if (candidate.Severity != severity
                     || !string.Equals(candidate.Text, text, StringComparison.Ordinal)
                     || !string.Equals(candidate.Title, normalizedTitle, StringComparison.Ordinal)
@@ -408,13 +544,24 @@ namespace TUIKit.Modals
 
                 bool sameActions = true;
                 for (int a = 0; a < requested.Count && sameActions; a++)
-                    sameActions = ReferenceEquals(candidate.Actions[a], requested[a]);
+                    sameActions = SameAction(candidate.Actions[a], requested[a]);
 
                 if (sameActions)
                     return candidate;
             }
 
             return null;
+        }
+
+        private bool SameAction(NotificationAction existing, NotificationAction requested)
+        {
+            if (_CoalesceBy == CoalesceMatch.ContentAndActionInstances)
+                return ReferenceEquals(existing, requested);
+
+            if (existing.Key != null && requested.Key != null)
+                return string.Equals(existing.Key, requested.Key, StringComparison.Ordinal);
+
+            return string.Equals(existing.Label, requested.Label, StringComparison.Ordinal);
         }
 
         internal string RepeatSuffix(Notification notification)
@@ -618,7 +765,7 @@ namespace TUIKit.Modals
                     return;
 
                 int x = surface.Size.Width - width - 1;
-                int row = 0;
+                int row = _TopOffset;
                 for (int i = 0; i < active.Count && row < surface.Size.Height; i++)
                     row = RenderToast(surface, active[i], x, row, width);
             }
@@ -674,8 +821,8 @@ namespace TUIKit.Modals
                 string suffix = RepeatSuffixLocked(item);
                 int suffixWidth = TextFit.Width(suffix);
                 string body = suffixWidth < inner
-                    ? TextFit.Ellipsize(item.Text.Trim(), inner - suffixWidth) + suffix
-                    : TextFit.Ellipsize(item.Text.Trim() + suffix, inner);
+                    ? TextFit.Ellipsize(LabeledText(item), inner - suffixWidth) + suffix
+                    : TextFit.Ellipsize(LabeledText(item) + suffix, inner);
                 string label = " " + body + " ";
                 surface.DrawText(x, row, label, style);
                 if (_DismissOnClick)
@@ -696,7 +843,7 @@ namespace TUIKit.Modals
                 row++;
             }
 
-            IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(Text.From(item.Text.Trim() + RepeatSuffixLocked(item)), Math.Max(1, textWidth));
+            IReadOnlyList<StyledText> wrapped = TextWrapper.Wrap(Text.From(LabeledText(item) + RepeatSuffixLocked(item)), Math.Max(1, textWidth));
             int lines = Math.Min(_MaxToastLines, wrapped.Count);
             for (int l = 0; l < lines && row < maxRow; l++)
             {
@@ -740,6 +887,33 @@ namespace TUIKit.Modals
                 _Hits.Add(actionRects[a], new ToastClick(item, a));
 
             return row;
+        }
+
+        private string LabeledText(Notification notification)
+        {
+            string text = notification.Text.Trim();
+            if (!_ShowSeverityLabels || !_SeverityLabels.TryGetValue(notification.Severity, out string? label) || string.IsNullOrEmpty(label))
+                return text;
+
+            return label + " " + text;
+        }
+
+        private static readonly NotificationSeverity[] _AllSeverities = new[]
+        {
+            NotificationSeverity.Info,
+            NotificationSeverity.Success,
+            NotificationSeverity.Warning,
+            NotificationSeverity.Error
+        };
+
+        private static IReadOnlyDictionary<NotificationSeverity, string> DefaultSeverityLabels()
+        {
+            Dictionary<NotificationSeverity, string> labels = new Dictionary<NotificationSeverity, string>();
+            labels[NotificationSeverity.Info] = "[i]";
+            labels[NotificationSeverity.Success] = "[ok]";
+            labels[NotificationSeverity.Warning] = "[!]";
+            labels[NotificationSeverity.Error] = "[x]";
+            return labels;
         }
 
         private string RepeatSuffixLocked(Notification notification)

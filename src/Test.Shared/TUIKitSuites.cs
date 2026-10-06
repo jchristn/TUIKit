@@ -115,7 +115,9 @@ namespace Test.Shared
                     WholeFocusedFrameSuite.Suite(),
                     DialogFocusStyleSuite.Suite(),
                     FocusRepairSuite.Suite(),
-                    HeadlessHostSuite.Suite()
+                    HeadlessHostSuite.Suite(),
+                    TailFollowShrinkSuite.Suite(),
+                    ToastKeySuite.Suite()
                 };
             }
         }

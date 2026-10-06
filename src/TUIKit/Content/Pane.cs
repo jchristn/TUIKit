@@ -31,6 +31,7 @@ namespace TUIKit.Content
         private int _Capacity = 5000;
         private int _MaxLineLength = 8192;
         private readonly TailFollow _Follow = new TailFollow();
+        private long _FirstNewId;
         private Rect _IndicatorRect;
         private int _ViewTop;
         private int _LastTotalRows;
@@ -472,6 +473,8 @@ namespace TUIKit.Content
                     if (_Lines[i].Id == id)
                     {
                         _Lines.RemoveAt(i);
+                        if (_FirstNewId > 0 && id >= _FirstNewId && _Follow.NewItemsBelow > 0)
+                            _Follow.OnContentRemoved(1);
                         Bump();
                         return true;
                     }
@@ -506,7 +509,12 @@ namespace TUIKit.Content
             if (_Capacity > 0 && _Lines.Count > _Capacity)
                 _Lines.RemoveAt(0);
 
-            _Follow.OnContentAppended(1);
+            // Remember the first line counted as "new below", so removing a counted line can lower the
+            // count; a line that arrived while following was already seen.
+            if (_Follow.OnContentAppended(1))
+                _FirstNewId = 0;
+            else if (_Follow.NewItemsBelow == 1)
+                _FirstNewId = id;
 
             Bump();
             return new PaneLineHandle(this, id);

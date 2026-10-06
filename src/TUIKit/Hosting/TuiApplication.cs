@@ -1264,6 +1264,42 @@ namespace TUIKit.Hosting
         }
 
         /// <summary>
+        /// Raises a notification described by <paramref name="options"/> (timeout, title, actions, and an
+        /// optional coalesce key; see <see cref="NotificationCenter.Add(string, NotificationSeverity, long, NotificationOptions)"/>).
+        /// </summary>
+        /// <param name="text">The message. Must not be null.</param>
+        /// <param name="severity">The severity.</param>
+        /// <param name="options">The options. Must not be null.</param>
+        /// <returns>The notification, or the existing one this raise coalesced into.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> or
+        /// <paramref name="options"/> is null.</exception>
+        public Notification Notify(string text, NotificationSeverity severity, NotificationOptions options)
+        {
+            if (text == null)
+                throw new ArgumentNullException(nameof(text));
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+
+            Notification notification = _Notifications.Add(text, severity, NowMilliseconds, options);
+            _RenderRequested = true;
+            return notification;
+        }
+
+        /// <summary>
+        /// Runs the first action of the newest toast on screen that has one (see
+        /// <see cref="NotificationCenter.InvokeLatestAction"/>). Bind it to a key, for example
+        /// <c>app.Bind("ctrl+o", () => app.InvokeLatestNotificationAction())</c>.
+        /// </summary>
+        /// <returns><c>true</c> when an action ran; otherwise <c>false</c>.</returns>
+        public bool InvokeLatestNotificationAction()
+        {
+            bool ran = _Notifications.InvokeLatestAction(NowMilliseconds);
+            if (ran)
+                _RenderRequested = true;
+            return ran;
+        }
+
+        /// <summary>
         /// Starts the terminal session: enters raw mode and, when interactive, the alternate screen
         /// with mouse, paste, and enhanced keyboard enabled.
         /// </summary>

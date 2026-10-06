@@ -238,9 +238,35 @@ namespace TUIKit.Content
             ReturnToTail();
         }
 
-        // A search or "go to" jump: the viewport is placed deliberately, so stop following (except in
-        // AlwaysFollow) and clear the counter, since the reader is now looking at chosen content.
-        internal void DetachAtJump()
+        /// <summary>
+        /// Reports that items counted in <see cref="NewItemsBelow"/> were removed (deleted, or collapsed
+        /// away) before the reader saw them, so the "N new below" count does not overstate what is left. The
+        /// count goes down by <paramref name="removedBelow"/> and never below zero. Use the same unit as
+        /// <see cref="OnContentAppended"/>: <see cref="Pane"/> counts lines and calls this when a new line
+        /// below the viewport is removed through its <see cref="PaneLineHandle"/>. Does not change
+        /// <see cref="IsFollowing"/>. Thread-safe.
+        /// </summary>
+        /// <param name="removedBelow">The number of new items removed. Must be zero or greater; zero
+        /// changes nothing.</param>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="removedBelow"/> is negative.</exception>
+        public void OnContentRemoved(int removedBelow)
+        {
+            if (removedBelow < 0)
+                throw new ArgumentOutOfRangeException(nameof(removedBelow), removedBelow, "Removed count must be zero or greater.");
+
+            lock (_Sync)
+                _NewItemsBelow = Math.Max(0, _NewItemsBelow - removedBelow);
+        }
+
+        /// <summary>
+        /// Reports a deliberate jump away from the tail, such as going to a search hit or a bookmark: the
+        /// view stops following (except in <see cref="TailFollowMode.AlwaysFollow"/>) and the
+        /// <see cref="NewItemsBelow"/> count is cleared, since the reader is now looking at chosen content.
+        /// Raises <see cref="FollowingChanged"/> when following changes. <see cref="ReturnToTail"/> (End)
+        /// re-attaches. Custom scrolling widgets call it for their own jumps; <see cref="Pane"/> calls it
+        /// for <see cref="Pane.FindNext"/> and <see cref="Pane.FindPrevious"/>. Thread-safe.
+        /// </summary>
+        public void OnJumpedAway()
         {
             bool changed;
             bool following;
@@ -253,6 +279,11 @@ namespace TUIKit.Content
 
             if (changed)
                 FollowingChanged?.Invoke(following);
+        }
+
+        internal void DetachAtJump()
+        {
+            OnJumpedAway();
         }
 
         private bool SetFollowingLocked(bool value)
