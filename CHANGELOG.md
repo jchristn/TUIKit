@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-14
+
+TUIKit has rendered Markdown since 1.0, but one source line at a time and without knowing the width, so the
+output that language models produce most (GFM tables, nested lists, wrapped quotes) came out misaligned or
+lost its indent. This release adds a second engine that parses the whole block and lays it out at a known
+width, with every visual choice set by the caller at render time. Everything is additive: the 1.5.0
+line-by-line renderer and every existing default are unchanged.
+
+### Added
+- **Width-aware Markdown rendering.** `MarkdownRenderer.Render(markdown, width)` and
+  `Render(markdown, width, MarkdownRenderOptions)` parse the block (ATX and setext headings, paragraphs with
+  hard breaks, fenced code with a language, nested quotes with lazy continuation, nested ordered,
+  bullet, and task lists, loose and tight, GFM tables with alignment and escaped pipes, thematic breaks) and
+  lay it out so no row is wider than the width. Inline parsing nests emphasis and strong, and handles code
+  spans of any backtick run, links (`text (url)`), images, autolinks, strikethrough, intraword underscores,
+  and backslash escapes. Malformed Markdown renders literally and never throws. `RenderAsync` checks a
+  `CancellationToken` between blocks; `MeasureWidth` returns the natural width, so a modal or column can be
+  sized from content.
+- **Tables sized from content.** Columns take their natural width when the table fits. When it does not,
+  each column starts at its longest word and the spare space goes to the smallest shortfalls first, so keys,
+  numbers, and status words stay on one line while the widest prose column wraps. When even the minimums do
+  not fit, or a row would wrap past `MarkdownTableOptions.MaxRowLines` (default 4), `MarkdownTableFallback`
+  decides: `Stack` (the default) renders `Header: value` records, `Shrink` keeps a hard-wrapped grid, `Clip`
+  keeps the minimums and cuts.
+- **`MarkdownRenderOptions`.** `MaxWidth`, `MinWidth`, `Overflow` and `CodeOverflow` (`MarkdownOverflow.Wrap`,
+  `Truncate`, `Clip`), `Ellipsis`, `BlockSpacing`, `ShowHeadingMarkers`, `BulletGlyphs`, `ListIndent`,
+  `TaskOpenGlyph`, `TaskDoneGlyph`, `QuotePrefix`, `RuleGlyph`, `RuleWidth`, `CodeIndent`, `ShowCodeLanguage`,
+  `SyntaxHighlighting`, `FillCodeBackground`, `ShowLinkUrls`, `Clone()`, and an all-ASCII preset
+  (`MarkdownRenderOptions.Ascii()`).
+- **`MarkdownTableOptions`.** `Glyphs`, `ShowOuterBorder`, `ShowHeaderSeparator`, `ShowRowSeparators`,
+  `CellPadding`, `MinColumnWidth`, `MaxColumnWidth`, `MaxRowLines`, `CellOverflow`, `Fallback`, `Expand`,
+  and `Clone()`.
+- **`MarkdownTableGlyphs`.** The eleven border characters, with `Light`, `Rounded`, `Heavy`, `Double`,
+  `Ascii`, and `None` presets, `FromBorderStyle(BorderStyle)`, and a constructor for custom sets.
+- **`MarkdownStyles` additions.** `Strong`, `Emphasis`, `Strikethrough`, `Link`, `LinkUrl`, `CodeLanguage`,
+  `TableHeader`, `TableFirstColumn`, `TableCell`, `TableBorder`, and `Clone()`. `FromTheme` derives the new
+  link, code-language, and table styles from the theme.
+- **Reflowing Markdown in panes.** `Pane.WriteMarkdown(markdown)` and `WriteMarkdown(markdown, options)` commit
+  a block that is laid out at the pane's width each time it renders, so it reflows on resize.
+  `PaneLineHandle.UpdateMarkdown` replaces a block's source (to stream into it) and keeps or replaces its
+  options. A block counts as one line for scrollback and the new-below indicator; `MaxLineLength` applies to
+  each source line; `SnapshotPlainLines` expands a block into its rows.
+- **`MarkdownView`.** A widget that lays its Markdown out at its own width, scrolls with `ScrollOffset` or the
+  wheel, and reports `ContentHeight` (`IScrollExtent`).
+- **Streaming.** `StreamingTranscript.RenderOptions` (null by default) streams each block into one reflowing
+  Markdown block and holds back a half-received table row until its newline arrives.
+- **Example.** A "Markdown that fits" tour page that changes borders, width, cell overflow, fallback, and a
+  key-column style live; the harness transcript streams a reply with a table as one reflowing block; and
+  `--markdown-once [--width N] [--ascii] [--color]` prints the sample at any width.
+
 ## [1.5.0] - 2026-10-05
 
 The first large app to adopt all of 1.4.0 still had to keep its own code in a few places, and each

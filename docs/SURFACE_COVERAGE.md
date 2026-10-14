@@ -4,6 +4,23 @@
 
 This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
+## 1.6.0 additions
+
+The 1.6.0 work (see `MARKDOWN_RENDERING_IMPROVEMENTS.md`) added the public surface below, each with positive, negative, and boundary Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **934 console cases** (935 through the xUnit/NUnit wrappers), all green. The 845 cases that existed at 1.5.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **83.7%**; the new Markdown engine files and `PaneLine` are at **98.5%**.
+
+| New/changed public surface | Test suite |
+|---|---|
+| Block parsing behind `MarkdownRenderer.Render(string, int[, MarkdownRenderOptions])` | `MarkdownParsing` |
+| Inline parsing (nested emphasis, code spans, links, images, autolinks, escapes) | `MarkdownInline` |
+| `MarkdownRenderOptions`, `MarkdownTableOptions`, `MarkdownTableGlyphs`, `MarkdownOverflow`, `MarkdownTableFallback`, `MarkdownStyles` additions and `Clone` | `MarkdownOptions` |
+| Width-aware layout of paragraphs, headings, lists, quotes, code, and rules | `MarkdownLayout` |
+| Table column sizing, borders, alignment, padding, caps, overflow, styles, `MaxRowLines`, fallbacks | `MarkdownTable` |
+| `MarkdownRenderer.RenderAsync`, `MeasureWidth`, legacy output unchanged | `MarkdownApi` |
+| `Pane.WriteMarkdown`, `PaneLineHandle.UpdateMarkdown`, reflow, snapshots, capacity | `MarkdownPane` |
+| `MarkdownView` | `MarkdownView` |
+| `StreamingTranscript.RenderOptions` | `MarkdownStreaming` |
+| The width invariant (every row fits, nothing throws) over a corpus, 7 option sets, widths 1 to 100, and 3,000 seeded random documents | `MarkdownInvariant` |
+
 ## 1.5.0 additions (feature/v1.5.0)
 
 The 1.5.0 work (see `archive/IMPROVEMENTS_FOCUS_HINTS_TOASTS.md`) added the public surface below, each with positive, negative, and boundary Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **845 console cases** (846 through the xUnit/NUnit wrappers), all green. Rather than growing the 1.4.0 suites, every item got its own suite, so a failure names the feature.

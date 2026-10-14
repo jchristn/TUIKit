@@ -237,16 +237,32 @@ Unicode is handled correctly throughout — CJK double-width, combining marks, a
 
 ### Markdown
 
-Agent and doc output often arrives as Markdown. Render it to styled lines:
+Agent and doc output often arrives as Markdown, and most of its structure only works at a known width: a table cannot line up its columns, and a wrapped bullet cannot keep its indent, until the renderer knows how wide the output is. So give it the width.
+
+For a transcript, write each reply as a Markdown block. The pane lays it out at its own width every time it renders, which means a resize reflows the table instead of leaving it broken:
 
 ```csharp
 using TUIKit.Content;
 
-foreach (StyledText line in MarkdownRenderer.Render("# Title\n\n- **bold** item\n\n> a quote"))
-    log.WriteLine(line);
+PaneLineHandle reply = transcript.WriteMarkdown(text);
+reply.UpdateMarkdown(text + nextChunk); // stream into the same block
 ```
 
-Headings, emphasis, inline code, lists, block quotes, fenced code, and rules are supported. Incoming ANSI escape sequences from subprocesses are stripped on ingest via `AnsiStripper.Strip`.
+For a streamed reply, `StreamingTranscript` does the bookkeeping. Set `RenderOptions` and each block becomes one reflowing Markdown block; a half-received table row is held back until its newline arrives, so it never flashes as a paragraph:
+
+```csharp
+StreamingTranscript stream = new StreamingTranscript(transcript) { RenderOptions = new MarkdownRenderOptions() };
+stream.AppendText(chunk);
+stream.FinalizeBlock();
+```
+
+For Markdown that is not a log (a help page, a details panel, a modal body), use `MarkdownView`, and use `MarkdownRenderer.MeasureWidth` to size the container from the content. When you need rows yourself, `MarkdownRenderer.Render(markdown, width, options)` returns them, each at most `width` columns.
+
+Everything visual is in `MarkdownRenderOptions`: colors (`Styles`, including `TableHeader`, `TableFirstColumn`, `TableCell`, and `TableBorder`), `MaxWidth` for a readable measure in a wide pane, wrap or truncate or clip for prose, code, and table cells, and the glyphs for bullets, quotes, rules, tasks, and table borders (`MarkdownTableGlyphs.Light`, `Rounded`, `Heavy`, `Double`, `Ascii`, `None`, or your own). `MarkdownRenderOptions.Ascii()` is safe for logs and old terminals.
+
+Tables deserve a word on how they decide. Columns get their natural width when the table fits. When it does not, short columns keep their width and the widest prose column wraps at word boundaries. When even each column's longest word cannot fit, or a row would wrap past `Table.MaxRowLines`, the table turns into `Header: value` records, because a grid squeezed to one word per line is harder to read than a list. Change that with `Table.Fallback`.
+
+The 1.5 line-oriented `MarkdownRenderer.Render(string)` is still there and still produces the same output. Incoming ANSI escape sequences from subprocesses are stripped on ingest via `AnsiStripper.Strip`.
 
 ---
 

@@ -45,7 +45,7 @@ It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`. The modern targets a
 - **Developer-defined regions.** Declare any number of rectangles, each with its own resize behavior - fixed, edge-anchored, stretch, or proportional - plus per-rectangle padding and an optional background (an explicit color or a named theme role, so a sidebar or status strip is tinted and restyles with the theme). TUIKit reflows them when the window changes and shows a "terminal too small" screen when it can't fit.
 - **Thread-safe, mutable content.** Any thread may write to any pane; writes are FIFO per pane. Lines can be updated in place, so a tool call goes `running…` → `done (1.2s)` and a progress bar advances without redrawing the world.
 - **Streaming with a smart scroll lock.** Scroll up to detach from the live tail; return to the bottom to re-attach. A "N new below" marker counts what you're missing and takes you back when clicked. The same `TailFollow` rules drive growing lists (`ListView.TailFollow` with `Append`): selecting a row never stops following, only scrolling away does.
-- **Rich text.** A fluent styled-text builder, inline markup (`[bold red]…[/]`), a Markdown renderer (headings, lists, task lists, tables, blockquotes, code), word/character wrapping, and correct Unicode column width for CJK, combining marks, and emoji grapheme clusters.
+- **Rich text.** A fluent styled-text builder, inline markup (`[bold red]…[/]`), a width-aware Markdown engine (GFM tables whose columns are sized from their content and stack into records when space runs out, nested lists and quotes that keep their indent when they wrap, highlighted code, nested emphasis and links, all configurable at render time through `MarkdownRenderOptions`), word/character wrapping, and correct Unicode column width for CJK, combining marks, and emoji grapheme clusters.
 - **Enhanced input.** A byte decoder for UTF-8, control keys, arrows, function keys, the Kitty/CSI-u protocol, SGR mouse, and bracketed paste - routed through a central command table with scopes, multi-key chords (`Ctrl+K Ctrl+T`), and a configurable Ctrl+C policy. Carriage return (`Enter`) and line feed (`Ctrl+J`) decode distinctly, so you can bind `Ctrl+J` as a newline chord that works even where the terminal can't report `Shift+Enter`.
 - **Mouse, links, and selection.** Full pointer support: click-to-focus, single/double/triple click synthesis, drag, vertical **and horizontal** wheel, and **hover** - any-motion tracking (on by default, with per-frame move coalescing) delivers `Enter`/`Leave` events synthesized from a per-frame hit-test map, so widgets highlight under the pointer. Terminal **focus reporting** (`TerminalFocusChanged`) lets an app dim itself when the window blurs. Virtual links get per-frame hit-testing, a security allowlist for auto-linkification, hover tracking (`LinkHovered` for status-bar URL previews), OSC 8 hyperlink emission, and keyboard link hints; text selection and OSC 52 clipboard copy work over SSH. A one-key toggle hands the mouse back to the terminal for native drag-select, and `MouseTrackingMode` drops to drag-only or off for chatty links. See [Mouse support by environment](#mouse-support-by-environment) for the exact matrix.
 - **A host-owned interaction contract.** The host wires the interactive skeleton for you: a **focus ring** across bound focusable widgets (`Focus`, `FocusNext`/`FocusPrevious`, `FocusChanged`, `Tab` traversal, `FocusContext` that follows focus), an explicit **key-precedence chain** (modal → pre-filter → focus-scoped commands → focused-widget first refusal → global commands → fallback), **click-to-focus** and wheel routing from a per-frame hit-test map, and application-shell **dock layout helpers** (`DockTop`/`DockBottom`/`DockLeft`/`DockRight`/`Fill`). Focus is always visible when you want it: `HighlightFocusedRegion` gives the focused region a heavy frame without shifting content (neighbouring frames can share one line with proper tee and cross joins), `CurrentFocusPath` names every container between the region and the focused widget, and `BindKeyHints` makes a status bar list the keys that work for whatever has focus, hiding single-letter shortcuts while a text field would type them, and the keys a text field swallows (Enter and the arrows in an editor). A `/` hint can stay while typing (`KeyHint.WhileTyping`), and `?` Help can read `F1` Help instead (`WithTypingAlternative`). Hidden or empty widgets drop out of the Tab order, and focus resting on a widget that disappears moves to its neighbour on the next frame (`FocusScope.RepairFocus`). Toolbars and status chips can stay clickable without being Tab stops (`IFocusStop`). A focused frame that shares a line with a neighbour is drawn whole in its own weight, so it reads as one shape. It's all additive - the raw `KeyReceived`/`MouseReceived`/`RenderOverlay` hooks still work.
@@ -56,7 +56,7 @@ It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`. The modern targets a
 - **Theme-aware widgets and a notification center.** Opt in with `ApplyThemeToWidgets` and every bound widget, modal, toast, tooltip, and Markdown style follows the active theme. Toasts can carry titles and action buttons, wrap over several lines, be dismissed by click, coalesce repeats into one toast with a count (by action key or label, so a fresh lambda per call still coalesces, or by an explicit `CoalesceKey`), carry a text severity label so severity is never color alone, leave room for a header bar (`TopOffset`), run the newest toast's action from a key (`InvokeLatestNotificationAction`), and stay in a notification history (`ShowNotificationHistoryAsync`). A built-in command palette (`ShowCommandPaletteAsync`) and key-help overlay (`ShowKeyHelpAsync`) work from a `CommandRegistry`.
 - **Selection and editing lists.** Generic `ListView<T>` and `FuzzyList<T>` return the selected object (not a string), `ActionListView<T>` gives rows keyboard actions with a typed result, and `ReorderableList<T>` moves and removes items in place. Custom-drawn rows can carry clickable `InlineButton`s resolved by a `ClickRegionMap<TAction>`, which stays correct when the content scrolls.
 - **Command surfaces and typeahead.** A `CommandRegistry` drives key bindings, a grouped menu bar, a fuzzy command palette, and a `/slash` router from one command list, and an `AutocompleteOverlay` (with a pluggable `ISuggestionProvider`) shows caret-anchored suggestions for any text input.
-- **Streaming and text helpers.** A `StreamingTranscript` that projects streamed text and keyed in-place status lines onto a pane (finalizing each block as Markdown), plus `HintText` footer wrapping, `ColumnFormatter` column alignment, and a `SubmitKeyResolver` that settles the cross-terminal Enter-vs-newline question for multi-line editors.
+- **Streaming and text helpers.** A `StreamingTranscript` that projects streamed text and keyed in-place status lines onto a pane (finalizing each block as Markdown, or with `RenderOptions` set, as one block that reflows with the pane), plus `HintText` footer wrapping, `ColumnFormatter` column alignment, and a `SubmitKeyResolver` that settles the cross-terminal Enter-vs-newline question for multi-line editors.
 - **Charts, diffs, and images.** Braille line and bar charts, a sparkline, and three distribution widgets - a `BoxPlotChart` (horizontal box-and-whisker over a caller-supplied five-number summary such as min / avg / p95 / p99 / max), a `Histogram` (bucketed frequency with the eighth-block ramp, live via `Push`), and a `HeatMap` (a grid of cells shaded by magnitude) - plus a diff viewer with syntax highlighting, FIGlet-style banners, a color picker, and image rendering - half-block on any terminal, sixel or kitty where supported.
 - **Text-to-ASCII-art.** A font engine (`TUIKit.Ascii`) that turns text into large multi-row art with faithful FIGlet layout - full-width, kerning, and the six horizontal smushing rules. `AsciiFontLibrary.Default` ships 134 built-in fonts (Standard, Slant, the Small family, Doom, Colossal, ANSI Shadow, Sub-Zero, and more); `AsciiArtText` drops any of them into a layout, and `FigletFontLoader` loads your own `.flf`/`.tlf` files. Fonts with restrictive licensing are not bundled.
 - **Reactive and animated.** Thread-safe `Observable<T>` one-way data binding, and deterministic, tick-driven animation (`Easing`, `Tween`, `FrameTimer`) that replays identically in tests.
@@ -181,6 +181,55 @@ app.Bind("F2", () => screen.Overlay = screen.Overlay == null ? pinned : null); /
 
 The nested stack joins its lines with the outer one, so the two form a grid with proper tees.
 
+### Markdown
+
+Model replies are Markdown, and most of their structure only works at a known width. `Pane.WriteMarkdown` commits a block that is laid out at the pane's width every time it renders, so a table sizes its columns from its cells and reflows when the terminal is resized:
+
+```csharp
+Pane transcript = new Pane("transcript");
+transcript.WriteMarkdown(reply); // default options: Unicode borders, wrapping, theme-neutral colors
+```
+
+Every visual decision is an option, set when you render:
+
+```csharp
+MarkdownRenderOptions options = new MarkdownRenderOptions
+{
+    MaxWidth = 100,                          // keep prose readable in a wide pane
+    Overflow = MarkdownOverflow.Wrap,        // or Truncate (with Ellipsis) or Clip
+    Styles = MarkdownStyles.FromTheme(Theme.Dark)
+};
+options.Table.Glyphs = MarkdownTableGlyphs.Rounded;     // Light, Heavy, Double, Ascii, None, or your own
+options.Table.MinColumnWidth = 4;
+options.Table.MaxColumnWidth = 40;
+options.Table.CellOverflow = MarkdownOverflow.Wrap;
+options.Table.Fallback = MarkdownTableFallback.Stack;   // when the columns cannot fit
+options.Styles.TableHeader = CellStyle.Default.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true);
+options.Styles.TableFirstColumn = CellStyle.Default.WithForeground(Color.FromPalette(3));
+
+PaneLineHandle block = transcript.WriteMarkdown(reply, options);
+block.UpdateMarkdown(reply + more);                     // stream into the same block
+
+IReadOnlyList<StyledText> rows = MarkdownRenderer.Render(reply, 72, options);  // or render rows yourself
+int natural = MarkdownRenderer.MeasureWidth(reply, options);                   // size a modal from content
+MarkdownView help = new MarkdownView(helpText, options);                       // or show it as a widget
+```
+
+Columns get their natural width when the table fits. When it does not, short columns (keys, numbers, status words) keep their width and the widest prose column wraps at word boundaries. When even each column's longest word cannot fit, or a row would wrap past `Table.MaxRowLines`, the table becomes `Header: value` records:
+
+```text
+╭────────────────┬──────────┬──────┬───────────────────────╮     Option: Redis cache
+│ Option         │ p99 (ms) │ Cost │ Notes                 │     p99 (ms): 12
+├────────────────┼──────────┼──────┼───────────────────────┤     Cost: $$
+│ Redis cache    │       12 │  $$  │ Fastest, but another  │     Notes: Fastest, but another service to
+│                │          │      │ service to run and    │       run and page on
+│                │          │      │ page on               │     ────────────────────────────────────────
+│ None           │      240 │  -   │ Simplest              │     Option: None
+╰────────────────┴──────────┴──────┴───────────────────────╯     ...
+```
+
+`StreamingTranscript.RenderOptions` streams a reply into one reflowing block and holds back a half-received table row until its newline arrives. The 1.5 line-by-line `MarkdownRenderer.Render(string)` is unchanged.
+
 ## Example application
 
 A complete, runnable demo lives in [`src/TUIKit.Example`](src/TUIKit.Example) - a simulated **agent control harness** that exercises every major capability against a fake agent (no network, no model), so it is deterministic and self-contained. Its README carries a [capability-coverage matrix](src/TUIKit.Example/README.md) mapping each library feature to the exact interaction that demonstrates it.
@@ -195,7 +244,7 @@ A complete, runnable demo lives in [`src/TUIKit.Example`](src/TUIKit.Example) - 
 
    You land in a full-screen harness: a header bar, a streaming transcript on the left, a tool panel and live telemetry on the right, a bordered composer along the bottom, and a footer of shortcuts.
 
-2. **Watch it stream.** The simulated agent writes Markdown tokens into the transcript from a background thread - headings, bold, lists, a block quote, a fenced code block, and a link - while a tool call runs and its status line mutates from `running` to `done (0.9s)` in place. The telemetry panel updates a gauge, a sparkline, a progress bar, and a table every frame.
+2. **Watch it stream.** The simulated agent streams a Markdown reply into the transcript from a background thread - headings, bold, lists, a table, a block quote, a fenced code block, and a link. The reply is one reflowing block, so resizing the window re-fits the table. Meanwhile a tool call runs and its status line mutates from `running` to `done (0.9s)` in place. The telemetry panel updates a gauge, a sparkline, a progress bar, and a table every frame.
 
 3. **Press `F1` (or `?`).** A help overlay lists every keybinding. The demo documents itself.
 
@@ -219,6 +268,7 @@ dotnet run --project src/TUIKit.Example -- --once --debug   # ... with the debug
 dotnet run --project src/TUIKit.Example -- --contract-once  # the interaction-contract demo frame
 dotnet run --project src/TUIKit.Example -- --focus-once     # the focus showcase frame
 dotnet run --project src/TUIKit.Example -- --focus-audit-once  # FocusAudit over the showcase; exit 1 on problems
+dotnet run --project src/TUIKit.Example -- --markdown-once --width 60  # the Markdown sample at a width (--color, --ascii)
 dotnet run --project src/TUIKit.Example | cat               # non-TTY -> plain line output
 ```
 
