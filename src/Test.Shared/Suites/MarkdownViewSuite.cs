@@ -64,7 +64,7 @@ namespace Test.Shared.Suites
                             Check.True(view.HandleMouse(new MouseEvent(MouseEventKind.Wheel, MouseButton.WheelUp, 0, 0, KeyModifiers.None, 0)), "wheel up handled");
                             Check.Equal(0, view.ScrollOffset, "scrolled up, floored at 0");
                             Check.True(view.HandleMouse(new MouseEvent(MouseEventKind.Wheel, MouseButton.WheelDown, 0, 0, KeyModifiers.None, 0)), "wheel down handled");
-                            Check.Equal(3, view.ScrollOffset, "scrolled by WheelStep");
+                            Check.Equal(2, view.ScrollOffset, "scrolled by WheelStep, clamped at once to the last full page");
                             Check.False(view.HandleMouse(new MouseEvent(MouseEventKind.Press, MouseButton.Left, 0, 0, KeyModifiers.None, 1)), "click not handled");
                             return Task.CompletedTask;
                         }),
