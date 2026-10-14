@@ -851,7 +851,10 @@ namespace TUIKit.Hosting
 
         /// <summary>
         /// Binds any widget to a layout region so the host measures, arranges, and renders it there.
-        /// Panes are rendered with the theme background; other widgets render over a themed fill.
+        /// Panes are rendered with the theme background; other widgets render over a themed fill. A focusable
+        /// widget joins the region focus order; when nothing has focus yet it receives focus, unless it is not a
+        /// Tab stop (<see cref="IFocusStop.IsFocusStop"/> false), in which case it can still be focused by a click
+        /// or <see cref="Focus(string)"/> but never receives initial focus.
         /// </summary>
         /// <param name="regionId">The region identifier. Must not be null or empty.</param>
         /// <param name="widget">The widget. Must not be null.</param>
@@ -872,7 +875,7 @@ namespace TUIKit.Hosting
             if (widget is IFocusable && !_FocusOrder.Contains(regionId))
             {
                 _FocusOrder.Add(regionId);
-                if (_FocusedRegion == null)
+                if (_FocusedRegion == null && !(widget is IFocusStop stop && !stop.IsFocusStop))
                     SetFocusInternal(regionId);
             }
         }

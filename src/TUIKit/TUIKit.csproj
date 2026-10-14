@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.6.0</Version>
-    <AssemblyVersion>1.6.0.0</AssemblyVersion>
-    <FileVersion>1.6.0.0</FileVersion>
+    <Version>1.7.0</Version>
+    <AssemblyVersion>1.7.0.0</AssemblyVersion>
+    <FileVersion>1.7.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -32,7 +32,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
     <PackageTags>tui;focus;accessibility;keyboard;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.6.0 - width-aware Markdown: a block parser and layout engine that lays Markdown out at a known width. GFM tables size their columns from cell content, keep short columns whole when space runs short, and fall back to stacked records when even the minimums do not fit or rows would wrap too tall. Wrapped list items keep their hanging indent and wrapped quotes keep their bar. Fenced code is syntax highlighted. Every visual choice is set at render time through MarkdownRenderOptions: colors, border glyphs, header and first-column styles, column minimums and maximums, wrap, truncate, or clip, and maximum width. Pane.WriteMarkdown commits blocks that reflow on resize, MarkdownView renders Markdown as a widget, and StreamingTranscript.RenderOptions streams reflowing blocks. Additive; nothing changes by default. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.7.0 - MarkdownView for real apps. The view scrolls from the keyboard (Up/Down, PageUp/PageDown, Home/End) with key hints, and is focusable with an opt-in Tab stop (IsFocusStop). UseThemeStyles makes it follow the app theme without painting theme backgrounds, and MarkdownRenderOptions.WithTheme and MarkdownStyles.FromTheme(theme, includeBackgrounds) do the same for direct renders, with ASCII glyphs on ASCII themes. SetSearch, FindNext, FindPrevious, and F3 search the rendered text, highlighted with the new Theme.SearchMatchRole (Pane follows it too). TailFollow keeps a growing document at its end with a new-below indicator. MarkdownRenderer.StreamingPrefix exposes the rule that holds back half-received table rows and unconfirmed headers while a reply streams, and MarkdownLayoutCache caches layouts for apps that draw Markdown in their own widgets. Additive; new behavior is opt-in, and the few visible changes are listed under Changed. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

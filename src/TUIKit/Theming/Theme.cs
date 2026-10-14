@@ -38,7 +38,7 @@ namespace TUIKit.Theming
         }
 
         /// <summary>
-        /// Gets the named-style role for level-1 Markdown headings (see <see cref="Content.MarkdownStyles.FromTheme"/>).
+        /// Gets the named-style role for level-1 Markdown headings (see <see cref="Content.MarkdownStyles.FromTheme(Theme)"/>).
         /// </summary>
         public static string MarkdownHeadingRole
         {
@@ -134,6 +134,17 @@ namespace TUIKit.Theming
         public static string InlineButtonHoverRole
         {
             get { return "inline-button.hover"; }
+        }
+
+        /// <summary>
+        /// Gets the named-style role for search matches highlighted by <see cref="Content.Pane.SetSearch"/> and
+        /// <see cref="Widgets.MarkdownView.SetSearch"/>. When not registered, matches are black on palette yellow.
+        /// The built-in presets register that style; <see cref="HighContrast"/> also underlines it, so a match
+        /// differs by attribute as well as color.
+        /// </summary>
+        public static string SearchMatchRole
+        {
+            get { return "search.match"; }
         }
 
         private readonly Dictionary<string, CellStyle> _Named = new Dictionary<string, CellStyle>(StringComparer.Ordinal);
@@ -305,7 +316,9 @@ namespace TUIKit.Theming
                     Styled(Color.FromRgb(0xFF, 0xFF, 0xFF), background),
                     Styled(Color.FromRgb(0xC0, 0xC0, 0xC0), background),
                     true);
-                return WithConventionalRoles(theme, Color.FromRgb(0x00, 0x00, 0x00), Color.FromRgb(0x00, 0x00, 0x00), Color.FromRgb(0xFF, 0xFF, 0x00));
+                WithConventionalRoles(theme, Color.FromRgb(0x00, 0x00, 0x00), Color.FromRgb(0x00, 0x00, 0x00), Color.FromRgb(0xFF, 0xFF, 0x00));
+                theme.SetStyle(SearchMatchRole, Content.SearchHighlighter.DefaultStyle.WithAttribute(CellAttributes.Underline, true));
+                return theme;
             }
         }
 
@@ -323,6 +336,7 @@ namespace TUIKit.Theming
             theme.SetStyle(FocusTitleRole, focusBorder);
             theme.SetStyle(TabFocusedRole, theme.Selection.WithAttribute(CellAttributes.Bold, true).WithAttribute(CellAttributes.Underline, true));
             theme.SetStyle(InlineButtonHoverRole, theme.Accent.WithAttribute(CellAttributes.Underline, true));
+            theme.SetStyle(SearchMatchRole, Content.SearchHighlighter.DefaultStyle);
             return theme;
         }
 

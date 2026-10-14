@@ -6,7 +6,7 @@ namespace TUIKit.Content
 
     /// <summary>
     /// The styles <see cref="MarkdownRenderer"/> uses for each Markdown element. <see cref="Default"/>
-    /// reproduces the renderer's original palette colors; <see cref="FromTheme"/> derives the styles from a
+    /// reproduces the renderer's original palette colors; <see cref="FromTheme(Theme)"/> derives the styles from a
     /// <see cref="Theme"/> so Markdown follows light, dark, and high-contrast themes. Element styles are
     /// overlaid on the base text style: a channel left at the default color inherits the base, and
     /// attributes combine. Instances are mutable; do not mutate one while another thread renders with it.
@@ -142,6 +142,24 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
         public static MarkdownStyles FromTheme(Theme theme)
         {
+            return FromTheme(theme, true);
+        }
+
+        /// <summary>
+        /// Derives Markdown styles from a theme as <see cref="FromTheme(Theme)"/> does, optionally without the
+        /// theme's backgrounds. The theme's styles carry the theme background, so Markdown drawn on a surface
+        /// with a different background (a dialog, a selected row, a sidebar) would otherwise paint stripes of the
+        /// main background. With <paramref name="includeBackgrounds"/> false, every element keeps its foreground
+        /// and attributes and its background is <see cref="Color.Default"/>, so the surface underneath shows
+        /// through. The styles depend on the theme's roles (<see cref="Theme.MarkdownHeadingRole"/> and the rest).
+        /// </summary>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <param name="includeBackgrounds"><c>true</c> to keep the theme's backgrounds, the same result as
+        /// <see cref="FromTheme(Theme)"/>; <c>false</c> to leave every background at <see cref="Color.Default"/>.</param>
+        /// <returns>A new styles instance. Never null.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        public static MarkdownStyles FromTheme(Theme theme, bool includeBackgrounds)
+        {
             if (theme == null)
                 throw new ArgumentNullException(nameof(theme));
 
@@ -161,7 +179,39 @@ namespace TUIKit.Content
             styles.CodeLanguage = theme.Muted;
             styles.TableHeader = theme.Accent.WithAttribute(CellAttributes.Bold, true);
             styles.TableBorder = theme.Border;
+            if (!includeBackgrounds)
+                styles.ClearBackgrounds();
+
             return styles;
+        }
+
+        private void ClearBackgrounds()
+        {
+            Text = NoBackground(Text);
+            Heading1 = NoBackground(Heading1);
+            Heading = NoBackground(Heading);
+            CodeBlock = NoBackground(CodeBlock);
+            InlineCode = NoBackground(InlineCode);
+            Bullet = NoBackground(Bullet);
+            Quote = NoBackground(Quote);
+            Rule = NoBackground(Rule);
+            TaskOpen = NoBackground(TaskOpen);
+            TaskDone = NoBackground(TaskDone);
+            Strong = NoBackground(Strong);
+            Emphasis = NoBackground(Emphasis);
+            Strikethrough = NoBackground(Strikethrough);
+            Link = NoBackground(Link);
+            LinkUrl = NoBackground(LinkUrl);
+            CodeLanguage = NoBackground(CodeLanguage);
+            TableHeader = NoBackground(TableHeader);
+            TableFirstColumn = NoBackground(TableFirstColumn);
+            TableCell = NoBackground(TableCell);
+            TableBorder = NoBackground(TableBorder);
+        }
+
+        private static CellStyle NoBackground(CellStyle style)
+        {
+            return style.WithBackground(Color.Default);
         }
 
         /// <summary>

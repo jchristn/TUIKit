@@ -2,10 +2,10 @@ namespace TUIKit.Content
 {
     using System;
     using System.Collections.Generic;
-    using System.Text;
     using System.Threading;
     using TUIKit;
     using TUIKit.Input;
+    using TUIKit.Theming;
     using TUIKit.Widgets;
 
     /// <summary>
@@ -21,7 +21,7 @@ namespace TUIKit.Content
     /// All members are thread-safe. Rendering reads pane state under the same lock used by writers,
     /// so a frame never captures a half-written batch.
     /// </remarks>
-    public sealed class Pane : IWidget, IMouseAware
+    public sealed class Pane : IWidget, IMouseAware, IThemeable
     {
         private readonly string _Id;
         private readonly object _Sync = new object();
@@ -40,7 +40,7 @@ namespace TUIKit.Content
         private long _Version;
         private int _BatchDepth;
         private string? _Search;
-        private CellStyle _SearchStyle = CellStyle.Default.WithForeground(Color.FromRgb(0, 0, 0)).WithBackground(Color.FromPalette(3));
+        private CellStyle _SearchStyle = SearchHighlighter.DefaultStyle;
 
         /// <summary>
         /// Gets the pane identifier. Never null or empty.
@@ -459,7 +459,7 @@ namespace TUIKit.Content
                 {
                     StyledText row = rows[r];
                     if (!string.IsNullOrEmpty(_Search))
-                        row = HighlightMatches(row, _Search!, _SearchStyle);
+                        row = SearchHighlighter.Highlight(row, _Search!, _SearchStyle);
 
                     surface.DrawStyledText(0, r, row, background);
                 }
@@ -625,6 +625,36 @@ namespace TUIKit.Content
         }
 
         /// <summary>
+        /// Gets the active search term set by <see cref="SetSearch"/>, or null when no search is set. Thread-safe.
+        /// </summary>
+        public string? SearchText
+        {
+            get { lock (_Sync) { return _Search; } }
+        }
+
+        /// <summary>
+        /// Applies a theme to the pane's search highlight, the only part of a pane that follows the theme. The
+        /// highlight becomes the style registered under <see cref="Theme.SearchMatchRole"/>, or black on palette
+        /// yellow (the style used before themes reached the pane) when the theme does not register it. Part of
+        /// <see cref="IThemeable"/>; the host calls it when the pane is bound and when the theme changes.
+        /// Thread-safe.
+        /// </summary>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        public void ApplyTheme(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            CellStyle style = theme.Resolve(Theme.SearchMatchRole, SearchHighlighter.DefaultStyle);
+            lock (_Sync)
+            {
+                _SearchStyle = style;
+                Bump();
+            }
+        }
+
+        /// <summary>
         /// Sets the search term to highlight in the pane, or null/empty to clear it. Matches are
         /// highlighted on the next render; use <see cref="FindNext"/> and <see cref="FindPrevious"/> to
         /// scroll between them.
@@ -676,7 +706,7 @@ namespace TUIKit.Content
                         ? (start + step) % rows.Count
                         : (((start - step) % rows.Count) + rows.Count) % rows.Count;
 
-                    if (rows[index].ToPlainString().IndexOf(_Search!, StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (SearchHighlighter.Matches(rows[index], _Search!))
                     {
                         int maxTop = Math.Max(0, rows.Count - Math.Max(1, _LastHeight));
                         _ViewTop = Math.Min(index, maxTop);
@@ -753,67 +783,6 @@ namespace TUIKit.Content
             }
 
             return rows;
-        }
-
-        private static StyledText HighlightMatches(StyledText row, string query, CellStyle highlight)
-        {
-            List<char> chars = new List<char>();
-            List<CellStyle> styles = new List<CellStyle>();
-            IReadOnlyList<StyledSpan> spans = row.Spans;
-            for (int s = 0; s < spans.Count; s++)
-            {
-                string text = spans[s].Text;
-                for (int c = 0; c < text.Length; c++)
-                {
-                    chars.Add(text[c]);
-                    styles.Add(spans[s].Style);
-                }
-            }
-
-            string plain = new string(chars.ToArray());
-            int from = 0;
-            bool any = false;
-            while (from <= plain.Length - query.Length)
-            {
-                int index = plain.IndexOf(query, from, StringComparison.OrdinalIgnoreCase);
-                if (index < 0)
-                    break;
-
-                any = true;
-                for (int i = index; i < index + query.Length && i < styles.Count; i++)
-                    styles[i] = highlight;
-
-                from = index + query.Length;
-            }
-
-            if (!any)
-                return row;
-
-            List<StyledSpan> result = new List<StyledSpan>();
-            StringBuilder run = new StringBuilder();
-            CellStyle current = CellStyle.Default;
-            bool has = false;
-            for (int i = 0; i < chars.Count; i++)
-            {
-                if (!has)
-                {
-                    current = styles[i];
-                    has = true;
-                }
-                else if (styles[i] != current)
-                {
-                    result.Add(new StyledSpan(run.ToString(), current));
-                    run.Clear();
-                    current = styles[i];
-                }
-
-                run.Append(chars[i]);
-            }
-
-            if (has)
-                result.Add(new StyledSpan(run.ToString(), current));
-
-            return new StyledText(result);
         }
 
         private void Bump()

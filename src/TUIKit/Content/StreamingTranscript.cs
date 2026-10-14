@@ -65,7 +65,7 @@ namespace TUIKit.Content
         }
 
         /// <summary>
-        /// Gets or sets the Markdown element styles, for example <see cref="MarkdownStyles.FromTheme"/>.
+        /// Gets or sets the Markdown element styles, for example <see cref="MarkdownStyles.FromTheme(Theming.Theme)"/>.
         /// Defaults to <see cref="MarkdownStyles.Default"/>. Applies to lines rendered after the change.
         /// </summary>
         /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
@@ -126,9 +126,10 @@ namespace TUIKit.Content
         /// <see cref="Pane.WriteMarkdown(string, MarkdownRenderOptions)"/>) that is laid out at the pane's width,
         /// so tables size their columns and the block reflows on resize. While streaming, the block is laid out
         /// again with everything received so far on each <see cref="AppendText"/>, which costs time linear in the
-        /// block's size; that is fine for model replies of a few kilobytes. A trailing partial line that starts
-        /// with <c>|</c> is held back until its newline arrives, so a half-received table row never shows as
-        /// text. The options are copied on set, and a block in progress keeps the options it started with.
+        /// block's size; that is fine for model replies of a few kilobytes. The text shown while streaming is
+        /// <see cref="MarkdownRenderer.StreamingPrefix"/> of what has arrived: a half-received table row is held
+        /// back until its newline arrives, and a table header until its delimiter row arrives, so a table never
+        /// shows as text first. The options are copied on set, and a block in progress keeps the options it started with.
         /// </summary>
         public MarkdownRenderOptions? RenderOptions
         {
@@ -330,11 +331,7 @@ namespace TUIKit.Content
         // Shows everything received so far as one Markdown block. Must be called under _Sync.
         private void StreamMarkdownBlock()
         {
-            string source = _Block.ToString();
-            int lastNewline = source.LastIndexOf('\n');
-            string partial = lastNewline >= 0 ? source.Substring(lastNewline + 1) : source;
-            if (partial.TrimStart(' ').StartsWith("|", StringComparison.Ordinal))
-                source = lastNewline >= 0 ? source.Substring(0, lastNewline) : string.Empty;
+            string source = MarkdownRenderer.StreamingPrefix(_Block.ToString());
 
             if (source.Trim().Length == 0)
                 return;

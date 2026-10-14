@@ -2,6 +2,7 @@ namespace TUIKit.Content
 {
     using System;
     using System.Collections.Generic;
+    using TUIKit.Theming;
     using TUIKit.Unicode;
 
     /// <summary>
@@ -37,7 +38,7 @@ namespace TUIKit.Content
 
         /// <summary>
         /// Gets or sets the colors and attributes of every element. Defaults to <see cref="MarkdownStyles.Default"/>.
-        /// Use <see cref="MarkdownStyles.FromTheme"/> to follow the application theme. Must not be null.
+        /// Use <see cref="MarkdownStyles.FromTheme(Theme)"/> to follow the application theme. Must not be null.
         /// </summary>
         /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
         public MarkdownStyles Styles
@@ -339,6 +340,55 @@ namespace TUIKit.Content
             copy.SyntaxHighlighting = SyntaxHighlighting;
             copy.FillCodeBackground = FillCodeBackground;
             copy.ShowLinkUrls = ShowLinkUrls;
+            return copy;
+        }
+
+        /// <summary>
+        /// Returns a copy of these options that follows a theme: the elements a theme defines (text, headings, code,
+        /// bullets, quotes, rules, tasks, links, table header and border) take their styles from
+        /// <see cref="MarkdownStyles.FromTheme(Theme, bool)"/> without backgrounds, so the surface underneath shows
+        /// through, while the elements a theme does not define (<see cref="MarkdownStyles.Strong"/>,
+        /// <see cref="MarkdownStyles.Emphasis"/>, <see cref="MarkdownStyles.Strikethrough"/>,
+        /// <see cref="MarkdownStyles.TableFirstColumn"/>, and <see cref="MarkdownStyles.TableCell"/>) keep this
+        /// instance's values. When <see cref="Theme.UseAsciiBorders"/> is true the glyphs <see cref="Ascii"/> sets are
+        /// applied too (bullets, task glyphs, quote prefix, rule glyph, ellipsis, and table glyphs). Layout
+        /// settings (widths, overflow, spacing, table sizing) are kept. This instance is never changed.
+        /// </summary>
+        /// <remarks>
+        /// The result is not reversible: on a theme without ASCII borders the glyphs of this instance are kept as
+        /// they are, so options that already carry the ASCII glyphs keep them. Call it on your own base options
+        /// each time the theme changes, never on a previous result. Each call returns a new instance; keep and
+        /// reuse it until the next theme change, because caches such as <see cref="MarkdownLayoutCache"/> compare
+        /// options by reference.
+        /// </remarks>
+        /// <param name="theme">The theme. Must not be null.</param>
+        /// <returns>A new options instance. Never null.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
+        public MarkdownRenderOptions WithTheme(Theme theme)
+        {
+            if (theme == null)
+                throw new ArgumentNullException(nameof(theme));
+
+            MarkdownRenderOptions copy = Clone();
+            MarkdownStyles themed = MarkdownStyles.FromTheme(theme, false);
+            themed.Strong = _Styles.Strong;
+            themed.Emphasis = _Styles.Emphasis;
+            themed.Strikethrough = _Styles.Strikethrough;
+            themed.TableFirstColumn = _Styles.TableFirstColumn;
+            themed.TableCell = _Styles.TableCell;
+            copy._Styles = themed;
+            if (theme.UseAsciiBorders)
+            {
+                MarkdownRenderOptions ascii = Ascii();
+                copy._BulletGlyphs = ascii._BulletGlyphs;
+                copy._TaskOpenGlyph = ascii._TaskOpenGlyph;
+                copy._TaskDoneGlyph = ascii._TaskDoneGlyph;
+                copy._QuotePrefix = ascii._QuotePrefix;
+                copy._RuleGlyph = ascii._RuleGlyph;
+                copy._Ellipsis = ascii._Ellipsis;
+                copy._Table.Glyphs = ascii._Table.Glyphs;
+            }
+
             return copy;
         }
 

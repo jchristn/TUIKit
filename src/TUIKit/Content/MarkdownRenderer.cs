@@ -41,7 +41,7 @@ namespace TUIKit.Content
 
         /// <summary>
         /// Renders Markdown into one styled text per output line with the supplied element styles (for
-        /// example <see cref="MarkdownStyles.FromTheme"/>).
+        /// example <see cref="MarkdownStyles.FromTheme(Theming.Theme)"/>).
         /// </summary>
         /// <param name="markdown">The Markdown source. Must not be null.</param>
         /// <param name="styles">The element styles. Must not be null.</param>
@@ -155,6 +155,62 @@ namespace TUIKit.Content
                 widest = Math.Max(widest, rows[i].Width);
 
             return widest;
+        }
+
+        /// <summary>
+        /// Returns the longest prefix of Markdown still arriving (from a model, a process, or a socket) that is safe
+        /// to lay out now, so a table never renders short partial cells or flips from text to a table while it
+        /// streams. Re-render the result on each chunk; when the stream ends, render the full text, never the
+        /// prefix, or the held-back tail is lost.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Two things are held back. A trailing line with no newline yet whose first character after up to three
+        /// spaces is <c>|</c> (a table row still arriving). And a trailing complete line that could be a table
+        /// header (the same <c>|</c> test) that is not itself a delimiter row and does not follow another table
+        /// line: it waits for the next line, so a header becomes a table in one step instead of showing as text
+        /// first. While that next line is partial and could still be a delimiter row, both stay held; once it is
+        /// clearly not one, or once its newline arrives and it is not a delimiter row, the header is released.
+        /// </para>
+        /// <para>
+        /// Every other partial line (prose, list items, emphasis still open) is returned as it arrived, so text
+        /// keeps streaming at the same pace. Indentation counts spaces only and at most three, as GFM does: a tab
+        /// or four spaces start an indented code block, not a table, so such a <c>|</c> is not held back.
+        /// </para>
+        /// <para>
+        /// Stateless and thread-safe. Allocation-free when nothing is held back: the input instance is returned.
+        /// </para>
+        /// </remarks>
+        /// <param name="received">The Markdown received so far. Must not be null.</param>
+        /// <returns>The safe prefix, without the newline before the held-back part; <see cref="string.Empty"/> when
+        /// nothing is safe yet. Never null.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="received"/> is null.</exception>
+        public static string StreamingPrefix(string received)
+        {
+            if (received == null)
+                throw new ArgumentNullException(nameof(received));
+
+            int lastNewline = received.LastIndexOf('\n');
+            int partialStart = lastNewline + 1;
+            bool hasPartial = partialStart < received.Length;
+            bool partialIsRow = hasPartial && StartsWithPipe(received, partialStart, received.Length);
+            if (lastNewline < 0)
+                return partialIsRow ? string.Empty : received;
+
+            // The last complete line runs from headerStart up to lastNewline.
+            int headerStart = received.LastIndexOf('\n', Math.Max(0, lastNewline - 1)) + 1;
+            if (lastNewline == 0)
+                headerStart = 0;
+
+            bool headerHeld = IsHeaderCandidate(received, headerStart, lastNewline)
+                && (!hasPartial || partialIsRow || CouldBeDelimiter(received, partialStart, received.Length));
+
+            if (headerHeld)
+                return headerStart == 0 ? string.Empty : received.Substring(0, headerStart - 1);
+            if (partialIsRow)
+                return received.Substring(0, lastNewline);
+
+            return received;
         }
 
         internal static IReadOnlyList<StyledText> RenderCore(string markdown, int width, MarkdownRenderOptions options, CancellationToken token)
@@ -432,6 +488,64 @@ namespace TUIKit.Content
 
             spans.Add(new StyledSpan(plain.ToString(), style));
             plain.Clear();
+        }
+
+        // True when the line [start, end) begins, after at most three spaces, with a pipe.
+        private static bool StartsWithPipe(string text, int start, int end)
+        {
+            int i = start;
+            int spaces = 0;
+            while (i < end && text[i] == ' ' && spaces < 3)
+            {
+                i++;
+                spaces++;
+            }
+
+            return i < end && text[i] == '|';
+        }
+
+        // True when the line [start, end) is a GFM table delimiter row: pipes, dashes, colons, and spaces, with at
+        // least one dash.
+        private static bool IsDelimiterRow(string text, int start, int end)
+        {
+            bool dash = false;
+            for (int i = start; i < end; i++)
+            {
+                char c = text[i];
+                if (c == '-')
+                    dash = true;
+                else if (c != '|' && c != ':' && c != ' ' && c != '\t' && c != '\r')
+                    return false;
+            }
+
+            return dash;
+        }
+
+        // True when a partial line [start, end) could still grow into a delimiter row.
+        private static bool CouldBeDelimiter(string text, int start, int end)
+        {
+            for (int i = start; i < end; i++)
+            {
+                char c = text[i];
+                if (c != '-' && c != '|' && c != ':' && c != ' ' && c != '\t')
+                    return false;
+            }
+
+            return true;
+        }
+
+        // True when the complete line [start, end) could be a table header waiting for its delimiter row: it starts
+        // with a pipe, is not a delimiter row, and does not follow another table line.
+        private static bool IsHeaderCandidate(string text, int start, int end)
+        {
+            if (!StartsWithPipe(text, start, end) || IsDelimiterRow(text, start, end))
+                return false;
+            if (start == 0)
+                return true;
+
+            int previousEnd = start - 1;
+            int previousStart = previousEnd == 0 ? 0 : text.LastIndexOf('\n', previousEnd - 1) + 1;
+            return !StartsWithPipe(text, previousStart, previousEnd);
         }
     }
 }
