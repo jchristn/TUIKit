@@ -256,7 +256,7 @@ stream.AppendText(chunk);
 stream.FinalizeBlock();
 ```
 
-For Markdown that is not a log (a help page, a details panel, a modal body), use `MarkdownView`, and use `MarkdownRenderer.MeasureWidth` to size the container from the content. When you need rows yourself, `MarkdownRenderer.Render(markdown, width, options)` returns them, each at most `width` columns.
+For Markdown that is not a log (a help page, a details panel, a modal body), use `MarkdownView`, and use `MarkdownRenderer.MeasureWidth` to size the container from the content. When you need rows yourself, `MarkdownRenderer.Render(markdown, width, options)` returns them, each at most `width` columns. A long `MarkdownView` should be readable from the keyboard: set `IsFocusStop = true` so Tab reaches it, and it scrolls with Up/Down, PageUp/PageDown, and Home/End while it lists those keys in the status bar. Set `UseThemeStyles = true` so it follows the theme without painting the theme background over a dialog or sidebar. If you draw Markdown inside your own widgets, take the styles from `options.WithTheme(theme)` once per theme change, keep layouts in a `MarkdownLayoutCache`, and while a reply is still streaming lay out only `MarkdownRenderer.StreamingPrefix(received)`.
 
 Everything visual is in `MarkdownRenderOptions`: colors (`Styles`, including `TableHeader`, `TableFirstColumn`, `TableCell`, and `TableBorder`), `MaxWidth` for a readable measure in a wide pane, wrap or truncate or clip for prose, code, and table cells, and the glyphs for bullets, quotes, rules, tasks, and table borders (`MarkdownTableGlyphs.Light`, `Rounded`, `Heavy`, `Double`, `Ascii`, `None`, or your own). `MarkdownRenderOptions.Ascii()` is safe for logs and old terminals.
 

@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-14
+
+1.6 gave TUIKit a width-aware Markdown engine and a `MarkdownView` to show it, but the view was only a display
+surface: a keyboard user could not scroll it, it had no search, it ignored the theme, and it could not follow
+a growing document. The first app to adopt it kept its own viewer for exactly those reasons. This release
+finishes the view and moves the general pieces that app wrote on top of TUIKit into the library. New behavior
+is opt-in wherever turning it on would change how an existing 1.6 app looks or moves focus.
+
+### Added
+- **Keyboard scrolling for `MarkdownView`.** The view is now `IFocusable`, `IFocusStop`, `IFocusAware`, and
+  `IKeyHintSource`. Up and Down move a row, PageUp and PageDown move a page (the viewport minus one row), and
+  Home and End jump to the ends. A key is consumed only when it moved the view or the document is taller than
+  the viewport, so a short help page never swallows keys its container wants. `IsFocusStop` (default false)
+  makes it a Tab stop; `ShowKeyHints` (default true) lists the keys while it is focused and scrollable.
+  `ScrollBy`, `ScrollToTop`, `ScrollToEnd`, `ViewportHeight`, and `IsFocused` let an app drive it with its own
+  bindings.
+- **Theme-following Markdown.** `MarkdownStyles.FromTheme(theme, includeBackgrounds)` can drop the theme's
+  backgrounds, so Markdown inside a dialog, a selected row, or a sidebar no longer paints stripes of the main
+  background. `MarkdownRenderOptions.WithTheme(theme)` applies those styles and, on a theme with ASCII
+  borders, the ASCII glyphs, while keeping layout settings and the styles a theme does not define (strong,
+  emphasis, strikethrough, table first column and cells). `MarkdownView` is `IThemeable`; with
+  `UseThemeStyles` (default false) it follows the app theme, always derived from the caller's own options so
+  switching back from an ASCII theme restores the original glyphs.
+- **`MarkdownRenderer.StreamingPrefix(received)`.** Returns the part of a still-arriving reply that is safe to
+  lay out: a half-received table row is held back until its newline arrives, and a table header until its
+  delimiter row arrives, so a table never shows short cells or flashes as text. It is the rule
+  `StreamingTranscript` uses, now public for apps that stream into their own widgets.
+- **Search in `MarkdownView`.** `SetSearch`, `FindNext`, `FindPrevious`, and `SearchText`, with the same
+  matching as `Pane`: case-insensitive over the rendered text, so it finds what the user sees rather than
+  Markdown syntax, wrapping in both directions. While a term is set, F3 and Shift+F3 step through matches.
+  `Pane.SearchText` reports a pane's active term.
+- **`Theme.SearchMatchRole`.** A named style for search highlights, registered by the built-in themes with the
+  existing black-on-yellow; `HighContrast` also underlines it. `Pane` is now `IThemeable` so its highlight
+  follows the role; nothing else about a pane changes with the theme.
+- **Tail-follow for `MarkdownView`.** `TailFollow` has the same type and contract as `Pane.TailFollow`. A new
+  view uses `TailFollowMode.Never`. With `FollowAtBottom` or `AlwaysFollow`, a growing document stays at its
+  end, rows that arrive while the user has scrolled up are counted on a "new below" indicator, and a click on
+  the indicator returns to the end. A resize is never counted as new content.
+- **`MarkdownLayoutCache`.** Caches laid-out Markdown by text, width, and options instance for apps that draw
+  many Markdown blocks in their own widgets. Least-recently-used eviction at `Capacity` (default 256), one
+  width at a time so resizing leaves no stale copies, thread-safe, with `GetRowsAsync`.
+- **Example.** The "Markdown that fits" tour page follows the theme, searches with a `/` prompt and F3, and can
+  grow live with tail-follow on; a new "Markdown in your own widgets" page draws a message list through
+  `MarkdownLayoutCache`; the harness streams its reply a few characters at a time through `StreamingPrefix`
+  and shows what is held back; `--markdown-once --theme dark|light|contrast` prints the sample through
+  `WithTheme`; and `--tour-once --keys` feeds one key per frame.
+
+### Changed
+- **Mouse wheel and `ScrollOffset` clamp at once on `MarkdownView`.** After a render, scrolling past the end
+  stops at the last page instead of at the next render, so the first wheel-up after a burst of wheel-down
+  moves the view. Before the first render the value is stored as given, as before.
+- **A click focuses a `MarkdownView` bound directly to a region.** Because the view is now focusable, a press
+  on it moves region focus to it, as for `DiffView`. Wheel events never move focus.
+- **Region auto-focus skips non-stops.** `TuiApplication.Bind` no longer gives initial focus to a widget whose
+  `IsFocusStop` is false; it still joins the focus order for clicks and `Focus`. Without this, binding a
+  `MarkdownView` region first would have moved initial focus in existing apps.
+- **`StreamingTranscript` holds a table header until its delimiter row.** A header now appears together with
+  its delimiter row instead of one line earlier as text. A partial line indented four or more spaces before a
+  `|` (an indented code line) now streams as it arrives instead of being held back.
+- **`Theme.HighContrast` underlines search matches** in `Pane` and `MarkdownView`, so a match differs by
+  attribute as well as color. Other themes render `Pane` search highlights exactly as before.
+
 ## [1.6.0] - 2026-10-14
 
 TUIKit has rendered Markdown since 1.0, but one source line at a time and without knowing the width, so the

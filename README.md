@@ -98,7 +98,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.4.0" />
+<PackageReference Include="TUIKit" Version="1.7.0" />
 ```
 
 ## Quick start
@@ -228,7 +228,28 @@ Columns get their natural width when the table fits. When it does not, short col
 ╰────────────────┴──────────┴──────┴───────────────────────╯     ...
 ```
 
-`StreamingTranscript.RenderOptions` streams a reply into one reflowing block and holds back a half-received table row until its newline arrives. The 1.5 line-by-line `MarkdownRenderer.Render(string)` is unchanged.
+`StreamingTranscript.RenderOptions` streams a reply into one reflowing block and holds back a half-received table row until its newline arrives, and a table header until its delimiter row arrives. If you stream into your own widget, `MarkdownRenderer.StreamingPrefix` applies the same rule. The 1.5 line-by-line `MarkdownRenderer.Render(string)` is unchanged.
+
+`MarkdownView` is a full reader for help pages, release notes, and logs. Everything below is opt-in, so a 1.6 view looks and behaves the same until you turn it on:
+
+```csharp
+MarkdownView view = new MarkdownView(changelog, options)
+{
+    IsFocusStop = true,       // Tab reaches it; Up/Down, PgUp/PgDn, Home/End scroll; hints show while focused
+    UseThemeStyles = true     // theme colors without theme backgrounds, ASCII glyphs on ASCII themes
+};
+view.SetSearch("redis");      // highlights matches; FindNext/FindPrevious or F3/Shift+F3 move between them
+view.TailFollow.Mode = TailFollowMode.FollowAtBottom;  // a growing document stays at its end
+view.Markdown = changelog + newEntry;                  // "N new below" if the reader scrolled up
+
+// Markdown in your own widgets: lay each block out once per width, not once per frame.
+MarkdownRenderOptions themed = options.WithTheme(app.Theme);   // call once per theme change and keep it
+MarkdownLayoutCache cache = new MarkdownLayoutCache();
+IReadOnlyList<StyledText> bubble = cache.GetRows(message, width, themed);
+string shown = MarkdownRenderer.StreamingPrefix(receivedSoFar); // safe to lay out while text still arrives
+```
+
+`WithTheme` keeps your layout settings and any styles a theme does not define (such as a key-column style), and it never changes the instance you call it on. The cache compares options by reference, so reuse the themed instance rather than calling `WithTheme` every frame.
 
 ## Example application
 
@@ -244,7 +265,7 @@ A complete, runnable demo lives in [`src/TUIKit.Example`](src/TUIKit.Example) - 
 
    You land in a full-screen harness: a header bar, a streaming transcript on the left, a tool panel and live telemetry on the right, a bordered composer along the bottom, and a footer of shortcuts.
 
-2. **Watch it stream.** The simulated agent streams a Markdown reply into the transcript from a background thread - headings, bold, lists, a table, a block quote, a fenced code block, and a link. The reply is one reflowing block, so resizing the window re-fits the table. Meanwhile a tool call runs and its status line mutates from `running` to `done (0.9s)` in place. The telemetry panel updates a gauge, a sparkline, a progress bar, and a table every frame.
+2. **Watch it stream.** The simulated agent streams a Markdown reply into the transcript from a background thread, a few characters at a time - headings, bold, lists, a table, a block quote, a fenced code block, and a link. The reply is one reflowing block, so resizing the window re-fits the table, and each frame shows only `MarkdownRenderer.StreamingPrefix` of what has arrived, so the table never flashes as text; the telemetry `reply` row says how much is being held back. Meanwhile a tool call runs and its status line mutates from `running` to `done (0.9s)` in place. The telemetry panel updates a gauge, a sparkline, a progress bar, and a table every frame.
 
 3. **Press `F1` (or `?`).** A help overlay lists every keybinding. The demo documents itself.
 
@@ -268,7 +289,7 @@ dotnet run --project src/TUIKit.Example -- --once --debug   # ... with the debug
 dotnet run --project src/TUIKit.Example -- --contract-once  # the interaction-contract demo frame
 dotnet run --project src/TUIKit.Example -- --focus-once     # the focus showcase frame
 dotnet run --project src/TUIKit.Example -- --focus-audit-once  # FocusAudit over the showcase; exit 1 on problems
-dotnet run --project src/TUIKit.Example -- --markdown-once --width 60  # the Markdown sample at a width (--color, --ascii)
+dotnet run --project src/TUIKit.Example -- --markdown-once --width 60  # the Markdown sample at a width (--color, --ascii, --theme dark|light|contrast)
 dotnet run --project src/TUIKit.Example | cat               # non-TTY -> plain line output
 ```
 

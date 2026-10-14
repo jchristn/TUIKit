@@ -4,6 +4,19 @@
 
 This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
+## 1.7.0 additions
+
+The 1.7.0 work (see `archive/MARKDOWN_VIEW_IMPROVEMENTS.md`) added the public surface below, each with positive and negative Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **976 console cases** (977 through the xUnit/NUnit wrappers), all green. The 934 cases that existed at 1.6.0 pass, with one expectation updated for the intended change (`MarkdownView` wheel scrolling now clamps at once). Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **84.2%**; the new and changed files (`MarkdownView`, `MarkdownLayoutCache`, `SearchHighlighter`, `MarkdownRenderer`, `MarkdownRenderOptions`, `MarkdownStyles`) are at **96.7%**.
+
+| New/changed public surface | Test suite |
+|---|---|
+| `MarkdownView` as `IFocusable`/`IFocusStop`/`IFocusAware`/`IKeyHintSource`: scrolling keys, `IsFocusStop`, `ShowKeyHints`, `IsFocused`, `GetKeyHints`, `ScrollBy`, `ScrollToTop`, `ScrollToEnd`, `ViewportHeight`, immediate clamping; `TuiApplication.Bind` auto-focus that skips non-stops; click-to-focus without wheel focus | `MarkdownViewKeys` |
+| `MarkdownStyles.FromTheme(Theme, bool)`, `MarkdownRenderOptions.WithTheme`, `MarkdownView.UseThemeStyles` and `ApplyTheme` | `MarkdownTheme` |
+| `MarkdownRenderer.StreamingPrefix`, `StreamingTranscript` header hold-back, a seeded character-by-character invariant over 150 documents | `MarkdownStreamingPrefix` |
+| `MarkdownView.SetSearch`/`FindNext`/`FindPrevious`/`SearchText`, F3 keys, `Theme.SearchMatchRole`, `Pane.SearchText`, `Pane.ApplyTheme`, `Pane` output identical to 1.6 | `MarkdownSearch` |
+| `MarkdownView.TailFollow` (modes, growth and shrink counting, resize, indicator, click to return, search detaches) | `MarkdownTailFollow` |
+| `MarkdownLayoutCache` (`GetRows`, `GetRowsAsync`, `Capacity`, `Count`, `Width`, `Clear`, width eviction, concurrency) | `MarkdownLayoutCache` |
+
 ## 1.6.0 additions
 
 The 1.6.0 work (see `archive/MARKDOWN_RENDERING_IMPROVEMENTS.md`) added the public surface below, each with positive, negative, and boundary Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **934 console cases** (935 through the xUnit/NUnit wrappers), all green. The 845 cases that existed at 1.5.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **83.7%**; the new Markdown engine files and `PaneLine` are at **98.5%**.
