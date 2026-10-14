@@ -6,7 +6,7 @@ This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enume
 
 ## 1.6.0 additions
 
-The 1.6.0 work (see `MARKDOWN_RENDERING_IMPROVEMENTS.md`) added the public surface below, each with positive, negative, and boundary Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **934 console cases** (935 through the xUnit/NUnit wrappers), all green. The 845 cases that existed at 1.5.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **83.7%**; the new Markdown engine files and `PaneLine` are at **98.5%**.
+The 1.6.0 work (see `archive/MARKDOWN_RENDERING_IMPROVEMENTS.md`) added the public surface below, each with positive, negative, and boundary Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **934 console cases** (935 through the xUnit/NUnit wrappers), all green. The 845 cases that existed at 1.5.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **83.7%**; the new Markdown engine files and `PaneLine` are at **98.5%**.
 
 | New/changed public surface | Test suite |
 |---|---|

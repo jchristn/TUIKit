@@ -597,8 +597,7 @@ Markdown block.
 **Notes:**
 
 - [x] Commit to `main` in phase-sized commits, tag `v1.6.0`, and push the branch and the tag.
-- [x] Implementation record filled in. The plan stays at the repository root, where the owner asked for it,
-      until it has been reviewed; move it to `archive/` afterwards.
+- [x] Implementation record filled in, and the plan moved to `archive/` after the owner's review.
 
 ---
 
