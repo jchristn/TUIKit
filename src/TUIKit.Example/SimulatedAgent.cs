@@ -90,13 +90,24 @@ namespace TUIKit.Example
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
+                    // The reply arrives a few characters at a time, as a model streams it. Each frame lays out
+                    // only MarkdownRenderer.StreamingPrefix of what has arrived, so a half-received table row or a
+                    // header waiting for its delimiter row is held back instead of flashing as text.
                     PaneLineHandle? reply = null;
-                    for (int i = 0; i < _Reply.Length && !cancellationToken.IsCancellationRequested; i++)
+                    string full = string.Join("\n", _Reply);
+                    for (int at = 0; at < full.Length && !cancellationToken.IsCancellationRequested; at += 6)
                     {
-                        reply = RenderChunk(reply, i);
+                        string received = full.Substring(0, Math.Min(full.Length, at + 6));
+                        string shown = MarkdownRenderer.StreamingPrefix(received);
+                        int held = received.Length - shown.Length;
+                        _State.StreamNote = held > 0 ? "holding " + held + " chars" : "streaming";
+                        reply = Show(reply, shown);
                         _State.PushCpu(0.3 + (_Random.NextDouble() * 0.6));
-                        await Task.Delay(120, cancellationToken).ConfigureAwait(false);
+                        await Task.Delay(30, cancellationToken).ConfigureAwait(false);
                     }
+
+                    reply = Show(reply, full);
+                    _State.StreamNote = "complete";
 
                     PaneLineHandle handle = _Tools.WriteLine(Text.From("running").Yellow().Append(Text.From("  dotnet test")));
                     _State.ActiveTool = true;
@@ -120,12 +131,11 @@ namespace TUIKit.Example
             }
         }
 
-        // Shows the reply up to and including chunk 'last' as one reflowing Markdown block.
-        private PaneLineHandle RenderChunk(PaneLineHandle? reply, int last)
+        // Shows the reply so far as one reflowing Markdown block, starting the block once there is text to show.
+        private PaneLineHandle? Show(PaneLineHandle? reply, string markdown)
         {
-            string markdown = string.Join("\n", _Reply, 0, last + 1);
             if (reply == null)
-                return _Transcript.WriteMarkdown(markdown);
+                return markdown.Length == 0 ? null : _Transcript.WriteMarkdown(markdown);
 
             reply.UpdateMarkdown(markdown);
             return reply;

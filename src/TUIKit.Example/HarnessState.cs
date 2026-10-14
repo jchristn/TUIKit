@@ -14,12 +14,20 @@ namespace TUIKit.Example
         private readonly object _Sync = new object();
         private readonly List<double> _Cpu = new List<double>();
         private readonly Func<long> _Clock;
+        private string _StreamNote = "idle";
 
         internal NotificationCenter Notifications { get; }
 
         internal bool ActiveTool { get; set; }
 
         internal double ToolProgress { get; set; }
+
+        // What the streaming reply is holding back right now, shown in the telemetry table.
+        internal string StreamNote
+        {
+            get { lock (_Sync) { return _StreamNote; } }
+            set { lock (_Sync) { _StreamNote = value ?? string.Empty; } }
+        }
 
         internal HarnessState(NotificationCenter notifications, Func<long> clock)
         {

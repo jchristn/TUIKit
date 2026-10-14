@@ -370,6 +370,7 @@ namespace TUIKit.Example
             _Telemetry.ClearRows();
             _Telemetry.AddRow(new[] { "cpu", ((int)(_State.CurrentCpu() * 100)) + "%" });
             _Telemetry.AddRow(new[] { "tool", _State.ActiveTool ? "running" : "idle" });
+            _Telemetry.AddRow(new[] { "reply", _State.StreamNote });
         }
 
         private void DrawHeader(ISurface root, Size size)

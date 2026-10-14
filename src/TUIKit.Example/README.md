@@ -81,7 +81,10 @@ dotnet run --project src/TUIKit.Example -- --focus-once           # the focus sh
 dotnet run --project src/TUIKit.Example -- --focus-audit-once     # FocusAudit over the showcase (exit 1 on problems)
 dotnet run --project src/TUIKit.Example -- --markdown-once --width 60   # the Markdown sample at a width
 dotnet run --project src/TUIKit.Example -- --markdown-once --width 40 --color | less -R  # keep colors when piped
+dotnet run --project src/TUIKit.Example -- --markdown-once --width 70 --color --theme light    # through WithTheme
 dotnet run --project src/TUIKit.Example -- --tour-once --page 4   # the "Markdown that fits" page
+dotnet run --project src/TUIKit.Example -- --tour-once --page 5   # the "Markdown in your own widgets" page
+dotnet run --project src/TUIKit.Example -- --tour-once --keys "$(printf '\033[6~\033[6~\033[6~\033[6~/redis\r')"  # keys, one per frame
 ```
 
 In the harness, press **F1** or **?** for the built-in keybinding help — the demo documents itself.
@@ -113,8 +116,11 @@ Every marquee capability of the library maps to something concrete in this app. 
 | "Terminal too small" block screen | Shrink the window below the layout minimum; `TuiApplication` shows the block screen and resumes on grow |
 | Double-buffered diff rendering | The whole frame is composed and diffed each tick by `TerminalRenderer` |
 | Thread-safe pane writes | `SimulatedAgent` streams into the transcript and tool panes from a background thread |
-| Streaming markdown | The transcript streams each reply into one `Pane.WriteMarkdown` block (headings, bold, bullets, a table, a blockquote, a code fence, and a URL) that reflows when the window is resized |
+| Streaming markdown | The transcript streams each reply a few characters at a time into one `Pane.WriteMarkdown` block (headings, bold, bullets, a table, a blockquote, a code fence, and a URL) that reflows when the window is resized; each frame shows `MarkdownRenderer.StreamingPrefix` of what arrived, and the telemetry `reply` row says how many characters are held back |
 | Width-aware Markdown (`MarkdownRenderOptions`, `MarkdownTableOptions`, `MarkdownTableGlyphs`, `MarkdownView`) | Tour page "Markdown that fits": `b` cycles border glyphs, `w` the maximum width, `o` the cell overflow, `f` the table fallback, `k` a key-column style; `--markdown-once --width N` prints the sample |
+| Interactive `MarkdownView` (keys, `UseThemeStyles`, search, `TailFollow`) | Tour page "Markdown that fits": Up/Down and Home/End scroll, `t` toggles theme styles (cycle themes with `Ctrl+T`; High Contrast turns the table ASCII), `/` opens a search prompt, `F3`/`Shift+F3` step through matches, `Esc` clears, `l` appends a section every second with tail-follow on |
+| `MarkdownRenderOptions.WithTheme` | `--markdown-once --theme dark\|light\|contrast` lays the sample out over the theme background with no stripes |
+| `MarkdownLayoutCache` | Tour page "Markdown in your own widgets": a message list draws every bubble from one cache; `a` adds a message, and the status line shows the layouts held and lookups answered |
 | Mutable line handles | The tool call line updates `running… → done (0.9s)` in place via its `PaneLineHandle` |
 | Smart scroll lock | `PageUp` detaches the transcript; the footer shows `detached N new`; `PageDown`/bottom re-attaches |
 | Styled-text builder | `Text.From("you").Green().Bold()` for message authorship |

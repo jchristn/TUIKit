@@ -8,6 +8,7 @@ namespace TUIKit.Example
     using TUIKit.Content;
     using TUIKit.Hosting;
     using TUIKit.Terminal;
+    using TUIKit.Theming;
 
     internal static class Program
     {
@@ -189,7 +190,9 @@ namespace TUIKit.Example
         }
 
         // Prints the Markdown tour sample at a given width with real colors, so the layout can be checked in any
-        // terminal: --markdown-once [--width N] [--ascii] [--color]. --color keeps colors when output is piped.
+        // terminal: --markdown-once [--width N] [--ascii] [--color] [--theme dark|light|contrast]. --color keeps
+        // colors when output is piped. --theme lays the sample out with MarkdownRenderOptions.WithTheme over the
+        // theme's background, which shows through every element because themed styles carry no backgrounds.
         private static void RunMarkdownSnapshot(string[] args)
         {
             int width = 80;
@@ -205,11 +208,59 @@ namespace TUIKit.Example
             StyledConsole console = Array.IndexOf(args, "--color") >= 0
                 ? new StyledConsole(Console.Out, TerminalColorDepth.TrueColor)
                 : StyledConsole.ForStandardOutput();
-            console.WriteLine("TUIKit example: Markdown at width " + width + " (--markdown-once)");
+            Theme? theme = null;
+            int themeFlag = Array.IndexOf(args, "--theme");
+            if (themeFlag >= 0 && themeFlag + 1 < args.Length)
+            {
+                string name = args[themeFlag + 1];
+                theme = name == "light" ? Theme.Light : name == "contrast" ? Theme.HighContrast : Theme.Dark;
+                options = options.WithTheme(theme);
+            }
+
+            console.WriteLine("TUIKit example: Markdown at width " + width + " (--markdown-once" + (theme == null ? string.Empty : " --theme " + theme.Name) + ")");
             console.WriteLine(new string('=', width));
             IReadOnlyList<StyledText> rows = MarkdownRenderer.Render(MarkdownDemoWidget.Sample, width, options);
             for (int i = 0; i < rows.Count; i++)
-                console.WriteLine(rows[i]);
+                console.WriteLine(theme == null ? rows[i] : OverBackground(rows[i], theme.Text, width));
+        }
+
+        // Paints a row over a backdrop style and pads it to the width, so a themed snapshot shows its background.
+        private static StyledText OverBackground(StyledText row, CellStyle backdrop, int width)
+        {
+            List<StyledSpan> spans = new List<StyledSpan>();
+            foreach (StyledSpan span in row.Spans)
+                spans.Add(new StyledSpan(span.Text, span.Style.Over(backdrop)));
+
+            int pad = Math.Max(0, width - row.Width);
+            if (pad > 0)
+                spans.Add(new StyledSpan(new string(' ', pad), backdrop));
+
+            return new StyledText(spans);
+        }
+
+        // Splits typed input into single keys: a CSI escape sequence (ESC [ ... final) is one key, as is each other
+        // character.
+        private static List<string> SplitKeys(string keys)
+        {
+            List<string> result = new List<string>();
+            int i = 0;
+            while (i < keys.Length)
+            {
+                int end = i + 1;
+                if (keys[i] == '\u001b' && end < keys.Length && keys[end] == '[')
+                {
+                    end++;
+                    while (end < keys.Length && !(char.IsLetter(keys[end]) || keys[end] == '~'))
+                        end++;
+
+                    end = Math.Min(keys.Length, end + 1);
+                }
+
+                result.Add(keys.Substring(i, end - i));
+                i = end;
+            }
+
+            return result;
         }
 
         private static void RunTourSnapshot(string[] args)
@@ -241,10 +292,14 @@ namespace TUIKit.Example
                 int keysFlag = Array.IndexOf(args, "--keys");
                 if (keysFlag >= 0 && keysFlag + 1 < args.Length)
                 {
-                    string keys = args[keysFlag + 1];
-                    backend.FeedInput(keys);
-                    for (int i = 0; i < keys.Length + 4; i++)
+                    // Feed one key at a time and render a frame after each, as a terminal would, so widgets know
+                    // their size before the next key arrives.
+                    foreach (string key in SplitKeys(args[keysFlag + 1]))
+                    {
+                        backend.FeedInput(key);
                         app.PumpInputOnce();
+                        tour.RenderFrame(100, 30, -1, help);
+                    }
 
                     page = -1; // keep the state produced by the keys
                 }

@@ -39,6 +39,7 @@ namespace TUIKit.Example
         private Size _LastSize;
         private string _Input = string.Empty;
         private StreamingDemoWidget? _Streaming;
+        private MarkdownDemoWidget? _Markdown;
 
         internal GuidedTour(TuiApplication app)
         {
@@ -48,6 +49,8 @@ namespace TUIKit.Example
             {
                 if (page.Demo is StreamingDemoWidget streaming)
                     _Streaming = streaming;
+                if (page.Demo is MarkdownDemoWidget markdown)
+                    _Markdown = markdown;
             }
 
             _Layout = Layout.Create()
@@ -242,6 +245,7 @@ namespace TUIKit.Example
         internal void Stop()
         {
             _Streaming?.Dispose();
+            _Markdown?.Dispose();
             _App.Stop();
         }
 
@@ -681,22 +685,42 @@ namespace TUIKit.Example
 
             pages.Add(new TourPage(
                 "Markdown that fits",
-                "With the Live demo focused: [bold]b[/] border, [bold]w[/] width, [bold]o[/] cell overflow, [bold]f[/] fallback, [bold]k[/] key column.",
-                new MarkdownDemoWidget(),
+                "Focused: [bold]/[/] search, [bold]F3[/] next, [bold]t[/] theme, [bold]l[/] live, [bold]b w o f k[/] layout, [bold]Up/Down Home/End[/] scroll.",
+                new MarkdownDemoWidget(app),
                 new[]
                 {
-                    "MarkdownRenderOptions o =",
-                    "  new MarkdownRenderOptions();",
                     "o.Table.Glyphs = MarkdownTableGlyphs.Rounded;",
-                    "o.Table.CellOverflow =",
-                    "  MarkdownOverflow.Truncate;",
                     "o.Table.Fallback =",
                     "  MarkdownTableFallback.Stack;",
-                    "o.Styles.TableFirstColumn = keyStyle;",
-                    "o.MaxWidth = 100;",
+                    "MarkdownView view = new MarkdownView(help, o)",
+                    "  { IsFocusStop = true,     // Tab, keys",
+                    "    UseThemeStyles = true }; // no stripes",
+                    "view.SetSearch(\"redis\");   // F3 = next",
+                    "view.FindNext();",
+                    "view.TailFollow.Mode =",
+                    "  TailFollowMode.FollowAtBottom;",
                     "",
-                    "pane.WriteMarkdown(reply, o); // reflows",
-                    "new MarkdownView(help, o);    // widget"
+                    "pane.WriteMarkdown(reply, o); // reflows"
+                }));
+
+            pages.Add(new TourPage(
+                "Markdown in your own widgets",
+                "A message list lays out each bubble through one [bold]MarkdownLayoutCache[/]. [bold]Up/Down[/] scroll, [bold]a[/] adds a message.",
+                new MessageListWidget(),
+                new[]
+                {
+                    "MarkdownLayoutCache cache =",
+                    "  new MarkdownLayoutCache();",
+                    "MarkdownRenderOptions o =",
+                    "  baseOptions.WithTheme(theme); // once",
+                    "",
+                    "// in Render, per message:",
+                    "IReadOnlyList<StyledText> rows =",
+                    "  cache.GetRows(text, width, o);",
+                    "",
+                    "// streaming: lay out only what is safe",
+                    "string shown =",
+                    "  MarkdownRenderer.StreamingPrefix(sofar);"
                 }));
 
             pages.Add(new TourPage(
