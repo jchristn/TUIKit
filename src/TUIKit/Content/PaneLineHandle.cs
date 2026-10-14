@@ -57,6 +57,39 @@ namespace TUIKit.Content
         }
 
         /// <summary>
+        /// Replaces the line's content with a Markdown block that reflows with the pane's width (see
+        /// <see cref="Pane.WriteMarkdown(string, MarkdownRenderOptions)"/>). A Markdown block keeps its options;
+        /// a plain line becomes a Markdown block with default <see cref="MarkdownRenderOptions"/>.
+        /// </summary>
+        /// <param name="markdown">The new Markdown source. Must not be null.</param>
+        /// <returns><c>true</c> when the line was still in the pane and updated; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> is null.</exception>
+        public bool UpdateMarkdown(string markdown)
+        {
+            if (markdown == null)
+                throw new ArgumentNullException(nameof(markdown));
+
+            return _Pane.UpdateMarkdownLine(_Id, markdown, null);
+        }
+
+        /// <summary>
+        /// Replaces the line's content with a Markdown block laid out with the given options, which are copied.
+        /// </summary>
+        /// <param name="markdown">The new Markdown source. Must not be null.</param>
+        /// <param name="options">How the block should look. Must not be null.</param>
+        /// <returns><c>true</c> when the line was still in the pane and updated; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> or <paramref name="options"/> is null.</exception>
+        public bool UpdateMarkdown(string markdown, MarkdownRenderOptions options)
+        {
+            if (markdown == null)
+                throw new ArgumentNullException(nameof(markdown));
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+
+            return _Pane.UpdateMarkdownLine(_Id, markdown, options.Clone());
+        }
+
+        /// <summary>
         /// Removes the line from the pane, for content that turned out not to need a line (for example a
         /// streamed Markdown fence). Later updates through this handle are ignored. Removing a line that is
         /// still counted in the pane's "N new below" indicator lowers the count (see

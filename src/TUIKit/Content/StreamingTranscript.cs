@@ -30,6 +30,9 @@ namespace TUIKit.Content
         private bool _InCodeBlock;
         private int _Processed;
         private int _Emitted;
+        private MarkdownRenderOptions? _RenderOptions;
+        private MarkdownRenderOptions? _BlockOptions;
+        private PaneLineHandle? _MarkdownBlock;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="StreamingTranscript"/> class over a pane.
@@ -94,6 +97,15 @@ namespace TUIKit.Content
             lock (_Sync)
             {
                 _Block.Append(text);
+                if (_RenderOptions != null && _BlockOptions == null)
+                    _BlockOptions = _RenderOptions;
+
+                if (_BlockOptions != null && _RenderWhileStreaming)
+                {
+                    StreamMarkdownBlock();
+                    return;
+                }
+
                 if (_RenderWhileStreaming)
                 {
                     StreamLines(false);
@@ -109,6 +121,22 @@ namespace TUIKit.Content
         }
 
         /// <summary>
+        /// Gets or sets the width-aware rendering options, or null (the default) for the 1.5.0 line-by-line
+        /// behavior. When set, each block is a single Markdown block in the pane (see
+        /// <see cref="Pane.WriteMarkdown(string, MarkdownRenderOptions)"/>) that is laid out at the pane's width,
+        /// so tables size their columns and the block reflows on resize. While streaming, the block is laid out
+        /// again with everything received so far on each <see cref="AppendText"/>, which costs time linear in the
+        /// block's size; that is fine for model replies of a few kilobytes. A trailing partial line that starts
+        /// with <c>|</c> is held back until its newline arrives, so a half-received table row never shows as
+        /// text. The options are copied on set, and a block in progress keeps the options it started with.
+        /// </summary>
+        public MarkdownRenderOptions? RenderOptions
+        {
+            get { lock (_Sync) { return _RenderOptions; } }
+            set { lock (_Sync) { _RenderOptions = value?.Clone(); } }
+        }
+
+        /// <summary>
         /// Renders the buffered block as Markdown into the pane and starts a new block. The live line is
         /// replaced by the first rendered line and any remaining lines are appended below it. A block
         /// with no buffered text is a no-op.
@@ -117,6 +145,12 @@ namespace TUIKit.Content
         {
             lock (_Sync)
             {
+                if (_BlockOptions != null)
+                {
+                    FinalizeMarkdownBlock(_BlockOptions);
+                    return;
+                }
+
                 if (_RenderWhileStreaming)
                 {
                     if (_Block.Length > 0)
@@ -291,6 +325,47 @@ namespace TUIKit.Content
             }
 
             _LiveLine = null;
+        }
+
+        // Shows everything received so far as one Markdown block. Must be called under _Sync.
+        private void StreamMarkdownBlock()
+        {
+            string source = _Block.ToString();
+            int lastNewline = source.LastIndexOf('\n');
+            string partial = lastNewline >= 0 ? source.Substring(lastNewline + 1) : source;
+            if (partial.TrimStart(' ').StartsWith("|", StringComparison.Ordinal))
+                source = lastNewline >= 0 ? source.Substring(0, lastNewline) : string.Empty;
+
+            if (source.Trim().Length == 0)
+                return;
+
+            if (_MarkdownBlock == null)
+                _MarkdownBlock = _Pane.WriteMarkdown(source, _BlockOptions!);
+            else
+                _MarkdownBlock.UpdateMarkdown(source);
+        }
+
+        // Commits the whole buffered block as Markdown and starts a new block. Must be called under _Sync.
+        private void FinalizeMarkdownBlock(MarkdownRenderOptions options)
+        {
+            string markdown = _Block.ToString();
+            _Block.Clear();
+            if (markdown.Length > 0)
+            {
+                if (_MarkdownBlock != null)
+                    _MarkdownBlock.UpdateMarkdown(markdown);
+                else if (_LiveLine != null)
+                    _LiveLine.UpdateMarkdown(markdown, options);
+                else
+                    _Pane.WriteMarkdown(markdown, options);
+            }
+
+            _MarkdownBlock = null;
+            _LiveLine = null;
+            _BlockOptions = null;
+            _InCodeBlock = false;
+            _Processed = 0;
+            _Emitted = 0;
         }
 
         private static string CollapseToLine(string text)

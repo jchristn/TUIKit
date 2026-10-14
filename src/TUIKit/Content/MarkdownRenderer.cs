@@ -2,16 +2,32 @@ namespace TUIKit.Content
 {
     using System;
     using System.Collections.Generic;
+    using System.Threading;
+    using System.Threading.Tasks;
     using TUIKit;
 
     /// <summary>
-    /// Renders a practical subset of Markdown into styled lines suitable for a pane: ATX headings,
-    /// unordered lists, block quotes, fenced code blocks, horizontal rules, and the inline spans
-    /// <c>**bold**</c>, <c>*italic*</c>, <c>`code`</c>, and <c>~~strike~~</c>. Nesting of inline spans
-    /// is not supported. All members are thread-safe.
+    /// Renders Markdown into styled rows. Two engines are available.
+    /// <para>
+    /// The width-aware engine (<see cref="Render(string, int, MarkdownRenderOptions)"/>,
+    /// <see cref="RenderAsync"/>, and <see cref="MeasureWidth"/>) parses the whole block and lays it out at a
+    /// known width: GFM tables with columns sized from their content, nested lists and quotes that keep their
+    /// indent when they wrap, setext and ATX headings, fenced code with syntax highlighting, and nested inline
+    /// emphasis, links, and escapes. Every visual choice comes from <see cref="MarkdownRenderOptions"/>.
+    /// </para>
+    /// <para>
+    /// The line-oriented engine (<see cref="Render(string)"/>, <see cref="Render(string, MarkdownStyles)"/>,
+    /// <see cref="RenderLine"/>, and <see cref="RenderInline(string, CellStyle)"/>) styles one source line at a
+    /// time without knowing the width, and is kept unchanged for compatibility: ATX headings, unordered lists,
+    /// block quotes, fenced code blocks, horizontal rules, and the inline spans <c>**bold**</c>,
+    /// <c>*italic*</c>, <c>`code`</c>, and <c>~~strike~~</c>, without nesting.
+    /// </para>
+    /// All members are stateless and thread-safe, provided the options passed in are not mutated during a call.
     /// </summary>
     public static class MarkdownRenderer
     {
+        private const int _MeasureLimit = 100000;
+
         /// <summary>
         /// Renders Markdown into one styled text per output line, using <see cref="MarkdownStyles.Default"/>.
         /// </summary>
@@ -53,6 +69,109 @@ namespace TUIKit.Content
                 output.Add(StyledText.Empty);
 
             return output;
+        }
+
+        /// <summary>
+        /// Renders Markdown laid out at a known width with default <see cref="MarkdownRenderOptions"/>.
+        /// </summary>
+        /// <param name="markdown">The Markdown source. Must not be null.</param>
+        /// <param name="width">The available width in columns. Must be 1 or greater.</param>
+        /// <returns>The rendered rows, at least one, each at most the layout width. Never null.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="width"/> is less than 1.</exception>
+        public static IReadOnlyList<StyledText> Render(string markdown, int width)
+        {
+            return Render(markdown, width, new MarkdownRenderOptions());
+        }
+
+        /// <summary>
+        /// Renders Markdown laid out at a known width. The layout width is <paramref name="width"/>, capped by
+        /// <see cref="MarkdownRenderOptions.MaxWidth"/> and raised to <see cref="MarkdownRenderOptions.MinWidth"/>;
+        /// no returned row is wider than that. Malformed Markdown never throws: it renders as literal text.
+        /// </summary>
+        /// <param name="markdown">The Markdown source. Must not be null.</param>
+        /// <param name="width">The available width in columns. Must be 1 or greater.</param>
+        /// <param name="options">How the output should look. Must not be null. Not modified.</param>
+        /// <returns>The rendered rows, at least one. Never null.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> or <paramref name="options"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="width"/> is less than 1.</exception>
+        public static IReadOnlyList<StyledText> Render(string markdown, int width, MarkdownRenderOptions options)
+        {
+            Validate(markdown, width, options);
+            return RenderCore(markdown, width, options, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Asynchronously renders Markdown laid out at a known width. Produces the same rows as
+        /// <see cref="Render(string, int, MarkdownRenderOptions)"/> and checks the token between top-level blocks,
+        /// so a long document can be abandoned. The work runs on the calling thread until it completes.
+        /// </summary>
+        /// <param name="markdown">The Markdown source. Must not be null.</param>
+        /// <param name="width">The available width in columns. Must be 1 or greater.</param>
+        /// <param name="options">How the output should look. Must not be null. Not modified.</param>
+        /// <param name="token">Cancels the render.</param>
+        /// <returns>The rendered rows, at least one. Never null.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> or <paramref name="options"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="width"/> is less than 1.</exception>
+        /// <exception cref="OperationCanceledException">Thrown when <paramref name="token"/> is cancelled.</exception>
+        public static Task<IReadOnlyList<StyledText>> RenderAsync(string markdown, int width, MarkdownRenderOptions options, CancellationToken token)
+        {
+            Validate(markdown, width, options);
+            token.ThrowIfCancellationRequested();
+            return Task.FromResult(RenderCore(markdown, width, options, token));
+        }
+
+        /// <summary>
+        /// Returns the natural width of Markdown: the width of its widest row when nothing wraps, capped by
+        /// <see cref="MarkdownRenderOptions.MaxWidth"/>. Thematic breaks and code background fill do not count.
+        /// Use it to size a modal, a column, or a <see cref="Widgets.MarkdownView"/> from its content; rendering at
+        /// the returned width wraps nothing.
+        /// </summary>
+        /// <param name="markdown">The Markdown source. Must not be null.</param>
+        /// <param name="options">How the output should look. Must not be null. Not modified.</param>
+        /// <returns>The natural width in columns, 0 for empty input.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> or <paramref name="options"/> is null.</exception>
+        public static int MeasureWidth(string markdown, MarkdownRenderOptions options)
+        {
+            if (markdown == null)
+                throw new ArgumentNullException(nameof(markdown));
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+
+            MarkdownRenderOptions measuring = options.Clone();
+            measuring.Overflow = MarkdownOverflow.Clip;
+            measuring.CodeOverflow = MarkdownOverflow.Clip;
+            measuring.Table.CellOverflow = MarkdownOverflow.Clip;
+            measuring.Table.Expand = false;
+            measuring.FillCodeBackground = false;
+            measuring.RuleWidth = 1;
+            measuring.MinWidth = 1;
+
+            int width = measuring.ResolveWidth(_MeasureLimit);
+            MarkdownLayout layout = new MarkdownLayout(measuring);
+            List<StyledText> rows = layout.Layout(MarkdownParser.Parse(markdown), width, CancellationToken.None);
+            int widest = 0;
+            for (int i = 0; i < rows.Count; i++)
+                widest = Math.Max(widest, rows[i].Width);
+
+            return widest;
+        }
+
+        internal static IReadOnlyList<StyledText> RenderCore(string markdown, int width, MarkdownRenderOptions options, CancellationToken token)
+        {
+            MarkdownDocument document = MarkdownParser.Parse(markdown);
+            MarkdownLayout layout = new MarkdownLayout(options);
+            return layout.Layout(document, options.ResolveWidth(width), token);
+        }
+
+        private static void Validate(string markdown, int width, MarkdownRenderOptions options)
+        {
+            if (markdown == null)
+                throw new ArgumentNullException(nameof(markdown));
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+            if (width < 1)
+                throw new ArgumentOutOfRangeException(nameof(width), width, "Width must be 1 or greater.");
         }
 
         /// <summary>

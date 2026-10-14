@@ -321,6 +321,53 @@ namespace TUIKit.Content
         }
 
         /// <summary>
+        /// Commits a block of Markdown, laid out with default <see cref="MarkdownRenderOptions"/>, that reflows
+        /// whenever the pane's width changes. See <see cref="WriteMarkdown(string, MarkdownRenderOptions)"/>.
+        /// </summary>
+        /// <param name="markdown">The Markdown source. Must not be null.</param>
+        /// <returns>A handle to the committed block; <see cref="PaneLineHandle.UpdateMarkdown(string)"/> replaces its source.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> is null.</exception>
+        public PaneLineHandle WriteMarkdown(string markdown)
+        {
+            return WriteMarkdown(markdown, new MarkdownRenderOptions());
+        }
+
+        /// <summary>
+        /// Commits a block of Markdown that is laid out at the pane's width each time it renders, so tables,
+        /// wrapped list items, and quotes reflow when the terminal is resized. The block counts as one committed
+        /// line for <see cref="ScrollbackCapacityLines"/> and the "N new below" indicator. Text written with
+        /// <see cref="Write(string)"/> and not yet committed is committed first, as its own line.
+        /// <see cref="MaxLineLength"/> applies to each source line. The options are copied, so changing
+        /// <paramref name="options"/> afterwards does not affect the block.
+        /// </summary>
+        /// <param name="markdown">The Markdown source. Must not be null.</param>
+        /// <param name="options">How the block should look. Must not be null.</param>
+        /// <returns>A handle to the committed block; <see cref="PaneLineHandle.UpdateMarkdown(string)"/> replaces its source.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> or <paramref name="options"/> is null.</exception>
+        public PaneLineHandle WriteMarkdown(string markdown, MarkdownRenderOptions options)
+        {
+            if (markdown == null)
+                throw new ArgumentNullException(nameof(markdown));
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+
+            MarkdownRenderOptions snapshot = options.Clone();
+            lock (_Sync)
+            {
+                if (_Current.Width > 0)
+                {
+                    StyledText pending = _Current;
+                    _Current = StyledText.Empty;
+                    CommitLine(pending);
+                }
+
+                PaneLine paneLine = new PaneLine(_NextId++, StyledText.Empty);
+                paneLine.SetMarkdown(LimitLineLengths(markdown), snapshot);
+                return CommitPaneLine(paneLine);
+            }
+        }
+
+        /// <summary>
         /// Scrolls the viewport in response to a mouse wheel event. Part of <see cref="IMouseAware"/>;
         /// the host forwards wheel events when the pointer is over the pane so the user can scroll
         /// scrollback without a key binding.
@@ -431,7 +478,9 @@ namespace TUIKit.Content
 
         /// <summary>
         /// Returns a snapshot of the committed lines as plain text, oldest first. Useful for
-        /// line-oriented (non-TTY) output and for building a selection source.
+        /// line-oriented (non-TTY) output and for building a selection source. A Markdown block written with
+        /// <see cref="WriteMarkdown(string, MarkdownRenderOptions)"/> contributes one entry per rendered row, laid
+        /// out at the width of the last render (80 before the first render).
         /// </summary>
         /// <returns>The committed lines as plain strings. Never null.</returns>
         public IReadOnlyList<string> SnapshotPlainLines()
@@ -439,8 +488,19 @@ namespace TUIKit.Content
             lock (_Sync)
             {
                 List<string> result = new List<string>(_Lines.Count);
+                int width = _LastWidth > 0 ? _LastWidth : 80;
                 for (int i = 0; i < _Lines.Count; i++)
-                    result.Add(_Lines[i].Content.ToPlainString());
+                {
+                    if (!_Lines[i].IsMarkdown)
+                    {
+                        result.Add(_Lines[i].Content.ToPlainString());
+                        continue;
+                    }
+
+                    IReadOnlyList<StyledText> rows = _Lines[i].Wrapped(width);
+                    for (int r = 0; r < rows.Count; r++)
+                        result.Add(rows[r].ToPlainString());
+                }
 
                 return result;
             }
@@ -455,6 +515,25 @@ namespace TUIKit.Content
                     if (_Lines[i].Id == id)
                     {
                         _Lines[i].Content = content;
+                        Bump();
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        internal bool UpdateMarkdownLine(long id, string markdown, MarkdownRenderOptions? options)
+        {
+            lock (_Sync)
+            {
+                for (int i = _Lines.Count - 1; i >= 0; i--)
+                {
+                    if (_Lines[i].Id == id)
+                    {
+                        MarkdownRenderOptions resolved = options ?? _Lines[i].MarkdownOptions ?? new MarkdownRenderOptions();
+                        _Lines[i].SetMarkdown(LimitLineLengths(markdown), resolved);
                         Bump();
                         return true;
                     }
@@ -503,8 +582,13 @@ namespace TUIKit.Content
             if (plain.Length > _MaxLineLength)
                 content = Text.From(plain.Substring(0, _MaxLineLength) + "…");
 
-            long id = _NextId++;
-            _Lines.Add(new PaneLine(id, content));
+            return CommitPaneLine(new PaneLine(_NextId++, content));
+        }
+
+        private PaneLineHandle CommitPaneLine(PaneLine paneLine)
+        {
+            long id = paneLine.Id;
+            _Lines.Add(paneLine);
 
             if (_Capacity > 0 && _Lines.Count > _Capacity)
                 _Lines.RemoveAt(0);
@@ -518,6 +602,26 @@ namespace TUIKit.Content
 
             Bump();
             return new PaneLineHandle(this, id);
+        }
+
+        // Applies MaxLineLength to each source line of a Markdown block. Must be called under _Sync.
+        private string LimitLineLengths(string markdown)
+        {
+            if (markdown.Length <= _MaxLineLength)
+                return markdown;
+
+            string[] lines = markdown.Split('\n');
+            bool changed = false;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Length > _MaxLineLength)
+                {
+                    lines[i] = lines[i].Substring(0, _MaxLineLength) + "…";
+                    changed = true;
+                }
+            }
+
+            return changed ? string.Join("\n", lines) : markdown;
         }
 
         /// <summary>

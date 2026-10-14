@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.5.0</Version>
-    <AssemblyVersion>1.5.0.0</AssemblyVersion>
-    <FileVersion>1.5.0.0</FileVersion>
+    <Version>1.6.0</Version>
+    <AssemblyVersion>1.6.0.0</AssemblyVersion>
+    <FileVersion>1.6.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -32,7 +32,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
     <PackageTags>tui;focus;accessibility;keyboard;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.5.0 - focus layout, hints, toasts, and testing: FramedStack frames the panes of a whole screen with shared lines, nested grids, and an overlay drawer; the focused frame is drawn whole where it meets neighbours (JoinMode); frame geometry helpers and left/right titles; a gutter that shows focus in ASCII; focus repair moves focus off hidden or emptied children (FocusScope.RepairFocus, IFocusStop); headless apps that share the process (ISharedTerminalBackend); key hints that understand real text fields (ITextEntryKeys, KeyHint.WhileTyping, WithTypingAlternative); a standalone TabStrip; toasts that coalesce by key with severity labels and InvokeLatestAction. Additive; a few defaults change, listed under Changed. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.6.0 - width-aware Markdown: a block parser and layout engine that lays Markdown out at a known width. GFM tables size their columns from cell content, keep short columns whole when space runs short, and fall back to stacked records when even the minimums do not fit or rows would wrap too tall. Wrapped list items keep their hanging indent and wrapped quotes keep their bar. Fenced code is syntax highlighted. Every visual choice is set at render time through MarkdownRenderOptions: colors, border glyphs, header and first-column styles, column minimums and maximums, wrap, truncate, or clip, and maximum width. Pane.WriteMarkdown commits blocks that reflow on resize, MarkdownView renders Markdown as a widget, and StreamingTranscript.RenderOptions streams reflowing blocks. Additive; nothing changes by default. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

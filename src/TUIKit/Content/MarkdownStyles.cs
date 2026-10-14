@@ -64,6 +64,64 @@ namespace TUIKit.Content
         public CellStyle TaskDone { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(2));
 
         /// <summary>
+        /// Gets or sets the style overlaid on <c>**strong**</c> text by the width-aware layout. Defaults to bold.
+        /// The line-oriented <see cref="MarkdownRenderer.Render(string)"/> always uses bold and ignores this.
+        /// </summary>
+        public CellStyle Strong { get; set; } = CellStyle.Default.WithAttribute(CellAttributes.Bold, true);
+
+        /// <summary>
+        /// Gets or sets the style overlaid on <c>*emphasis*</c> by the width-aware layout. Defaults to italic.
+        /// </summary>
+        public CellStyle Emphasis { get; set; } = CellStyle.Default.WithAttribute(CellAttributes.Italic, true);
+
+        /// <summary>
+        /// Gets or sets the style overlaid on <c>~~struck~~</c> text by the width-aware layout. Defaults to
+        /// strikethrough.
+        /// </summary>
+        public CellStyle Strikethrough { get; set; } = CellStyle.Default.WithAttribute(CellAttributes.Strikethrough, true);
+
+        /// <summary>
+        /// Gets or sets the style of link text (<c>[text](url)</c> and <c>&lt;url&gt;</c>) in the width-aware
+        /// layout. Defaults to underlined blue (palette 4).
+        /// </summary>
+        public CellStyle Link { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(4)).WithAttribute(CellAttributes.Underline, true);
+
+        /// <summary>
+        /// Gets or sets the style of the <c>(url)</c> shown after link text when
+        /// <see cref="MarkdownRenderOptions.ShowLinkUrls"/> is on. Defaults to grey (palette 8).
+        /// </summary>
+        public CellStyle LinkUrl { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(8));
+
+        /// <summary>
+        /// Gets or sets the style of a code block's language row (see
+        /// <see cref="MarkdownRenderOptions.ShowCodeLanguage"/>). Defaults to grey (palette 8).
+        /// </summary>
+        public CellStyle CodeLanguage { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(8));
+
+        /// <summary>
+        /// Gets or sets the style of table header cells, overlaid on <see cref="TableCell"/>. Defaults to bold cyan
+        /// (palette 6), matching the <c>Table</c> widget.
+        /// </summary>
+        public CellStyle TableHeader { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(6)).WithAttribute(CellAttributes.Bold, true);
+
+        /// <summary>
+        /// Gets or sets the style of the first column's body cells, overlaid on <see cref="TableCell"/>, so a key
+        /// column can stand out. Defaults to <see cref="CellStyle.Default"/>, meaning no change.
+        /// </summary>
+        public CellStyle TableFirstColumn { get; set; } = CellStyle.Default;
+
+        /// <summary>
+        /// Gets or sets the style of every table cell, including its padding, overlaid on <see cref="Text"/>. A
+        /// background color here fills whole cells. Defaults to <see cref="CellStyle.Default"/>, meaning no change.
+        /// </summary>
+        public CellStyle TableCell { get; set; } = CellStyle.Default;
+
+        /// <summary>
+        /// Gets or sets the style of table borders and separators. Defaults to grey (palette 8).
+        /// </summary>
+        public CellStyle TableBorder { get; set; } = CellStyle.Default.WithForeground(Color.FromPalette(8));
+
+        /// <summary>
         /// Gets a new instance holding the renderer's original colors. Each call returns a fresh copy.
         /// </summary>
         public static MarkdownStyles Default
@@ -75,7 +133,8 @@ namespace TUIKit.Content
         /// Derives Markdown styles from a theme: text from <see cref="Theme.Text"/>, headings from
         /// <see cref="Theme.Accent"/> and <see cref="Theme.Info"/>, code from <see cref="Theme.Success"/>
         /// and <see cref="Theme.Warning"/>, quotes and rules from <see cref="Theme.Muted"/> and
-        /// <see cref="Theme.Border"/>. A theme can override any element with a named style registered under
+        /// <see cref="Theme.Border"/>, links from <see cref="Theme.Info"/>, and table headers from
+        /// <see cref="Theme.Accent"/>. A theme can override any element with a named style registered under
         /// the role names in <see cref="Theme"/> (for example <see cref="Theme.MarkdownCodeRole"/>).
         /// </summary>
         /// <param name="theme">The theme. Must not be null.</param>
@@ -97,7 +156,21 @@ namespace TUIKit.Content
             styles.Rule = theme.Border;
             styles.TaskOpen = theme.Accent;
             styles.TaskDone = theme.Success;
+            styles.Link = theme.Info.WithAttribute(CellAttributes.Underline, true);
+            styles.LinkUrl = theme.Muted;
+            styles.CodeLanguage = theme.Muted;
+            styles.TableHeader = theme.Accent.WithAttribute(CellAttributes.Bold, true);
+            styles.TableBorder = theme.Border;
             return styles;
+        }
+
+        /// <summary>
+        /// Returns a copy of these styles. <see cref="CellStyle"/> is a value type, so the copy is fully independent.
+        /// </summary>
+        /// <returns>A new instance with the same styles. Never null.</returns>
+        public MarkdownStyles Clone()
+        {
+            return (MarkdownStyles)MemberwiseClone();
         }
 
         /// <summary>
