@@ -7,12 +7,14 @@ box that echoes whatever you type. While the Live demo is focused, browse featur
 **PageUp/PageDown** (or `[` / `]`); the **arrow keys** and **Enter** interact with the focused box,
 and **Ctrl+Q** quits. The tour covers markup, banners, charts, progress, tables, trees, tabs, fuzzy
 finding, menus, nested splits, the color picker, diffs, the key-binding editor, and images
-(half-block / sixel / kitty). Pages 2 to 5 cover the 1.4 usability features: **Focus you can see**
+(half-block / sixel / kitty). Pages 2 to 4 and 6 cover the 1.4 usability features: **Focus you can see**
 (pane frames and the tab-strip marker; Tab moves inside the demo), **Keys follow focus** (the bar
 hides keys that would type once you Tab into the search field), **Streaming without losing your
-place** (a feed that follows unless you scroll away; End returns), and **Clickable rows** (inline
-buttons with `o`/`x` keys; repeats coalesce even though each raise builds a fresh lambda, toasts carry
-severity labels, and **Ctrl+O** runs the newest toast's action). Pages 6 and 7 cover 1.5: **Framed
+place** (a feed that follows unless you scroll away; End returns), and **Clickable rows** (page 6:
+inline buttons with `o`/`x` keys; repeats coalesce even though each raise builds a fresh lambda, toasts carry
+severity labels, and **Ctrl+O** runs the newest toast's action). Page 5 covers 1.6: **Markdown that
+fits** (a model-style reply with a table that squeezes, truncates, and stacks as you change the border,
+width, cell overflow, and fallback with `b`, `w`, `o`, and `f`). Pages 7 and 8 cover 1.5: **Framed
 screens** (a `FramedStack` of channels, transcript, and composer with whole focused frames, left titles,
 a composer whose hints keep `/` and show `F1` for help while typing, a status bar with a reserved hint
 and right text, and an **F2** drawer that takes focus) and **Tab strip** (a `TabStrip` with bracket
@@ -77,6 +79,9 @@ dotnet run --project src/TUIKit.Example -- --once                 # the harness
 dotnet run --project src/TUIKit.Example -- --contract-once        # the interaction-contract demo
 dotnet run --project src/TUIKit.Example -- --focus-once           # the focus showcase
 dotnet run --project src/TUIKit.Example -- --focus-audit-once     # FocusAudit over the showcase (exit 1 on problems)
+dotnet run --project src/TUIKit.Example -- --markdown-once --width 60   # the Markdown sample at a width
+dotnet run --project src/TUIKit.Example -- --markdown-once --width 40 --color | less -R  # keep colors when piped
+dotnet run --project src/TUIKit.Example -- --tour-once --page 4   # the "Markdown that fits" page
 ```
 
 In the harness, press **F1** or **?** for the built-in keybinding help — the demo documents itself.
@@ -108,7 +113,8 @@ Every marquee capability of the library maps to something concrete in this app. 
 | "Terminal too small" block screen | Shrink the window below the layout minimum; `TuiApplication` shows the block screen and resumes on grow |
 | Double-buffered diff rendering | The whole frame is composed and diffed each tick by `TerminalRenderer` |
 | Thread-safe pane writes | `SimulatedAgent` streams into the transcript and tool panes from a background thread |
-| Streaming markdown | The transcript renders headings, bold, bullets, blockquotes, code fences, and a URL from `MarkdownRenderer` |
+| Streaming markdown | The transcript streams each reply into one `Pane.WriteMarkdown` block (headings, bold, bullets, a table, a blockquote, a code fence, and a URL) that reflows when the window is resized |
+| Width-aware Markdown (`MarkdownRenderOptions`, `MarkdownTableOptions`, `MarkdownTableGlyphs`, `MarkdownView`) | Tour page "Markdown that fits": `b` cycles border glyphs, `w` the maximum width, `o` the cell overflow, `f` the table fallback, `k` a key-column style; `--markdown-once --width N` prints the sample |
 | Mutable line handles | The tool call line updates `running… → done (0.9s)` in place via its `PaneLineHandle` |
 | Smart scroll lock | `PageUp` detaches the transcript; the footer shows `detached N new`; `PageDown`/bottom re-attaches |
 | Styled-text builder | `Text.From("you").Green().Bold()` for message authorship |

@@ -680,6 +680,26 @@ namespace TUIKit.Example
                 }));
 
             pages.Add(new TourPage(
+                "Markdown that fits",
+                "With the Live demo focused: [bold]b[/] border, [bold]w[/] width, [bold]o[/] cell overflow, [bold]f[/] fallback, [bold]k[/] key column.",
+                new MarkdownDemoWidget(),
+                new[]
+                {
+                    "MarkdownRenderOptions o =",
+                    "  new MarkdownRenderOptions();",
+                    "o.Table.Glyphs = MarkdownTableGlyphs.Rounded;",
+                    "o.Table.CellOverflow =",
+                    "  MarkdownOverflow.Truncate;",
+                    "o.Table.Fallback =",
+                    "  MarkdownTableFallback.Stack;",
+                    "o.Styles.TableFirstColumn = keyStyle;",
+                    "o.MaxWidth = 100;",
+                    "",
+                    "pane.WriteMarkdown(reply, o); // reflows",
+                    "new MarkdownView(help, o);    // widget"
+                }));
+
+            pages.Add(new TourPage(
                 "Clickable rows",
                 "Click a row's buttons, or press [bold]o[/] / [bold]x[/]. Repeats coalesce even with fresh lambdas; [bold]Ctrl+O[/] opens the newest.",
                 new ClickableRowsWidget(app, new[] { "invoice-0042", "invoice-0043", "invoice-0044", "invoice-0045" }),

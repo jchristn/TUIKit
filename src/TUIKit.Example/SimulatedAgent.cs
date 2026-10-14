@@ -22,9 +22,9 @@ namespace TUIKit.Example
         private CancellationTokenSource? _Cts;
         private Task? _Loop;
 
-        // Chunks are streamed one after another. A blank chunk is an intentional paragraph break;
-        // there are no trailing newlines, so lines that belong together (the bullets, the code block)
-        // stay together without stray blank lines between them.
+        // Chunks are streamed one after another into a single Markdown block, joined by newlines. A blank
+        // chunk is an intentional paragraph break. The block is laid out at the transcript's width on every
+        // frame, so the table sizes its columns from content and reflows when the window is resized.
         private static readonly string[] _Reply =
         {
             "# Analysis",
@@ -33,6 +33,13 @@ namespace TUIKit.Example
             "- Coverage sits around *87%*.",
             "- One flaky test in the network suite.",
             "- Docs mention https://example.com/guide for setup.",
+            "",
+            "",
+            "| Suite | Tests | Time | Status |",
+            "|:------|------:|-----:|:------:|",
+            "| unit | 182 | 3.1s | pass |",
+            "| network | 24 | 11.8s | 1 flaky, retried twice before passing |",
+            "| integration | 8 | 42.0s | pass |",
             "",
             "> Recommendation: pin the flaky test and move on.",
             "",
@@ -65,8 +72,7 @@ namespace TUIKit.Example
         internal void SeedOnce()
         {
             _Transcript.WriteLine(Text.From("user").Cyan().Bold().Append(Text.From("  summarize the build")));
-            foreach (string chunk in _Reply)
-                RenderChunk(chunk);
+            _Transcript.WriteMarkdown(string.Join("\n", _Reply));
 
             PaneLineHandle handle = _Tools.WriteLine(Text.From("running").Yellow().Append(Text.From("  dotnet test")));
             handle.Update(Text.From("done").Green().Append(Text.From("  dotnet test (1.2s)")));
@@ -84,9 +90,10 @@ namespace TUIKit.Example
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
+                    PaneLineHandle? reply = null;
                     for (int i = 0; i < _Reply.Length && !cancellationToken.IsCancellationRequested; i++)
                     {
-                        RenderChunk(_Reply[i]);
+                        reply = RenderChunk(reply, i);
                         _State.PushCpu(0.3 + (_Random.NextDouble() * 0.6));
                         await Task.Delay(120, cancellationToken).ConfigureAwait(false);
                     }
@@ -113,14 +120,15 @@ namespace TUIKit.Example
             }
         }
 
-        private void RenderChunk(string markdown)
+        // Shows the reply up to and including chunk 'last' as one reflowing Markdown block.
+        private PaneLineHandle RenderChunk(PaneLineHandle? reply, int last)
         {
-            System.Collections.Generic.IReadOnlyList<StyledText> lines = MarkdownRenderer.Render(markdown);
-            using (_Transcript.BeginBatch())
-            {
-                for (int i = 0; i < lines.Count; i++)
-                    _Transcript.WriteLine(lines[i]);
-            }
+            string markdown = string.Join("\n", _Reply, 0, last + 1);
+            if (reply == null)
+                return _Transcript.WriteMarkdown(markdown);
+
+            reply.UpdateMarkdown(markdown);
+            return reply;
         }
     }
 }

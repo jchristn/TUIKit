@@ -1,9 +1,11 @@
 namespace TUIKit.Example
 {
     using System;
+    using System.Collections.Generic;
     using System.Threading;
     using System.Threading.Tasks;
     using TUIKit;
+    using TUIKit.Content;
     using TUIKit.Hosting;
     using TUIKit.Terminal;
 
@@ -39,6 +41,12 @@ namespace TUIKit.Example
 
             if (Array.IndexOf(args, "--focus-audit-once") >= 0)
                 return RunFocusAudit();
+
+            if (Array.IndexOf(args, "--markdown-once") >= 0)
+            {
+                RunMarkdownSnapshot(args);
+                return 0;
+            }
 
             bool harnessMode = Array.IndexOf(args, "--harness") >= 0;
             bool contractMode = Array.IndexOf(args, "--contract") >= 0;
@@ -178,6 +186,30 @@ namespace TUIKit.Example
 
                 return result.IsClean ? 0 : 1;
             }
+        }
+
+        // Prints the Markdown tour sample at a given width with real colors, so the layout can be checked in any
+        // terminal: --markdown-once [--width N] [--ascii] [--color]. --color keeps colors when output is piped.
+        private static void RunMarkdownSnapshot(string[] args)
+        {
+            int width = 80;
+            int flag = Array.IndexOf(args, "--width");
+            if (flag >= 0 && flag + 1 < args.Length)
+                int.TryParse(args[flag + 1], out width);
+
+            width = Math.Max(1, width);
+            MarkdownRenderOptions options = Array.IndexOf(args, "--ascii") >= 0
+                ? MarkdownRenderOptions.Ascii()
+                : MarkdownDemoWidget.BuildOptions(MarkdownTableGlyphs.Rounded, 0, MarkdownOverflow.Wrap, MarkdownTableFallback.Stack, true);
+
+            StyledConsole console = Array.IndexOf(args, "--color") >= 0
+                ? new StyledConsole(Console.Out, TerminalColorDepth.TrueColor)
+                : StyledConsole.ForStandardOutput();
+            console.WriteLine("TUIKit example: Markdown at width " + width + " (--markdown-once)");
+            console.WriteLine(new string('=', width));
+            IReadOnlyList<StyledText> rows = MarkdownRenderer.Render(MarkdownDemoWidget.Sample, width, options);
+            for (int i = 0; i < rows.Count; i++)
+                console.WriteLine(rows[i]);
         }
 
         private static void RunTourSnapshot(string[] args)
