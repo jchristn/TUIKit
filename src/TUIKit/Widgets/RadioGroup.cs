@@ -9,7 +9,7 @@ namespace TUIKit.Widgets
     /// A vertical group of mutually exclusive options. Up/Down change the selection and Home/End jump
     /// to the first and last option.
     /// </summary>
-    public sealed class RadioGroup : IWidget, IFocusable, IMouseAware, IEnableable, IChangeNotifier, IThemeable
+    public sealed class RadioGroup : IWidget, IFocusable, IMouseAware, IEnableable, IChangeNotifier, IThemeable, IValueSnapshot
     {
         private readonly string[] _Options;
         private int _Selected;
@@ -215,6 +215,16 @@ namespace TUIKit.Widgets
             _Selected = index;
             SelectionChanged?.Invoke(this, new ValueChangedEventArgs<int>(before, index));
             Changed?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Gets the selected index as the snapshot used by <see cref="Form"/> snapshot dirty tracking. Part of
+        /// <see cref="IValueSnapshot"/>.
+        /// </summary>
+        /// <returns>The snapshot. Never null.</returns>
+        public string? GetSnapshot()
+        {
+            return SelectedIndex.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 }

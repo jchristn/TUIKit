@@ -20,6 +20,18 @@ namespace TUIKit.Widgets
 
         internal bool Inline { get; set; }
 
+        internal string? Hint { get; set; }
+
+        internal string? Error { get; set; }
+
+        internal Func<string?>? Snapshot { get; set; }
+
+        internal string? CleanSnapshot { get; set; }
+
+        internal bool EventDirty { get; set; }
+
+        internal EventHandler? ChangedHandler { get; set; }
+
         internal FormField(string label, IWidget widget, IFocusable focusable, Func<string?>? validator)
         {
             Label = label;

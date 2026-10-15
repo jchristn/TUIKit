@@ -18,7 +18,7 @@ namespace TUIKit.Widgets
     /// (<see cref="Validator"/>).
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class TextField : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, ITextEntryKeys, IKeyHintSource, IPasteTarget
+    public sealed class TextField : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, ITextEntryKeys, IKeyHintSource, IPasteTarget, IValueSnapshot
     {
         #region Private-Members
 
@@ -835,5 +835,15 @@ namespace TUIKit.Widgets
         }
 
         #endregion
+
+        /// <summary>
+        /// Gets the value as the snapshot used by <see cref="Form"/> snapshot dirty tracking. Part of
+        /// <see cref="IValueSnapshot"/>.
+        /// </summary>
+        /// <returns>The snapshot. Never null.</returns>
+        public string? GetSnapshot()
+        {
+            return _Value;
+        }
     }
 }

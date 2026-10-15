@@ -13,7 +13,7 @@ namespace TUIKit.Widgets
     /// <typeparamref name="T"/> is <see cref="string"/>).
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
-    public sealed class CheckList<T> : IWidget, IFocusable, IFocusAware, IMouseAware
+    public sealed class CheckList<T> : IWidget, IFocusable, IFocusAware, IMouseAware, IValueSnapshot
     {
         private readonly List<T> _Items = new List<T>();
         private readonly List<bool> _Checked = new List<bool>();
@@ -373,6 +373,16 @@ namespace TUIKit.Widgets
                 clipped = clipped.Substring(0, clipped.Length - 1);
 
             return clipped;
+        }
+
+        /// <summary>
+        /// Gets the checked indices, comma-separated as the snapshot used by <see cref="Form"/> snapshot dirty tracking. Part of
+        /// <see cref="IValueSnapshot"/>.
+        /// </summary>
+        /// <returns>The snapshot. Never null.</returns>
+        public string? GetSnapshot()
+        {
+            return string.Join(",", CheckedIndices);
         }
     }
 }

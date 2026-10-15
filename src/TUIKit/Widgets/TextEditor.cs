@@ -17,7 +17,7 @@ namespace TUIKit.Widgets
     /// scroll horizontally to keep the caret visible.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, ITextEntryKeys, IKeyHintSource, IPasteTarget
+    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, ITextEntryKeys, IKeyHintSource, IPasteTarget, IValueSnapshot
     {
         private readonly List<string> _Lines = new List<string> { string.Empty };
         private readonly Stack<EditorSnapshot> _Undo = new Stack<EditorSnapshot>();
@@ -957,6 +957,16 @@ namespace TUIKit.Widgets
             _Lines.AddRange(snapshot.Lines);
             _Row = Math.Min(snapshot.Row, _Lines.Count - 1);
             _Column = Math.Min(snapshot.Column, _Lines[_Row].Length);
+        }
+
+        /// <summary>
+        /// Gets the text as the snapshot used by <see cref="Form"/> snapshot dirty tracking. Part of
+        /// <see cref="IValueSnapshot"/>.
+        /// </summary>
+        /// <returns>The snapshot. Never null.</returns>
+        public string? GetSnapshot()
+        {
+            return Text;
         }
     }
 }

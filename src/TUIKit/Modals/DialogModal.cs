@@ -256,7 +256,8 @@ namespace TUIKit.Modals
 
         /// <summary>
         /// Gets the widget a bracketed paste is offered to, or null (the default) to leave pastes
-        /// unconsumed as before. A subclass hosting a text field, or a <see cref="Widgets.Form"/> returns it here so pastes reach the focused field.
+        /// unconsumed as before. A subclass hosting a text field, a <see cref="Widgets.Form"/>, or a
+        /// <see cref="Widgets.Wizard"/> returns it here so pastes reach the focused field.
         /// </summary>
         protected virtual Widgets.IPasteTarget? PasteTarget
         {

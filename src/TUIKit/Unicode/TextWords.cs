@@ -1,6 +1,7 @@
 namespace TUIKit.Unicode
 {
     using System;
+    using System.Collections.Generic;
 
     /// <summary>
     /// Word-boundary helpers for single-line text entry. A word is a run of graphemes that are not
@@ -82,6 +83,54 @@ namespace TUIKit.Unicode
             }
 
             return i;
+        }
+
+        internal static List<string> Wrap(string text, int width)
+        {
+            List<string> lines = new List<string>();
+            if (width <= 0)
+                return lines;
+
+            foreach (string paragraph in text.Replace("\r\n", "\n").Split('\n'))
+            {
+                string line = string.Empty;
+                foreach (string word in paragraph.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string piece = word;
+                    while (TextFit.Width(piece) > width)
+                    {
+                        if (line.Length > 0)
+                        {
+                            lines.Add(line);
+                            line = string.Empty;
+                        }
+
+                        string head = TextFit.Truncate(piece, width);
+                        if (head.Length == 0)
+                            head = piece.Substring(0, TextFit.NextBoundary(piece, 0));
+                        lines.Add(head);
+                        piece = piece.Substring(head.Length);
+                    }
+
+                    if (piece.Length == 0)
+                        continue;
+
+                    string candidate = line.Length == 0 ? piece : line + " " + piece;
+                    if (TextFit.Width(candidate) <= width)
+                    {
+                        line = candidate;
+                    }
+                    else
+                    {
+                        lines.Add(line);
+                        line = piece;
+                    }
+                }
+
+                lines.Add(line);
+            }
+
+            return lines;
         }
 
         private static bool IsSpace(string text, int start, int end)

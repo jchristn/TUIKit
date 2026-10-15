@@ -15,7 +15,7 @@ namespace TUIKit.Widgets
     /// reverted when focus leaves or Enter is pressed.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class ComboBox : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry
+    public sealed class ComboBox : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, IValueSnapshot
     {
         private readonly TextField _Field = new TextField();
         private readonly List<string> _Items = new List<string>();
@@ -373,6 +373,16 @@ namespace TUIKit.Widgets
 
             _Highlight = 0;
             _Top = 0;
+        }
+
+        /// <summary>
+        /// Gets the value as the snapshot used by <see cref="Form"/> snapshot dirty tracking. Part of
+        /// <see cref="IValueSnapshot"/>.
+        /// </summary>
+        /// <returns>The snapshot. Never null.</returns>
+        public string? GetSnapshot()
+        {
+            return Value;
         }
     }
 }

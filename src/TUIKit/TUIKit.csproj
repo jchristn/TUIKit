@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.8.0</Version>
-    <AssemblyVersion>1.8.0.0</AssemblyVersion>
-    <FileVersion>1.8.0.0</FileVersion>
+    <Version>1.9.0</Version>
+    <AssemblyVersion>1.9.0.0</AssemblyVersion>
+    <FileVersion>1.9.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -32,7 +32,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
     <PackageTags>tui;focus;accessibility;keyboard;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.8.0 - Text entry and data for real apps. TextField gains opt-in shell line-editing keys (Ctrl+A/E/U/K/W, Ctrl+Left/Right), a prefilled value the first key replaces (SelectAll), a reveal key for masked values, Enter to submit (Submitted), a grapheme length limit (MaxLength), and validation (Validator, Validate, Error). Pastes can reach the focused widget (IPasteTarget, TuiApplication.RoutePasteToFocus, DialogModal.PasteTarget). FuzzyList becomes a full picker: detail text, disabled items, multi-select, an items provider, Enter to choose, paste, line-editing keys, and theme styles. DataTable pages locally or one server page at a time (PagingMode, BindPage, PageRequested) with a paging bar, load and error states, retry, marks across pages, and DataTableLoader for the async plumbing; columns gain stable keys, visibility, a chooser, and a keyboard column cursor. Additive; new behavior is opt-in, and the few visible changes are listed under Changed. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.9.0 - Forms and multi-step flows. Form gains section headings, field hints, errors drawn under each field (ValidateAll, ShowFieldErrors, ValidationMode), Submit and Cancel with keys and an optional Save/Cancel button row, labels beside fields, arrow keys between fields, and snapshot dirty tracking that notices a revert (IValueSnapshot on TextField, TextEditor, Checkbox, RadioGroup, Dropdown, ComboBox, and CheckList). The new Wizard widget runs a multi-step flow with a step header and list, per-step validation, optional and conditional steps, Back, Skip, Next, Finish, and Cancel, and Alt+arrow (and macOS Option+arrow) step keys; WizardModal hosts it in a dialog whose completion is a WizardOutcome. Additive; new behavior is opt-in. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

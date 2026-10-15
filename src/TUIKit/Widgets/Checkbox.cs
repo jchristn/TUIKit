@@ -11,7 +11,7 @@ namespace TUIKit.Widgets
     /// on, the checkbox renders with <see cref="HoverStyle"/> when the pointer is over it.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class Checkbox : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable
+    public sealed class Checkbox : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, IValueSnapshot
     {
         private string _Label;
         private bool _Hovered;
@@ -209,6 +209,16 @@ namespace TUIKit.Widgets
                 style = NormalStyle;
 
             surface.DrawText(0, 0, mark + _Label, style);
+        }
+
+        /// <summary>
+        /// Gets the checked state (<c>"1"</c> or <c>"0"</c>) as the snapshot used by <see cref="Form"/> snapshot dirty tracking. Part of
+        /// <see cref="IValueSnapshot"/>.
+        /// </summary>
+        /// <returns>The snapshot. Never null.</returns>
+        public string? GetSnapshot()
+        {
+            return Checked ? "1" : "0";
         }
     }
 }

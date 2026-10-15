@@ -17,7 +17,7 @@ namespace TUIKit.Widgets
     /// </summary>
     /// <typeparam name="T">The item type.</typeparam>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class Dropdown<T> : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable
+    public sealed class Dropdown<T> : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, IValueSnapshot
     {
         private readonly List<T> _Items = new List<T>();
         private readonly Func<T, string> _Display;
@@ -441,6 +441,16 @@ namespace TUIKit.Widgets
             _Selected = index;
             SelectionChanged?.Invoke(this, new ValueChangedEventArgs<int>(before, index));
             Changed?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Gets the selected index as the snapshot used by <see cref="Form"/> snapshot dirty tracking. Part of
+        /// <see cref="IValueSnapshot"/>.
+        /// </summary>
+        /// <returns>The snapshot. Never null.</returns>
+        public string? GetSnapshot()
+        {
+            return SelectedIndex.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 }
