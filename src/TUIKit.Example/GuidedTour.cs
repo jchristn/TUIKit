@@ -1356,6 +1356,41 @@ namespace TUIKit.Example
                     "await app.ShowAsync(new WizardModal(\"New\", w));"
                 }));
 
+            pages.Add(new TourPage(
+                "Diffs from git",
+                "A unified patch with file and hunk headers. The bracket keys move between files, [bold]/[/] searches, [bold]F3[/] next, [bold]n[/] numbers, [bold]t[/] theme.",
+                new DiffDemoWidget(app),
+                new[]
+                {
+                    "string patch = git(\"diff HEAD~1\");",
+                    "DiffView view =",
+                    "  DiffView.FromUnifiedDiff(patch, \"csharp\");",
+                    "view.UseFileKeys = true;      // ] and [",
+                    "view.ShowLineNumbers = true;",
+                    "view.SetSearch(\"port\");     // F3 = next",
+                    "view.UseThemeStyles = true;",
+                    "IReadOnlyList<string> files = view.Files;",
+                    "Clipboard.Set(view.PlainText);"
+                }));
+
+            pages.Add(new TourPage(
+                "Activity calendar",
+                "A year of activity: [bold]arrows[/] move by day and week, [bold]m[/] starts weeks on Monday, [bold]w[/] weekday labels, [bold]g[/] ASCII glyphs, [bold]t[/] theme.",
+                new CalendarDemoWidget(app),
+                new[]
+                {
+                    "CalendarHeatMap cal = new CalendarHeatMap();",
+                    "cal.SetData(from, to, commitsByDay);",
+                    "cal.LevelGlyphs = new[] { \" \", \".\", \":\", \"+\", \"#\" };",
+                    "cal.Summary = total + \" commits\";",
+                    "cal.DateActivated += (s, day) => Open(day);",
+                    "",
+                    "// The grid underneath is a HeatMap:",
+                    "map.IsSelectable = true;",
+                    "map.LevelCount = 5; map.ShowLegend = true;",
+                    "map.CellDescription = (r, c) => Describe(r, c);"
+                }));
+
             return pages;
         }
     }

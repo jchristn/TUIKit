@@ -30,7 +30,12 @@ so `?` or Ctrl+K reach the field, and a paste goes to it. The last page covers 1
 hint, labels beside the fields, errors under each field, **Ctrl+S** and **Esc**, Save and Cancel buttons, Up/Down
 between fields, and snapshot dirty tracking, so `* unsaved` goes away when you put a value back; **F5** to **F9**
 switch label placement, error display, validation mode, dirty tracking, and arrow keys, and **F4** opens a
-three-step `WizardModal` whose Repository step appears only when "Import an existing repository" is checked).
+three-step `WizardModal` whose Repository step appears only when "Import an existing repository" is checked). The last two pages cover 1.10: **Diffs from git** (a bundled three-file patch through
+`DiffView.FromUnifiedDiff`, with `]` and `[` between files, `/` to search and F3 for the next match, `n` for line
+numbers, `p` for viewport paging, and `t` for theme styles) and **Activity calendar** (a `CalendarHeatMap` over a
+year of generated commits: arrows move by day and week, Enter opens a day, `m` starts weeks on Monday, `w` cycles
+weekday labels, `g` switches to ASCII glyphs, and `t` follows the theme). `--diff-once` and `--calendar-once`
+print the same views without a terminal.
 
 Global keys open live UI on top of the tour:
 

@@ -49,6 +49,18 @@ namespace TUIKit.Example
                 return 0;
             }
 
+            if (Array.IndexOf(args, "--diff-once") >= 0)
+            {
+                RunDiffSnapshot(args);
+                return 0;
+            }
+
+            if (Array.IndexOf(args, "--calendar-once") >= 0)
+            {
+                RunCalendarSnapshot(args);
+                return 0;
+            }
+
             bool harnessMode = Array.IndexOf(args, "--harness") >= 0;
             bool contractMode = Array.IndexOf(args, "--contract") >= 0;
             bool focusMode = Array.IndexOf(args, "--focus") >= 0;
@@ -222,6 +234,72 @@ namespace TUIKit.Example
             IReadOnlyList<StyledText> rows = MarkdownRenderer.Render(MarkdownDemoWidget.Sample, width, options);
             for (int i = 0; i < rows.Count; i++)
                 console.WriteLine(theme == null ? rows[i] : OverBackground(rows[i], theme.Text, width));
+        }
+
+        // --diff-once [--width N] [--color] [--numbers]: prints the bundled patch through DiffView.FromUnifiedDiff.
+        private static void RunDiffSnapshot(string[] args)
+        {
+            int width = 100;
+            int flag = Array.IndexOf(args, "--width");
+            if (flag >= 0 && flag + 1 < args.Length)
+                int.TryParse(args[flag + 1], out width);
+
+            width = Math.Max(10, width);
+            TUIKit.Widgets.DiffView view = TUIKit.Widgets.DiffView.FromUnifiedDiff(SamplePatch.Text, "csharp");
+            view.ShowLineNumbers = Array.IndexOf(args, "--numbers") >= 0;
+            CellBuffer buffer = new CellBuffer(width, Math.Max(1, view.LineCount));
+            view.Render(new BufferSurface(buffer));
+            StyledConsole console = Array.IndexOf(args, "--color") >= 0
+                ? new StyledConsole(Console.Out, TerminalColorDepth.TrueColor)
+                : StyledConsole.ForStandardOutput();
+            console.WriteLine("TUIKit example: the bundled patch at width " + width + " (--diff-once), files: " + string.Join(", ", view.Files));
+            console.WriteLine(new string('=', width));
+            WriteBuffer(console, buffer);
+        }
+
+        // --calendar-once [--ascii] [--width N] [--color]: prints a year of generated activity through CalendarHeatMap.
+        private static void RunCalendarSnapshot(string[] args)
+        {
+            int width = 120;
+            int flag = Array.IndexOf(args, "--width");
+            if (flag >= 0 && flag + 1 < args.Length)
+                int.TryParse(args[flag + 1], out width);
+
+            width = Math.Max(20, width);
+            CalendarDemoWidget demo = new CalendarDemoWidget(null);
+            TUIKit.Widgets.CalendarHeatMap calendar = demo.Calendar;
+            if (Array.IndexOf(args, "--ascii") >= 0)
+                calendar.LevelGlyphs = new[] { " ", ".", ":", "+", "#" };
+            calendar.CellWidth = width >= 110 ? 2 : 1;
+            CellBuffer buffer = new CellBuffer(width, 10);
+            calendar.Render(new BufferSurface(buffer));
+            StyledConsole console = Array.IndexOf(args, "--color") >= 0
+                ? new StyledConsole(Console.Out, TerminalColorDepth.TrueColor)
+                : StyledConsole.ForStandardOutput();
+            console.WriteLine("TUIKit example: a year of activity at width " + width + " (--calendar-once" + (calendar.LevelGlyphs != null ? " --ascii" : string.Empty) + ")");
+            console.WriteLine(new string('=', width));
+            WriteBuffer(console, buffer);
+        }
+
+        // Writes a rendered buffer row by row as styled text, trimming trailing blanks.
+        private static void WriteBuffer(StyledConsole console, CellBuffer buffer)
+        {
+            for (int y = 0; y < buffer.Height; y++)
+            {
+                List<StyledSpan> spans = new List<StyledSpan>();
+                int last = buffer.Width - 1;
+                while (last >= 0 && string.IsNullOrWhiteSpace(buffer.Get(last, y).Grapheme))
+                    last--;
+
+                for (int x = 0; x <= last; x++)
+                {
+                    Cell cell = buffer.Get(x, y);
+                    if (!cell.IsContinuation)
+                        spans.Add(new StyledSpan(string.IsNullOrEmpty(cell.Grapheme) ? " " : cell.Grapheme, cell.Style));
+                }
+
+                console.WriteLine(new StyledText(spans));
+            }
         }
 
         // Paints a row over a backdrop style and pads it to the width, so a themed snapshot shows its background.
