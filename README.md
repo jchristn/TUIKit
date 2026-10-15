@@ -98,7 +98,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.9.0" />
+<PackageReference Include="TUIKit" Version="1.10.0" />
 ```
 
 ## Quick start
@@ -260,6 +260,27 @@ Wizard wizard = new Wizard(new[]
 WizardOutcome? outcome = await app.ShowAsync<WizardOutcome>(new WizardModal("New project", wizard));
 ```
 
+### Diffs and activity calendars
+
+`DiffView.FromUnifiedDiff` shows a diff produced elsewhere, such as `git diff` output, a code review API, or a patch file, with styled file and hunk headers, the files it covers, line numbers, and search:
+
+```csharp
+DiffView diff = DiffView.FromUnifiedDiff(patch, "csharp");
+diff.UseFileKeys = true;        // ] and [ jump between files; diff.Files lists them
+diff.ShowLineNumbers = true;    // old and new numbers from the @@ headers
+diff.SetSearch("port");         // F3 and Shift+F3 move between matches
+string copy = diff.PlainText;   // the patch as given
+```
+
+`CalendarHeatMap` is a contribution calendar the user can move through, and `HeatMap` underneath it gains the same selection, levels, legend, and wide cells for any grid:
+
+```csharp
+CalendarHeatMap activity = new CalendarHeatMap { Summary = total + " commits" };
+activity.SetData(yearAgo, today, commitsByDay);           // keys with a time part count for their day
+activity.LevelGlyphs = new[] { " ", ".", ":", "+", "#" }; // readable without color
+activity.DateActivated += (s, day) => ShowCommits(day);  // Enter or a double click
+```
+
 ### Markdown
 
 Model replies are Markdown, and most of their structure only works at a known width. `Pane.WriteMarkdown` commits a block that is laid out at the pane's width every time it renders, so a table sizes its columns from its cells and reflows when the terminal is resized:
@@ -369,6 +390,8 @@ dotnet run --project src/TUIKit.Example -- --contract-once  # the interaction-co
 dotnet run --project src/TUIKit.Example -- --focus-once     # the focus showcase frame
 dotnet run --project src/TUIKit.Example -- --focus-audit-once  # FocusAudit over the showcase; exit 1 on problems
 dotnet run --project src/TUIKit.Example -- --markdown-once --width 60  # the Markdown sample at a width (--color, --ascii, --theme dark|light|contrast)
+dotnet run --project src/TUIKit.Example -- --diff-once --numbers     # the bundled patch through DiffView.FromUnifiedDiff (--width, --color)
+dotnet run --project src/TUIKit.Example -- --calendar-once --ascii    # a year of activity through CalendarHeatMap (--width, --color)
 dotnet run --project src/TUIKit.Example | cat               # non-TTY -> plain line output
 ```
 

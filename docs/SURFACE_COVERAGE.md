@@ -4,6 +4,17 @@
 
 This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
+## 1.10.0 additions
+
+The 1.10.0 work (items C5, C8, and C9 of `NEW_CAPABILITIES.md`) added the public surface below, each with positive and negative Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **1115 console cases** (1116 through the xUnit/NUnit wrappers), all green. The 1084 cases that existed at 1.9.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **85.5%**; the new and changed files (`DiffView`, `DiffLine`, `DiffFile`, `UnifiedDiffParser`, `GitPathUnquoter`, `HeatMap`, `CalendarHeatMap`) are at **88.2%**.
+
+| New/changed public surface | Test suite |
+|---|---|
+| `DiffView.FromUnifiedDiff`, `DiffLineKind.FileHeader`, `HunkHeader`, `Meta`, `LineKinds`, `Files`, `CurrentFileIndex`, `NextFile`, `PreviousFile`, `GoToFile`, `UseFileKeys`, `ShowLineNumbers`, `LineNumberStyle`, `FileHeaderStyle`, `HunkHeaderStyle`, `MetaStyle`, `PlainText`, the hunk-count parser, quoted paths, `/dev/null`, combined diffs, literal input, and the 1.9 two-text rendering | `DiffViewUnified` |
+| `DiffView.SetSearch`, `FindNext`, `FindPrevious`, `SearchText`, F3 keys, `PageByViewport`, `ViewportHeight`, `ScrollOffset`, `ScrollBy`, `ScrollToTop`, `ScrollToEnd`, `ContentHeight`, `TryGetFocusRect` (`IScrollExtent`), `UseThemeStyles`, `ApplyTheme` (`IThemeable`), `ShowKeyHints`, `GetKeyHints`, `OnFocusChanged`, `IsFocused` | `DiffViewSearch` |
+| `HeatMap.IsSelectable`, `IsFocusStop`, `IsFocused`, `SelectedRow`, `SelectedColumn`, `Select`, `SelectionChanged`, `CellActivated`, `SelectionStyle`, `HasSelection`, `IsCellSelectable`, `NavigateOverride`, `LevelCount`, `LevelGlyphs`, `LevelStyles`, `LevelOf`, `ShowLegend`, `LegendLowText`, `LegendHighText`, `CellWidth`, `SpanColumnLabels`, `CellDescription`, `ShowSelectionDescription`, `GetTooltip`, `FirstVisibleColumn`, `UseThemeStyles`, `ApplyTheme`, `GetKeyHints`, `HandleKey`, `HandleMouse`; the 1.9 defaults; host click focus for widgets that cannot take focus | `HeatMapInteraction` |
+| `CalendarHeatMap` (`SetData`, `ValueOn`, `From`, `To`, `WeekCount`, `SelectedDate`, `Select`, `DateSelected`, `DateActivated`, `FirstDayOfWeek`, `WeekdayLabels`, `Culture`, `LevelCount`, `LevelGlyphs`, `ShowLegend`, `DayDescription`, `Summary`, `FirstVisibleWeek`, `GetTooltip`), `WeekdayLabelMode` | `CalendarHeatMap` |
+
 ## 1.9.0 additions
 
 The 1.9.0 work (items C6 and C7 of `NEW_CAPABILITIES.md`) added the public surface below, each with positive and negative Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **1084 console cases** (1085 through the xUnit/NUnit wrappers), all green. The 1052 cases that existed at 1.8.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **85.4%**; the new and changed files (`Form`, `FormField`, `FormFieldError`, `Wizard`, `WizardStep`, `WizardModal`, the wizard event args, `TextWords`) are at **88.5%**.

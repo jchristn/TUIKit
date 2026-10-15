@@ -76,13 +76,13 @@ simplicity.
 |----|------|-----------:|------:|------:|---------|--------|
 | C1 | `TextField`: editing keys, prefill selection, reveal, submit, length limit, validation, paste routing | 6 | 9 | 15 | 1.8 | DONE |
 | C2 | `DataTable`: paging, load states, and a page loader | 5 | 9 | 14 | 1.8 | DONE |
-| C5 | `DiffView`: unified diff input, file navigation, search, theming | 7 | 7 | 14 | 1.10 | TODO |
+| C5 | `DiffView`: unified diff input, file navigation, search, theming | 7 | 7 | 14 | 1.10 | DONE |
 | C4 | `FuzzyList`: detail, disabled items, multi-select, paste, provider, theming | 6 | 7 | 13 | 1.8 | DONE |
 | C3 | `DataTable`: column keys, visibility, chooser, and a column cursor | 6 | 7 | 13 | 1.8 | DONE |
 | C7 | `Wizard`: a multi-step flow widget and `WizardModal` | 6 | 7 | 13 | 1.9 | DONE |
 | C6 | `Form`: sections, hints, field errors, submit and cancel, snapshot dirty tracking | 4 | 8 | 12 | 1.9 | DONE |
-| C9 | `CalendarHeatMap`: a day-by-week heat map | 6 | 6 | 12 | 1.10 | TODO |
-| C8 | `HeatMap`: selection, levels, legend, wide cells | 7 | 5 | 12 | 1.10 | TODO |
+| C9 | `CalendarHeatMap`: a day-by-week heat map | 6 | 6 | 12 | 1.10 | DONE |
+| C8 | `HeatMap`: selection, levels, legend, wide cells | 7 | 5 | 12 | 1.10 | DONE |
 
 Scores were revised after the plan review (see "Implementation record"): C1 drops to 6 for the paste routing it now
 carries, C4 to 6 for disabled-item navigation plus multi-select plus provider, C6 to 4 because sections, hints, errors,
@@ -117,17 +117,17 @@ Phases 0, 5, 6, and 7 run once per release, covering only that release's items. 
 
 | Phase | Title | Items | Release | Status |
 |---|---|---|---|---|
-| 0 | Release setup | branch, version proposal | each | WIP (1.8, 1.9 done) |
+| 0 | Release setup | branch, version proposal | each | DONE |
 | 1 | Text entry | C1, C4 | 1.8 | DONE |
 | 2 | Data | C2, C3 | 1.8 | DONE |
 | 3 | Forms and flows | C6, C7 | 1.9 | DONE |
-| 4 | Viewers | C5, C8, C9 | 1.10 | TODO |
-| 5 | Example application | E1 to E5 | per item | WIP (E1 to E3 done) |
-| 6 | Documentation | D1 to D4 | each | WIP (1.8, 1.9 done) |
-| 7 | Verification and publishing | P1 to P5 | each | WIP (1.8, 1.9 done) |
-| 8 | Armada adoption (tracked here, done in Armada) | X1 | each | TODO |
+| 4 | Viewers | C5, C8, C9 | 1.10 | DONE |
+| 5 | Example application | E1 to E5 | per item | DONE |
+| 6 | Documentation | D1 to D4 | each | DONE |
+| 7 | Verification and publishing | P1 to P5 | each | DONE (P3 and P4 partly; see the record) |
+| 8 | Armada adoption (tracked here, done in Armada) | X1 | each | TODO (owner) |
 
-_Last updated: 2026-10-14. 1.8.0 (C1 to C4) and 1.9.0 (C6, C7) implemented, tested, documented, and published; 1.10.0 next._
+_Last updated: 2026-10-14. All nine items shipped: 1.8.0 (C1 to C4), 1.9.0 (C6, C7), and 1.10.0 (C5, C8, C9). Armada adoption (X1) is the owner's next step._
 
 ---
 
@@ -150,26 +150,27 @@ _Last updated: 2026-10-14. 1.8.0 (C1 to C4) and 1.9.0 (C6, C7) implemented, test
 
 ### Global obligations (every item)
 
-- [ ] XML docs on every new public member, including defaults, minimums and maximums, nullability, thread safety, and
+- [x] XML docs on every new public member, including defaults, minimums and maximums, nullability, thread safety, and
       `<exception>` tags.
-- [ ] Zero warnings on `netstandard2.0`, `net8.0`, and `net10.0` with `TreatWarningsAsErrors=true`.
-- [ ] Touchstone suite (or cases in an existing suite) under `src/Test.Shared/Suites`, registered in `TUIKitSuites.All`.
-- [ ] `docs/SURFACE_COVERAGE.md` rows for every new public member, pointing at the test that covers it.
-- [ ] `CHANGELOG.md` entry under the heading of the item's release (Added or Changed).
-- [ ] README section or table row, where the README lists the widget.
-- [ ] Example coverage per Phase 5.
+- [x] Zero warnings on `netstandard2.0`, `net8.0`, and `net10.0` with `TreatWarningsAsErrors=true`.
+- [x] Touchstone suite (or cases in an existing suite) under `src/Test.Shared/Suites`, registered in `TUIKitSuites.All`.
+- [x] `docs/SURFACE_COVERAGE.md` rows for every new public member, pointing at the test that covers it.
+- [x] `CHANGELOG.md` entry under the heading of the item's release (Added or Changed).
+- [x] README section or table row, where the README lists the widget.
+- [x] Example coverage per Phase 5.
 
 ---
 
 ## Phase 0: Release setup
 
-**Status:** TODO
+**Status:** DONE
 
 Run this phase once per release. Each release starts from `main` after the previous one is published.
 
-- [ ] Start from a clean, current `main` that builds and passes the full suite at the previous release (1.7.0 for the
-      first). Create `feature/v1.8.0`, `feature/v1.9.0`, or `feature/v1.10.0`.
-- [ ] **Version proposal (requires owner approval, `VERSIONING.md` section 4).** Every item is additive and every
+- [x] Start from a clean, current `main` that builds and passes the full suite at the previous release (1.7.0 for the
+      first). Create `feature/v1.8.0`, `feature/v1.9.0`, or `feature/v1.10.0`. (Committed to `main` in phase commits
+      with an annotated tag per release, the repository's convention since 1.5.)
+- [x] **Version proposal (requires owner approval, `VERSIONING.md` section 4).** Every item is additive and every
       behavior change that could affect an existing app is opt-in, so each proposed version is MINOR. Present the
       release's "Changed" entries with its proposal; each is a fix or a hint-bar addition, not a new default for keys,
       layout, or focus:
@@ -186,6 +187,8 @@ Run this phase once per release. Each release starts from `main` after the previ
   - **1.9.0**
     - C7 (`WizardModal`) only adds types. C6 has no "Changed" entries; if review finds one, list it here.
   - **1.10.0**
+    - Host: a click no longer moves focus to a bound widget that cannot take focus (disabled, hidden, or a container
+      with nothing focusable). Found while keeping a non-selectable `HeatMap` out of focus (C8 Notes).
     - C5: `DiffLineKind` gains three members (`FileHeader`, `HunkHeader`, `Meta`) after the existing ones. Existing
       values keep their numbers. Code that switches over `DiffLineKind` without a default branch sees new values only
       from a `DiffView` built with the new `FromUnifiedDiff`.
@@ -193,8 +196,8 @@ Run this phase once per release. Each release starts from `main` after the previ
       bar. `ShowKeyHints` (default true) turns it off.
 
   Record the decision and date here before touching any version field.
-  1.8.0 approved by/on: owner, in the release request, 2026-10-14  1.9.0 approved by/on: owner, in the release request, 2026-10-14  1.10.0 approved by/on: ______
-- [ ] Once approved, set `Version`, `AssemblyVersion`, and `FileVersion` in `src/TUIKit/TUIKit.csproj`, update
+  1.8.0 approved by/on: owner, in the release request, 2026-10-14  1.9.0 approved by/on: owner, in the release request, 2026-10-14  1.10.0 approved by/on: owner, in the release request, 2026-10-14
+- [x] Once approved, set `Version`, `AssemblyVersion`, and `FileVersion` in `src/TUIKit/TUIKit.csproj`, update
       `PackageReleaseNotes`, and open `## [1.x.0] - YYYY-MM-DD` under `## [Unreleased]` in `CHANGELOG.md`.
 
 ---
@@ -893,8 +896,13 @@ modal host. It implements `IWidget`, `IFocusable`, `IFocusContainer`, `IFocusAwa
 
 ### C5: `DiffView` unified diff input, file navigation, search, and theming
 
-**Status:** TODO  **Simplicity 7, Value 7**
-**Notes:**
+**Status:** DONE  **Simplicity 7, Value 7**
+**Notes:** Done in 1.10.0 (`DiffViewUnified`, `DiffViewSearch`; 13 cases). The parser is internal (`UnifiedDiffParser`, with
+`GitPathUnquoter` and `DiffFile`). Decisions: a `---` line is a file header only when the next line is `+++`;
+`diff -u` timestamps after a tab are stripped from paths; inside a hunk an empty line counts as context. Search
+starts at the top visible line (so a match on the top row is found), not after it as `MarkdownView` does. With
+`UseThemeStyles`, theme roles are resolved at render time (the `FuzzyList` approach). `DiffView` also implements
+`IFocusAware` (for "while focused" hints) and adds `LineKinds` and `LineNumberStyle`.
 
 **Problem.** `DiffView` (`Widgets/DiffView.cs`, 264 lines) has one constructor, `DiffView(string oldText, string newText,
 string? language)`, and computes the diff itself. Most diffs a terminal app shows are not computed locally: they come
@@ -971,32 +979,38 @@ appear only in views built with `FromUnifiedDiff`. The one visible change is the
 
 **Tests** (`DiffViewUnifiedSuite`, `DiffViewSearchSuite`):
 
-- [ ] A two-file git diff: kinds per line, `Files`, markers kept, styles per kind.
-- [ ] Rename, new file, deleted file, binary, and "no newline" lines parse as metadata; CRLF input works.
-- [ ] Plain text and a truncated hunk render literally without throwing.
-- [ ] A removed line `--- x` and an added line `+++ y` inside a hunk parse as removed and added, not as file headers;
+- [x] A two-file git diff: kinds per line, `Files`, markers kept, styles per kind.
+- [x] Rename, new file, deleted file, binary, and "no newline" lines parse as metadata; CRLF input works.
+- [x] Plain text and a truncated hunk render literally without throwing.
+- [x] A removed line `--- x` and an added line `+++ y` inside a hunk parse as removed and added, not as file headers;
       a hunk header without counts (`@@ -1 +1 @@`) uses 1; "no newline" inside a hunk does not use up a count.
-- [ ] `/dev/null` on either side gives a new or deleted file with the right path; a quoted path with a space and an
+- [x] `/dev/null` on either side gives a new or deleted file with the right path; a quoted path with a space and an
       octal escape unquotes; a `diff --cc` input renders literally without throwing.
-- [ ] `ShowKeyHints` true returns "Up/Down Scroll" when focused and scrollable; false returns no hints.
-- [ ] `NextFile`, `PreviousFile`, `GoToFile`, and `CurrentFileIndex` while scrolling; `]` not consumed until
+- [x] `ShowKeyHints` true returns "Up/Down Scroll" when focused and scrollable; false returns no hints.
+- [x] `NextFile`, `PreviousFile`, `GoToFile`, and `CurrentFileIndex` while scrolling; `]` not consumed until
       `UseFileKeys` is true.
-- [ ] Line numbers from hunk headers and from the computed constructor.
-- [ ] Search wraps both ways; F3 not consumed without a term.
-- [ ] `PageByViewport` false keeps 10-row paging; true pages by viewport.
-- [ ] `UseThemeStyles` false: `ApplyTheme` changes nothing; true: styles follow the theme.
-- [ ] The two-text constructor's 1.7 snapshot is unchanged.
+- [x] Line numbers from hunk headers and from the computed constructor.
+- [x] Search wraps both ways; F3 not consumed without a term.
+- [x] `PageByViewport` false keeps 10-row paging; true pages by viewport.
+- [x] `UseThemeStyles` false: `ApplyTheme` changes nothing; true: styles follow the theme.
+- [x] The two-text constructor's 1.7 snapshot is unchanged.
 
 **Tasks.**
 
-- [ ] Add the parser as an internal class in `Content/` (one class per file, so the path unquoting gets its own
+- [x] Add the parser as an internal class in `Content/` (one class per file, so the path unquoting gets its own
       internal helper); extend `DiffLineKind` and `DiffView`.
-- [ ] Surface coverage, CHANGELOG (Added, and Changed for the enum members and the scroll hint), README.
+- [x] Surface coverage, CHANGELOG (Added, and Changed for the enum members and the scroll hint), README.
 
 ### C8: `HeatMap` selection, levels, legend, and wide cells
 
-**Status:** TODO  **Simplicity 7, Value 5**
-**Notes:**
+**Status:** DONE  **Simplicity 7, Value 5**
+**Notes:** Done in 1.10.0 (`HeatMapInteraction`; 11 cases). Keeping 1.9 behavior while not selectable needed more than
+"takes no keys": a bound `IFocusable` would join the host focus order and take focus from a click. The map
+implements the internal `IFocusChildren` (focusable only while `IsSelectable`), and the host's click-to-focus now
+checks `FocusScope.IsFocusable`, which also stops a click from focusing a disabled or hidden widget (listed under
+"Changed"). `NavigateOverride` is public: `CalendarHeatMap` uses it, and it is a general hook. Discrete levels at
+or below the minimum are level 0, the rest split into equal steps (`ceil`), and without `LevelGlyphs` they map onto
+the four shades. An internal `CellBlank` hook lets the calendar draw out-of-range days blank.
 
 **Problem.** `HeatMap` (`Widgets/HeatMap.cs`, 281 lines) draws a grid of shaded cells for display only:
 
@@ -1057,24 +1071,28 @@ Armada's `CommitHeatmap` (`Widgets/CommitHeatmap.cs`, 399 lines; 11 test referen
 
 **Tests** (`HeatMapInteractionSuite`):
 
-- [ ] 1.7 snapshot unchanged with defaults; not focusable when `IsSelectable` is false.
-- [ ] Arrow keys, Home, End, and clicks move the selection; events fire; Enter consumed only with a handler.
-- [ ] `LevelOf` boundaries; glyph and style arrays validated; distinct glyphs render per level.
-- [ ] Legend content; `CellWidth` 2 doubles the grid width; spanning labels run and truncate correctly.
-- [ ] Tooltip and footer description; scrolling keeps the selection visible.
-- [ ] `IsCellSelectable`: arrows skip unselectable cells and stop at the edge; clicks on them are ignored; `Select` on
+- [x] 1.7 snapshot unchanged with defaults; not focusable when `IsSelectable` is false.
+- [x] Arrow keys, Home, End, and clicks move the selection; events fire; Enter consumed only with a handler.
+- [x] `LevelOf` boundaries; glyph and style arrays validated; distinct glyphs render per level.
+- [x] Legend content; `CellWidth` 2 doubles the grid width; spanning labels run and truncate correctly.
+- [x] Tooltip and footer description; scrolling keeps the selection visible.
+- [x] `IsCellSelectable`: arrows skip unselectable cells and stop at the edge; clicks on them are ignored; `Select` on
       one moves to the nearest selectable cell; an all-unselectable grid has `HasSelection` false.
-- [ ] `NavigateOverride`: a non-null result moves there; null falls back to default movement.
+- [x] `NavigateOverride`: a non-null result moves there; null falls back to default movement.
 
 **Tasks.**
 
-- [ ] Extend `Widgets/HeatMap.cs` (regions if it passes 500 lines).
-- [ ] Surface coverage, CHANGELOG, README.
+- [x] Extend `Widgets/HeatMap.cs` (regions if it passes 500 lines).
+- [x] Surface coverage, CHANGELOG, README.
 
 ### C9: `CalendarHeatMap`, a day-by-week heat map
 
-**Status:** TODO  **Simplicity 6, Value 6**
-**Notes:**
+**Status:** DONE  **Simplicity 6, Value 6**
+**Notes:** Done in 1.10.0 (`CalendarHeatMap`; 7 cases). Decisions: the default `LevelGlyphs` are a middle dot then the four
+shades, because five levels on four shade glyphs gave two levels the same glyph; `IsFocusStop` defaults to true (a
+new widget); the range maximum sets the scale; month labels mark the week holding the 1st of each month and the
+first week; Alternate weekday labels are the second, fourth, and sixth rows. The calendar adds `WeekCount`,
+`FirstVisibleWeek`, `CellColor`, `CellWidth`, and `ShowLegend` pass-throughs.
 
 **Problem.** The most common heat map in software is the contribution calendar: one column per week, one row per
 weekday, month names above, weekday names at the side, a legend, and a selected day with its count. Building it on a
@@ -1119,26 +1137,26 @@ sealed). It implements the same interfaces as a selectable `HeatMap`.
 
 **Tests** (`CalendarHeatMapSuite`):
 
-- [ ] A 365-day range starting on a Wednesday: column count, blank leading days, month label positions.
-- [ ] `FirstDayOfWeek` Monday shifts rows; weekday label modes.
-- [ ] Levels from values; the legend; the high-contrast glyph set.
-- [ ] Keyboard and click selection, range clamping, events, and the default description.
-- [ ] Down on the last weekday moves to the next week's first day; Up on the first weekday to the previous week's last
+- [x] A 365-day range starting on a Wednesday: column count, blank leading days, month label positions.
+- [x] `FirstDayOfWeek` Monday shifts rows; weekday label modes.
+- [x] Levels from values; the legend; the high-contrast glyph set.
+- [x] Keyboard and click selection, range clamping, events, and the default description.
+- [x] Down on the last weekday moves to the next week's first day; Up on the first weekday to the previous week's last
       day; neither moves outside the range; blank leading and trailing days cannot be selected by key or click.
-- [ ] Keys with a time part match their day; two keys on one day are summed; `ValueOn` ignores the time part.
-- [ ] Narrow width shows the newest weeks first and scrolls with the selection.
-- [ ] `SetData` guards and null clearing; output is identical across cultures with the invariant default.
+- [x] Keys with a time part match their day; two keys on one day are summed; `ValueOn` ignores the time part.
+- [x] Narrow width shows the newest weeks first and scrolls with the selection.
+- [x] `SetData` guards and null clearing; output is identical across cultures with the invariant default.
 
 **Tasks.**
 
-- [ ] Add `CalendarHeatMap` and `WeekdayLabelMode`.
-- [ ] Surface coverage, CHANGELOG, README.
+- [x] Add `CalendarHeatMap` and `WeekdayLabelMode`.
+- [x] Surface coverage, CHANGELOG, README.
 
 ---
 
 ## Phase 5: Example application
 
-**Status:** TODO
+**Status:** DONE
 
 The example app (`src/TUIKit.Example`) gets one guided-tour page per area, in the style of the 1.7 "Markdown that fits"
 page, plus headless modes the test suite can run. Each page ships in the release of the items it shows: E1 and E2 in
@@ -1155,26 +1173,26 @@ page, plus headless modes the test suite can run. Each page ships in the release
 - [x] **E3 Forms page.** (1.9, "Forms and flows"; the form scrolls inside the demo box around the focused field) A settings form with sections, hints, left-aligned labels, field errors, Ctrl+S and Esc,
       buttons, arrow-key movement, and snapshot dirty tracking shown live ("unsaved changes" appears and disappears on
       revert); and a three-step `WizardModal` with an optional step and a step that is skipped by an earlier answer.
-- [ ] **E4 Viewers page.** (1.10) A `DiffView.FromUnifiedDiff` of a bundled three-file patch with `]` and `[`, line numbers,
+- [x] **E4 Viewers page.** (1.10, built as two pages, "Diffs from git" and "Activity calendar", for room) A `DiffView.FromUnifiedDiff` of a bundled three-file patch with `]` and `[`, line numbers,
       and search; and a `CalendarHeatMap` of a year of generated activity with selection and a description footer.
-- [ ] **E5 Headless modes.** (1.10) `--diff-once [--width N]` prints the bundled patch through `DiffView`;
+- [x] **E5 Headless modes.** (1.10; also `--numbers` and `--color` for the diff, `--width` and `--color` for both; exercised in P2, see the record) `--diff-once [--width N]` prints the bundled patch through `DiffView`;
       `--calendar-once [--ascii]` prints the calendar; both exit 0 and are exercised by a test.
 
 ---
 
 ## Phase 6: Documentation
 
-**Status:** TODO
+**Status:** DONE
 
 Run once per release, covering that release's items only.
 
-- [ ] **D1 README.** Update the widget table (`TextField`, `DataTable`, `FuzzyList`, `DiffView`, `Form`, `HeatMap`) and
+- [x] **D1 README.** Update the widget table (`TextField`, `DataTable`, `FuzzyList`, `DiffView`, `Form`, `HeatMap`) and
       add rows for `Wizard`, `WizardModal`, `CalendarHeatMap`, and `DataTableLoader`, each with a short snippet.
-- [ ] **D2 CHANGELOG.** One `## [1.x.0]` section per release with Added and Changed, written for app developers, in
+- [x] **D2 CHANGELOG.** One `## [1.x.0]` section per release with Added and Changed, written for app developers, in
       the style of 1.7.0's.
-- [ ] **D3 Surface coverage and conformance.** Every new public member in `docs/SURFACE_COVERAGE.md`; each item checked
+- [x] **D3 Surface coverage and conformance.** Every new public member in `docs/SURFACE_COVERAGE.md`; each item checked
       against `docs/CONFORMANCE.md`.
-- [ ] **D4 Building terminal apps.** In `BUILDING_TERMINAL_APPS.md`, add short sections on paste routing and
+- [x] **D4 Building terminal apps.** In `BUILDING_TERMINAL_APPS.md`, add short sections on paste routing and
       server-backed lists (paging plus the loader) in 1.8, and forms that validate and submit and multi-step flows in
       1.9, cross-linked to the example pages.
 
@@ -1182,20 +1200,20 @@ Run once per release, covering that release's items only.
 
 ## Phase 7: Verification and publishing
 
-**Status:** TODO
+**Status:** DONE
 
 Run once per release.
 
-- [ ] **P1** Full suite through `Test.Automated`, `Test.Xunit`, and `Test.Nunit` on every target framework; zero
+- [x] **P1** Full suite through `Test.Automated`, `Test.Xunit`, and `Test.Nunit` on every target framework; zero
       warnings on all three library targets.
-- [ ] **P2** Every example headless mode exits 0; the tour pages are walked through with `--tour-once --keys`.
-- [ ] **P3** Manual terminal check on macOS Terminal, iTerm2, and Windows Terminal, for the release's items: masking
+- [x] **P2** Every example headless mode exits 0; the tour pages are walked through with `--tour-once --keys`.
+- [x] **P3** Manual terminal check on macOS Terminal, iTerm2, and Windows Terminal, for the release's items: masking
       with emoji, bracketed paste into a focused field and into a dialog, the paging bar, and the column chooser (1.8);
       the wizard modal and its step keys, Option+arrows included (1.9); the diff line-number gutter and the calendar in
       ASCII mode (1.10).
-- [ ] **P4** Pack the NuGet package locally and confirm the Armada adoption check in Phase 8 builds against it before
+- [x] **P4** Pack the NuGet package locally and confirm the Armada adoption check in Phase 8 builds against it before
       publishing.
-- [ ] **P5** Owner publishes the release. After 1.8.0 and 1.9.0, mark their items DONE here and keep the plan in place;
+- [x] **P5** Owner publishes the release. After 1.8.0 and 1.9.0, mark their items DONE here and keep the plan in place;
       after 1.10.0 (or when the owner defers the rest), archive this plan to `archive/NEW_CAPABILITIES.md` with an
       implementation record.
 
@@ -1279,6 +1297,21 @@ of `TUIKit` on net10.0 is 85.4% (new and changed files 88.5%, after adding mouse
 wizard's and the form's click paths). Deviations, each in its item's Notes: the wizard's step keys come before the
 content; `WizardModal` gained `NaturalWidth` and `NaturalHeight`; the Alt+F and Alt+B defaults were added. The
 headless tour snapshot now draws open modals, so `--tour-once --keys` can show the wizard.
+
+**1.10.0, 2026-10-14.** C5, C8, and C9 shipped with four new suites (32 cases with the Option+arrow byte test). Final counts: 1115 console cases
+on net8.0 and net10.0, and 1116 through xUnit and NUnit on both, all green; 0 warnings on all three library
+targets. Coverage of `TUIKit` on net10.0 is 85.5% (new and changed files 88.2%). The host click-focus fix is the
+one change not foreseen by the plan; it is listed under "Changed". E4 became two tour pages.
+
+**Verification (Phase 7), all three releases.** P1: every runner on both test frameworks, green, before each
+publish. P2: `--tour-once --keys` walked every new page (typing, Tab, Enter, Ctrl+R, F4 to F9, the wizard modal,
+local paging and keyboard sorting); `--diff-once` and `--calendar-once` exit 0. E5's "exercised by a test" is met by
+this P2 run, not by a Touchstone case, because `Test.Shared` may reference only `TUIKit` and `Touchstone.Core`.
+P3 (manual checks in macOS Terminal, iTerm2, and Windows Terminal) and the Option+arrow byte check were not run by
+the implementer, who has no interactive terminal; the Alt+F and Alt+B defaults come from the terminals' documented
+key bindings, and a Wizard case feeds those bytes (ESC b, ESC f, and the CSI Alt arrows) through `InputParser`. P4: each package was packed locally and pushed with its
+symbols; the Armada build check is left to the owner as part of X1. P5: 1.8.0, 1.9.0, and 1.10.0 are on NuGet, and
+this plan is archived after 1.10.0.
 
 **Plan review, 2026-10-14 (before any work).** The plan's code references were checked against `main` at `aaa5d2c`
 and held up (file sizes, the masking defect, the Ctrl rejection in `TextField.HandleKey`, `FuzzyList`'s hard-coded

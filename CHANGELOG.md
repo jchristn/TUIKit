@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-14
+
+Most diffs a terminal app shows are not computed locally: they come from git, a code review API, or a patch
+file, already in unified form and often covering many files. Most heat maps in software are contribution
+calendars the user moves through. This release, the last of the three planned in `NEW_CAPABILITIES.md`, adds
+both, and makes `HeatMap` interactive. New behavior is opt-in; the few visible changes are listed under Changed.
+
+### Added
+- **`DiffView.FromUnifiedDiff(diff, language)`.** Shows a unified diff produced elsewhere. File headers
+  (`diff --git`, `---`, `+++`), hunk headers (`@@ -a,b +c,d @@`), and metadata (`index`, file modes, renames,
+  similarity, binary notices, "no newline at end of file") get the new `DiffLineKind` members `FileHeader`,
+  `HunkHeader`, and `Meta`, styled by `FileHeaderStyle`, `HunkHeaderStyle`, and `MetaStyle`. Each hunk's extent
+  comes from its header counts, so a removed line whose content starts with `-- ` (an SQL or Lua comment) stays a
+  removed line. Paths come from `+++` (or `---` for a deleted file), with `a/` and `b/` stripped and git's quoted
+  paths unquoted. Plain text, a truncated hunk, and combined diffs render literally; it never throws on content.
+  The `+`, `-`, and space markers are always drawn, so a change is never shown by color alone.
+- **Files, numbers, search, and paging.** `Files`, `CurrentFileIndex`, `NextFile`, `PreviousFile`, `GoToFile`, and
+  `UseFileKeys` (default false) for `]` and `[`. `ShowLineNumbers` adds an old and new line-number gutter
+  (`LineNumberStyle`), parsed from hunk headers or computed for two texts. `SetSearch`, `FindNext`,
+  `FindPrevious`, `SearchText`, and F3 and Shift+F3, highlighted with `Theme.SearchMatchRole`. `DiffView` is now
+  `IScrollExtent` with `ContentHeight`, `ViewportHeight`, `ScrollOffset`, `ScrollBy`, `ScrollToTop`, and
+  `ScrollToEnd`; `PageByViewport` (default false) pages by the viewport instead of ten lines. `PlainText` is the
+  text to copy, `LineKinds` lists each line's kind, and `UseThemeStyles` (default false) follows the theme.
+- **Interactive `HeatMap`.** `IsSelectable` (default false) turns on a selection moved by the arrow keys, Home and
+  End, and clicks (`SelectedRow`, `SelectedColumn`, `Select`, `SelectionChanged`, `CellActivated`,
+  `SelectionStyle`); `IsFocusStop` (default false) makes it a Tab stop. `LevelCount` (0 for continuous shading, or
+  2 to 16) with `LevelGlyphs`, `LevelStyles`, and `LevelOf` draws discrete levels, distinct glyphs keeping the map
+  readable without color. `ShowLegend` (`LegendLowText`, `LegendHighText`), `CellWidth` (1 to 4),
+  `SpanColumnLabels`, `CellDescription` as a tooltip and with `ShowSelectionDescription` a footer, a visible
+  window that follows the selection (`FirstVisibleColumn`), `UseThemeStyles`, and two hooks: `IsCellSelectable`
+  for empty slots (`HasSelection`) and `NavigateOverride` for custom movement.
+- **`CalendarHeatMap`.** A contribution calendar: weeks as columns, weekdays as rows starting on
+  `FirstDayOfWeek`, month names over their weeks, weekday labels (`WeekdayLabels`: `None`, `Alternate`, `All`),
+  five levels with a legend, and a footer with `Summary` and the selected day's `DayDescription`. `SetData`
+  reduces every key to its day and sums keys on the same day; `ValueOn`, `From`, `To`, `WeekCount`,
+  `SelectedDate`, `Select`, `DateSelected`, and `DateActivated` read and drive it. Up and Down move a day
+  (wrapping into the next week), Left and Right a week, Home and End to the ends of the range, and the newest week
+  shows first on a narrow screen. Names come from `Culture` (invariant by default, for deterministic output).
+- **Example.** Two tour pages: "Diffs from git" (a bundled three-file patch with file keys, line numbers, a `/`
+  search prompt and F3, and theme styles) and "Activity calendar" (a year of generated commits with day and week
+  movement and switches for Monday weeks, weekday labels, ASCII glyphs, and the theme). `--diff-once [--width N]
+  [--numbers] [--color]` and `--calendar-once [--ascii] [--width N] [--color]` print them.
+
+### Changed
+- **`DiffLineKind` gains `FileHeader = 3`, `HunkHeader = 4`, and `Meta = 5`.** Existing values keep their numbers,
+  and only views built with `FromUnifiedDiff` produce the new ones.
+- **A focused, scrollable `DiffView` lists "Up/Down Scroll" in the status bar**, because it now implements
+  `IKeyHintSource` and `IFocusAware`. Set `ShowKeyHints = false` to keep the 1.9 bar.
+- **A click no longer moves focus to a bound widget that cannot take focus**: a disabled or hidden widget, or a
+  container with nothing focusable. Before, a click on a disabled `TextField` region focused it; now focus stays
+  where it was. This is also what keeps a `HeatMap` that is not selectable from taking focus.
+
 ## [1.9.0] - 2026-10-14
 
 A create or settings dialog needs more than labeled fields: headings, a hint under a field, the error shown where

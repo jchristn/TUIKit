@@ -604,6 +604,10 @@ When all the rows are already in memory, `Local` mode pages them for you and kee
 
 `FuzzyList<T>` is a picker as well as a filter: `Detail` shows an id or path after each label, `IsEnabled` lists entries that cannot be chosen right now, `MultiSelect` adds checkboxes, `ItemsProvider` computes the entries from the query (a "Create <query>" row, or a local lookup), and `ItemActivated` fires on Enter.
 
+#### Diffs and heat maps
+
+To show a patch that came from git or a server, use `DiffView.FromUnifiedDiff(patch)`: it styles file and hunk headers and metadata, keeps the `+` and `-` markers, lists `Files` for `NextFile` and `PreviousFile` (or `]` and `[` with `UseFileKeys`), adds a line-number gutter with `ShowLineNumbers`, and searches with `SetSearch` and F3. A `HeatMap` becomes interactive with `IsSelectable`; use `LevelCount` with distinct `LevelGlyphs` so it reads without color, `ShowLegend` to explain the levels, and `CellDescription` for tooltips. For activity over dates, `CalendarHeatMap` does the week and month arithmetic for you.
+
 Forward keys to a focused widget so it can navigate:
 
 ```csharp
