@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.9.0</Version>
-    <AssemblyVersion>1.9.0.0</AssemblyVersion>
-    <FileVersion>1.9.0.0</FileVersion>
+    <Version>1.10.0</Version>
+    <AssemblyVersion>1.10.0.0</AssemblyVersion>
+    <FileVersion>1.10.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -32,7 +32,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
     <PackageTags>tui;focus;accessibility;keyboard;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.9.0 - Forms and multi-step flows. Form gains section headings, field hints, errors drawn under each field (ValidateAll, ShowFieldErrors, ValidationMode), Submit and Cancel with keys and an optional Save/Cancel button row, labels beside fields, arrow keys between fields, and snapshot dirty tracking that notices a revert (IValueSnapshot on TextField, TextEditor, Checkbox, RadioGroup, Dropdown, ComboBox, and CheckList). The new Wizard widget runs a multi-step flow with a step header and list, per-step validation, optional and conditional steps, Back, Skip, Next, Finish, and Cancel, and Alt+arrow (and macOS Option+arrow) step keys; WizardModal hosts it in a dialog whose completion is a WizardOutcome. Additive; new behavior is opt-in. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.10.0 - Viewers. DiffView.FromUnifiedDiff shows a unified diff from git, a review API, or a patch file, with file and hunk headers and metadata (new DiffLineKind members), the files it covers with ] and [ navigation, a line-number gutter, search with F3, viewport paging, PlainText, and theme styles; hunk extents come from the @@ counts, quoted paths are unquoted, and malformed input renders literally. HeatMap gains an opt-in keyboard and mouse selection, discrete levels with their own glyphs and styles, a legend, wide cells, labels that span columns, cell descriptions as tooltips or a footer, selectable-cell and navigation hooks, and theme styles. The new CalendarHeatMap is a contribution calendar with month and weekday labels, day and week navigation, a legend, and a day description. Additive; the few visible changes are listed under Changed. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

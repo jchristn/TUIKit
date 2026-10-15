@@ -2281,7 +2281,9 @@ namespace TUIKit.Hosting
                 return false;
 
             // Click-to-focus is a side effect; it does not, by itself, swallow the event.
-            if (mouse.Kind == MouseEventKind.Press && hit.Widget is IFocusable && _FocusOrder.Contains(hit.RegionId))
+            // A widget that cannot take focus right now (disabled, hidden, or a container with nothing focusable,
+            // such as a HeatMap that is not selectable) does not take it from a click either.
+            if (mouse.Kind == MouseEventKind.Press && hit.Widget is IFocusable && FocusScope.IsFocusable(hit.Widget) && _FocusOrder.Contains(hit.RegionId))
                 SetFocusInternal(hit.RegionId);
 
             if (hit.Widget is IMouseAware aware)
