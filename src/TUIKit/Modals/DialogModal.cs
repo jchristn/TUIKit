@@ -255,6 +255,31 @@ namespace TUIKit.Modals
         }
 
         /// <summary>
+        /// Gets the widget a bracketed paste is offered to, or null (the default) to leave pastes
+        /// unconsumed as before. A subclass hosting a text field, or a <see cref="Widgets.Form"/> returns it here so pastes reach the focused field.
+        /// </summary>
+        protected virtual Widgets.IPasteTarget? PasteTarget
+        {
+            get { return null; }
+        }
+
+        /// <summary>
+        /// Offers a bracketed paste to <see cref="PasteTarget"/>. Subclasses that override this method keep
+        /// their own behavior.
+        /// </summary>
+        /// <param name="text">The pasted text. Must not be null.</param>
+        /// <returns><c>true</c> when the paste target consumed the paste; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
+        public override bool HandlePaste(string text)
+        {
+            if (text == null)
+                throw new ArgumentNullException(nameof(text));
+
+            Widgets.IPasteTarget? target = PasteTarget;
+            return target != null && target.HandlePaste(text);
+        }
+
+        /// <summary>
         /// Truncates text to a maximum column width, appending an ellipsis when it is clipped.
         /// </summary>
         /// <param name="text">The text to fit. Null is treated as empty.</param>

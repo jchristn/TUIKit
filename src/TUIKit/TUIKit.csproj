@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.7.0</Version>
-    <AssemblyVersion>1.7.0.0</AssemblyVersion>
-    <FileVersion>1.7.0.0</FileVersion>
+    <Version>1.8.0</Version>
+    <AssemblyVersion>1.8.0.0</AssemblyVersion>
+    <FileVersion>1.8.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -32,7 +32,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
     <PackageTags>tui;focus;accessibility;keyboard;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.7.0 - MarkdownView for real apps. The view scrolls from the keyboard (Up/Down, PageUp/PageDown, Home/End) with key hints, and is focusable with an opt-in Tab stop (IsFocusStop). UseThemeStyles makes it follow the app theme without painting theme backgrounds, and MarkdownRenderOptions.WithTheme and MarkdownStyles.FromTheme(theme, includeBackgrounds) do the same for direct renders, with ASCII glyphs on ASCII themes. SetSearch, FindNext, FindPrevious, and F3 search the rendered text, highlighted with the new Theme.SearchMatchRole (Pane follows it too). TailFollow keeps a growing document at its end with a new-below indicator. MarkdownRenderer.StreamingPrefix exposes the rule that holds back half-received table rows and unconfirmed headers while a reply streams, and MarkdownLayoutCache caches layouts for apps that draw Markdown in their own widgets. Additive; new behavior is opt-in, and the few visible changes are listed under Changed. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.8.0 - Text entry and data for real apps. TextField gains opt-in shell line-editing keys (Ctrl+A/E/U/K/W, Ctrl+Left/Right), a prefilled value the first key replaces (SelectAll), a reveal key for masked values, Enter to submit (Submitted), a grapheme length limit (MaxLength), and validation (Validator, Validate, Error). Pastes can reach the focused widget (IPasteTarget, TuiApplication.RoutePasteToFocus, DialogModal.PasteTarget). FuzzyList becomes a full picker: detail text, disabled items, multi-select, an items provider, Enter to choose, paste, line-editing keys, and theme styles. DataTable pages locally or one server page at a time (PagingMode, BindPage, PageRequested) with a paging bar, load and error states, retry, marks across pages, and DataTableLoader for the async plumbing; columns gain stable keys, visibility, a chooser, and a keyboard column cursor. Additive; new behavior is opt-in, and the few visible changes are listed under Changed. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

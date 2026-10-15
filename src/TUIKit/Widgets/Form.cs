@@ -23,7 +23,7 @@ namespace TUIKit.Widgets
     /// (<see cref="IFocusContainer"/>); set <see cref="WrapFocus"/> to false when it is nested so Tab at
     /// the last field moves on to the next sibling. Not thread-safe: use it from the UI loop.
     /// </remarks>
-    public sealed class Form : IWidget, IFocusable, IScrollExtent, IMouseAware, IFocusContainer, IFocusAware, IThemeable, IFocusPathNode
+    public sealed class Form : IWidget, IFocusable, IScrollExtent, IMouseAware, IFocusContainer, IFocusAware, IThemeable, IFocusPathNode, IPasteTarget
     {
         private readonly List<FormField> _Fields = new List<FormField>();
         private readonly FocusManager _Focus = new FocusManager();
@@ -352,6 +352,21 @@ namespace TUIKit.Widgets
         public bool HandleKey(KeyEvent key)
         {
             return _Focus.HandleKey(key);
+        }
+
+        /// <summary>
+        /// Offers a bracketed paste to the focused field when it is an <see cref="IPasteTarget"/>. Part of
+        /// <see cref="IPasteTarget"/>.
+        /// </summary>
+        /// <param name="text">The pasted text. Must not be null.</param>
+        /// <returns><c>true</c> when the focused field consumed the paste; otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
+        public bool HandlePaste(string text)
+        {
+            if (text == null)
+                throw new ArgumentNullException(nameof(text));
+
+            return FocusedLeaf is IPasteTarget target && !ReferenceEquals(target, this) && target.HandlePaste(text);
         }
 
         /// <inheritdoc/>

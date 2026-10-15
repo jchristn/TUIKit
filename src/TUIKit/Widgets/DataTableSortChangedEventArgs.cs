@@ -20,20 +20,40 @@ namespace TUIKit.Widgets
         public string? ColumnName { get; }
 
         /// <summary>
+        /// Gets the sorted column's <see cref="DataColumn{T}.Key"/>, or null when the sort was cleared. Equals
+        /// <see cref="ColumnName"/> for args built with the three-argument constructor.
+        /// </summary>
+        public string? ColumnKey { get; }
+
+        /// <summary>
         /// Gets a value indicating whether the sort is ascending.
         /// </summary>
         public bool Ascending { get; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DataTableSortChangedEventArgs"/> class, with
+        /// <see cref="ColumnKey"/> equal to <paramref name="columnName"/>.
+        /// </summary>
+        /// <param name="columnIndex">The column index, or -1.</param>
+        /// <param name="columnName">The column header, or null.</param>
+        /// <param name="ascending">Whether the sort is ascending.</param>
+        public DataTableSortChangedEventArgs(int columnIndex, string? columnName, bool ascending)
+            : this(columnIndex, columnName, columnName, ascending)
+        {
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataTableSortChangedEventArgs"/> class.
         /// </summary>
         /// <param name="columnIndex">The column index, or -1.</param>
         /// <param name="columnName">The column header, or null.</param>
+        /// <param name="columnKey">The column key, or null.</param>
         /// <param name="ascending">Whether the sort is ascending.</param>
-        public DataTableSortChangedEventArgs(int columnIndex, string? columnName, bool ascending)
+        public DataTableSortChangedEventArgs(int columnIndex, string? columnName, string? columnKey, bool ascending)
         {
             ColumnIndex = columnIndex;
             ColumnName = columnName;
+            ColumnKey = columnKey;
             Ascending = ascending;
         }
     }

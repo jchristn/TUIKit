@@ -17,7 +17,7 @@ namespace TUIKit.Widgets
     /// scroll horizontally to keep the caret visible.
     /// </summary>
     /// <remarks>Not thread-safe: use it from the UI loop.</remarks>
-    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, ITextEntryKeys, IKeyHintSource
+    public sealed class TextEditor : IWidget, IFocusable, IFocusAware, IMouseAware, IEnableable, IChangeNotifier, IThemeable, ITextEntry, ITextEntryKeys, IKeyHintSource, IPasteTarget
     {
         private readonly List<string> _Lines = new List<string> { string.Empty };
         private readonly Stack<EditorSnapshot> _Undo = new Stack<EditorSnapshot>();
@@ -365,6 +365,24 @@ namespace TUIKit.Widgets
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Inserts pasted text through <see cref="InsertText"/>. Part of <see cref="IPasteTarget"/>.
+        /// </summary>
+        /// <param name="text">The pasted text. Must not be null.</param>
+        /// <returns><c>true</c> when the editor accepts text (enabled and not read-only); otherwise <c>false</c>.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
+        public bool HandlePaste(string text)
+        {
+            if (text == null)
+                throw new ArgumentNullException(nameof(text));
+
+            if (!AcceptsText)
+                return false;
+
+            InsertText(text);
+            return true;
         }
 
         /// <summary>

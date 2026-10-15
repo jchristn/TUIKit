@@ -24,6 +24,35 @@ namespace TUIKit.Widgets
         public string Name { get; }
 
         /// <summary>
+        /// Gets the stable column key: the field name a server sorts by and the id a saved column layout uses.
+        /// Set through the keyed constructor and fixed afterwards, so it cannot change after a table has
+        /// checked it for uniqueness; the other constructor sets it to <see cref="Name"/>. Never null.
+        /// </summary>
+        public string Key { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether <see cref="Key"/> was given explicitly (the keyed constructor) rather
+        /// than defaulted to <see cref="Name"/>. <see cref="DataTable{T}.Column(DataColumn{T})"/> enforces unique
+        /// keys only where an explicit key is involved, so 1.7 tables with duplicate headers keep working.
+        /// </summary>
+        public bool HasExplicitKey { get; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the column is shown. Defaults to true. A hidden column takes
+        /// no width, is skipped by layout, header clicks, and the column cursor, and keeps its sort (the
+        /// indicator is not drawn). Prefer <see cref="DataTable{T}.SetColumnVisible"/>, which refuses to hide a
+        /// column with <see cref="CanHide"/> false or the last visible column and raises
+        /// <see cref="DataTable{T}.ColumnsChanged"/>; this setter does neither.
+        /// </summary>
+        public bool Visible { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the user may hide the column. Defaults to true. A column with
+        /// false is left out of <see cref="DataTable{T}.CreateColumnChooser"/> and stays visible.
+        /// </summary>
+        public bool CanHide { get; set; } = true;
+
+        /// <summary>
         /// Gets the selector returning the cell text for a row. Never null.
         /// </summary>
         public Func<T, string> Value { get; }
@@ -115,7 +144,28 @@ namespace TUIKit.Widgets
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Value = value ?? throw new ArgumentNullException(nameof(value));
+            Key = name;
             Sortable = sortable;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DataColumn{T}"/> class with an explicit key, separate from
+        /// the header so a translated header never changes the sort key.
+        /// </summary>
+        /// <param name="key">The stable key. Must not be null or empty.</param>
+        /// <param name="name">The header. Must not be null.</param>
+        /// <param name="value">The cell text selector. Must not be null.</param>
+        /// <param name="sortable">Whether the column can be sorted.</param>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is null or empty.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="name"/> or <paramref name="value"/> is null.</exception>
+        public DataColumn(string key, string name, Func<T, string> value, bool sortable = false)
+            : this(name, value, sortable)
+        {
+            if (string.IsNullOrEmpty(key))
+                throw new ArgumentException("A column key must not be null or empty.", nameof(key));
+
+            Key = key;
+            HasExplicitKey = true;
         }
 
         /// <summary>

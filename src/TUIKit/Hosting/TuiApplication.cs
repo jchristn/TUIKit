@@ -784,9 +784,22 @@ namespace TUIKit.Hosting
         public event Action<KeyEvent>? KeyReceived;
 
         /// <summary>
-        /// Raised for a bracketed-paste event.
+        /// Raised for a bracketed-paste event that no modal consumed and, while
+        /// <see cref="RoutePasteToFocus"/> is on, that the focused widget did not consume.
         /// </summary>
         public event Action<string>? PasteReceived;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether a bracketed paste outside a modal is offered first to the
+        /// focused widget. When true, the paste goes to the focused region's leaf when it is an
+        /// <see cref="IPasteTarget"/> (a <see cref="TextField"/>, <see cref="TextEditor"/>, or
+        /// <see cref="FuzzyList{T}"/>), or else to the region's widget when that is one (a <see cref="Form"/>
+        /// forwards to its focused field); <see cref="PasteReceived"/> is raised only when neither consumes it.
+        /// Defaults to false, the 1.7 behavior, where every paste outside a modal goes to
+        /// <see cref="PasteReceived"/>, so an app that routes pastes itself is unaffected. Read and set on the
+        /// UI thread.
+        /// </summary>
+        public bool RoutePasteToFocus { get; set; }
 
         /// <summary>
         /// Raised for a mouse event that no bound widget consumed. With hover tracking on
@@ -2080,7 +2093,22 @@ namespace TUIKit.Hosting
                 return;
             }
 
+            if (RoutePasteToFocus && OfferPasteToFocus(text))
+                return;
+
             PasteReceived?.Invoke(text);
+        }
+
+        private bool OfferPasteToFocus(string text)
+        {
+            IFocusable? focused = FocusedWidget;
+            if (focused == null)
+                return false;
+
+            if (focused is IFocusContainer container && container.FocusedLeaf is IPasteTarget leaf && !ReferenceEquals(leaf, focused))
+                return leaf.HandlePaste(text);
+
+            return focused is IPasteTarget target && target.HandlePaste(text);
         }
 
         private void DispatchKey(KeyEvent key)
