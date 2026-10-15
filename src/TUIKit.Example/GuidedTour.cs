@@ -287,6 +287,8 @@ namespace TUIKit.Example
             }
 
             Draw(surface);
+            if (_App.Modals.Count > 0)
+                _App.Modals.Render(surface);
             return TUIKit.Testing.Snapshot.ToText(buffer);
         }
 
@@ -1333,6 +1335,25 @@ namespace TUIKit.Example
                     "",
                     "table.Column(\"size\", \"Size KB\", r => ...);",
                     "app.ShowAsync(table.CreateColumnChooser(\"Columns\"));"
+                }));
+
+            pages.Add(new TourPage(
+                "Forms and flows",
+                "[bold]Ctrl+S[/] saves, [bold]Esc[/] cancels, edits then a revert clear [bold]* unsaved[/]. [bold]F4[/] opens a setup wizard; [bold]F5-F9[/] switch features.",
+                new FormDemoWidget(app),
+                new[]
+                {
+                    "form.AddSection(\"Project\");",
+                    "form.Add(\"Prefix\", prefix, ValidatePrefix);",
+                    "form.SetFieldHint(1, \"Prefix for branches\");",
+                    "form.LabelPlacement = FormLabelPlacement.Left;",
+                    "form.ShowFieldErrors = true;",
+                    "form.ShowButtons = true;   // Save, Cancel",
+                    "form.SubmitKey = KeyChord.Parse(\"ctrl+s\");",
+                    "form.DirtyTracking = FormDirtyTracking.Snapshot;",
+                    "",
+                    "Wizard w = new Wizard(steps);",
+                    "await app.ShowAsync(new WizardModal(\"New\", w));"
                 }));
 
             return pages;

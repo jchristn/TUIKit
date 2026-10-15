@@ -26,7 +26,11 @@ provider on **F8**), and **Server-backed tables** (a `DataTable` over a simulate
 delay: `<` and `>` page, `f` fails the next load, **F5** retries, Space marks rows across pages, `c` opens the
 column chooser, `k` turns on the column cursor with `s` and `S` to sort, `z` cycles the page size, and `m`
 switches to local paging). While a text-entry page is focused it gets first refusal on the keys it would type,
-so `?` or Ctrl+K reach the field, and a paste goes to it.
+so `?` or Ctrl+K reach the field, and a paste goes to it. The last page covers 1.9: **Forms and flows** (a settings `Form` with sections, a
+hint, labels beside the fields, errors under each field, **Ctrl+S** and **Esc**, Save and Cancel buttons, Up/Down
+between fields, and snapshot dirty tracking, so `* unsaved` goes away when you put a value back; **F5** to **F9**
+switch label placement, error display, validation mode, dirty tracking, and arrow keys, and **F4** opens a
+three-step `WizardModal` whose Repository step appears only when "Import an existing repository" is checked).
 
 Global keys open live UI on top of the tour:
 
