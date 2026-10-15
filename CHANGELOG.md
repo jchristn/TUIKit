@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-14
+
+An app that reaches a login screen, a picker, or a list backed by a server soon finds that TUIKit's
+`TextField`, `FuzzyList`, and `DataTable` stop short, and replaces them with its own. Armada did, seven times.
+This release adds the general capabilities those replacements carried: the editing, prefill, reveal, submit,
+limit, and validation a text field needs; the detail, disabled items, checkboxes, and computed results a picker
+needs; and paging, load states, and column control for a server-backed table. It is the first of three
+releases planned in `NEW_CAPABILITIES.md` (1.9 adds forms and multi-step flows, 1.10 viewers). Everything new
+is opt-in where it would change how a 1.7 app looks, which keys it consumes, or how focus moves.
+
+### Added
+- **Line-editing keys for `TextField`.** `UseLineEditingKeys` (default false) turns on Ctrl+A and Ctrl+E (start
+  and end), Ctrl+U and Ctrl+K (delete to either end), Ctrl+W (delete the word before the caret), and Ctrl+Left
+  and Ctrl+Right (move by word). Words are whitespace-separated runs of graphemes. `ConsumesChord` reports
+  exactly these chords, so the status bar hides hints the field would swallow.
+- **Prefill selection.** `SelectAll`, `ClearSelection`, `IsAllSelected`, and `SelectionStyle`: after
+  `field.Value = remembered; field.SelectAll();` the first key or paste replaces the value, Backspace and Delete
+  clear it, and caret movement keeps it.
+- **Reveal, submit, limit, and validation.** `IsRevealed` and `RevealKey` (default none; Ctrl+R is the common
+  choice) show a masked value as typed. `Submitted` is raised on Enter, which is consumed only while a handler is
+  attached. `MaxLength` limits typing and pastes in graphemes but never truncates a programmatic `Value`.
+  `Validator`, `Validate`, `Error`, `ErrorChanged`, `ValidateOnChange`, and `ErrorStyle` validate the value; the
+  field never draws the message itself. The field lists its Show/Hide and Submit keys as hints only when they are
+  in use.
+- **Paste to the focused widget.** New `IPasteTarget`, implemented by `TextField`, `TextEditor`, `FuzzyList`,
+  and `Form` (which forwards to its focused field). `TuiApplication.RoutePasteToFocus` (default false) offers a
+  paste outside a modal to the focused field before raising `PasteReceived`. `DialogModal` gains a protected
+  `PasteTarget` (default null) that its `HandlePaste` offers pastes to, so a custom dialog with a field accepts
+  pastes in one line.
+- **`FuzzyList` pickers.** `Detail` draws secondary text after each label (truncated first when narrow) and
+  `SearchDetail` matches it. `IsEnabled` lists items that cannot be chosen; navigation and clicks skip them.
+  `MultiSelect` adds checkboxes (Space toggles, Ctrl+A checks all) with `CheckedItems`, `IsChecked`,
+  `SetChecked`, `CheckedChanged`, `CheckedGlyph`, `UncheckedGlyph`, and a constructor that takes an item
+  comparer. `ItemsProvider` computes the items from the query (for a "Create <query>" entry or a lookup), and
+  `ProviderFailed` reports a provider that throws. `ItemActivated` is raised on Enter (consumed only with a
+  handler) or a double click. `Insert` and `HandlePaste` append to the query, `UseLineEditingKeys` adds Ctrl+U
+  and Ctrl+W, and `QueryPrompt`, `QueryStyle`, `NormalStyle`, `DisabledStyle`, `DetailStyle`, `CheckStyle`, and
+  `UseThemeStyles` (default false) style it.
+- **`DataTable` paging.** `PagingMode` (`None` by default, `Local`, or `Remote`), `PageSize`, `PageSizes`,
+  `PageNumber`, `PageCount`, `TotalRows`, `GoToPage`, `NextPage`, `PreviousPage`, `SetPageSize`, and
+  `CyclePageSize`. In `Local` mode the table pages the bound rows and every index stays absolute. In `Remote`
+  mode the app binds one page at a time with `BindPage`, the table raises `PageRequested` with a
+  `DataTablePageRequest` (page, size, offset, and sort column key) for every page move, size change, and sort,
+  and `CurrentRequest` gives the first request. With `KeySelector`, marks survive paging (`MarkedKeys`). A
+  paging bar (`ShowPagingBar`, `PagingFormat`, `UnknownTotalFormat`, `PagingBarStyle`) reads "Showing 26-50 of
+  248. Page 2 of 10." with clickable `<` and `>`. `NextPageKey`, `PreviousPageKey` (default none), and
+  `PageAtEdges` add keys.
+- **Load states.** `State` (`Ready`, `Loading`, `Error`), `SetLoading`, `SetError`, `ErrorMessage`,
+  `LoadingText`, `RefreshingText`, `ErrorFormat`, `ErrorStyle`, and `RetryKey` with `RetryRequested`: an empty
+  table that is loading says so instead of showing `EmptyText`, rows being refreshed stay on screen, and a failed
+  load shows its message. Any bind returns to `Ready`.
+- **`DataTableLoader<T>`.** Answers `PageRequested` and `RetryRequested` with your async load delegate, cancels a
+  superseded load, drops late results, marshals table calls through a post delegate such as `app.Post`, and
+  turns exceptions into the error state (`ErrorText`, `LoadFailed`). `DataTablePage<T>` carries a page's rows
+  and total.
+- **Column keys, visibility, and a column cursor.** `DataColumn<T>` gains a keyed constructor (`Key`,
+  `HasExplicitKey`), `Visible`, and `CanHide`; `DataTable.Column(key, name, value, sortable)`,
+  `SortByColumn(key, ascending)`, `VisibleColumns`, `SetColumnVisible`, `SetVisibleColumns`, and
+  `ColumnsChanged` manage them, and `DataTableSortChangedEventArgs.ColumnKey` reports the key.
+  `CreateColumnChooser` builds a `MultiSelectModal` of the hideable columns and `ApplyColumnChooser` applies it.
+  `ShowColumnCursor` (default false) lets Left and Right move a focused column (`FocusedColumn`,
+  `FocusedHeaderStyle`), and `SortKey` and `ReverseSortKey` sort by it from the keyboard.
+- **Example.** Three tour pages: "Text fields that log in" (a sign-in form with a selected remembered user, a
+  token with Ctrl+R reveal, validation, and F5 to F9 switching each feature), "Pickers" (detail, a disabled
+  package, checkboxes, and a "Create <query>" provider), and "Server-backed tables" (a simulated 1,000-row
+  server with a 300 ms delay, a fail-next-load key, retry, marks across pages, a column chooser, a column
+  cursor, and a local mode). The tour now gives a focused text-entry demo first refusal on the keys it would
+  type, and routes pastes to it.
+
+### Changed
+- **A masked `TextField` draws one mask character per grapheme** instead of one per UTF-16 code unit, so an
+  emoji in a password shows as one `*`, and the caret lands under the right cell.
+- **`FuzzyList` Backspace removes the last grapheme** instead of the last UTF-16 code unit, so it never leaves
+  half a surrogate pair in the query.
+- **`FuzzyList` implements `ITextEntry`**, so the key-hint resolver stops advertising single-letter shortcuts
+  while a focused list would type them into its query.
+- **A focused `FuzzyList` lists "Up/Down Move" in the status bar**, because it now implements
+  `IKeyHintSource`. Set `ShowKeyHints = false` to keep the 1.7 bar.
+- **`FuzzyList` Down on an empty list keeps the selection at 0** instead of setting it to -1 internally; no
+  public member reported the difference.
+
 ## [1.7.0] - 2026-10-14
 
 1.6 gave TUIKit a width-aware Markdown engine and a `MarkdownView` to show it, but the view was only a display

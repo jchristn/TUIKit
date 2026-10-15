@@ -4,6 +4,23 @@
 
 This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
+## 1.8.0 additions
+
+The 1.8.0 work (items C1 to C4 of `NEW_CAPABILITIES.md`) added the public surface below, each with positive and negative Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **1052 console cases** (1053 through the xUnit/NUnit wrappers), all green. The 976 cases that existed at 1.7.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **84.9%**; the new and changed files (`TextField`, `FuzzyList`, `DataTable`, `DataColumn`, `DataTableLoader`, `DataTablePage`, `DataTablePageRequest`, `DataTableSortChangedEventArgs`, `TextWords`) are at **91.4%**.
+
+| New/changed public surface | Test suite |
+|---|---|
+| `TextField.UseLineEditingKeys`, `RevealKey`, `IsRevealed`, `Submitted`, `ConsumesChord` (Enter and the new chords), `GetKeyHints` (`IKeyHintSource`), per-grapheme masking and caret mapping | `TextFieldEditing` |
+| `TextField.SelectAll`, `ClearSelection`, `IsAllSelected`, `SelectionStyle`, `MaxLength`, `Insert` with a selection and a limit | `TextFieldPrefill` |
+| `TextField.Validator`, `Validate`, `Error`, `ErrorChanged`, `ValidateOnChange`, `ErrorStyle` | `TextFieldValidation` |
+| `IPasteTarget`; `TextField`, `TextEditor`, and `Form` `HandlePaste`; `TuiApplication.RoutePasteToFocus`; `DialogModal.PasteTarget` and `HandlePaste` | `PasteRouting` |
+| `FuzzyList` styles (`QueryStyle`, `NormalStyle`, `DisabledStyle`, `DetailStyle`, `CheckStyle`, `QueryPrompt`), `UseThemeStyles` and `ApplyTheme` (`IThemeable`), grapheme Backspace, `Insert`, `HandlePaste`, `AcceptsText`, `UseLineEditingKeys`, `ConsumesChord`, `LeaveHint`, `Detail`, `SearchDetail`, `IsEnabled`, `ItemsProvider`, `ProviderFailed`, `ItemActivated`, `ShowKeyHints`, `GetKeyHints`, 1.7 default rendering | `FuzzyListPicker` |
+| `FuzzyList.MultiSelect`, `CheckedItems`, `IsChecked`, `SetChecked`, `CheckedChanged`, `CheckedGlyph`, `UncheckedGlyph`, the comparer constructor | `FuzzyListMultiSelect` |
+| `DataTablePagingMode`, `DataTable.PagingMode`, `PageSize`, `PageSizes`, `PageNumber`, `PageCount`, `TotalRows`, `GoToPage`, `NextPage`, `PreviousPage`, `SetPageSize`, `CyclePageSize`, `BindPage`, `PageRequested`, `CurrentRequest`, `DataTablePageRequest`, `MarkedKeys`, `ShowPagingBar`, `PagingFormat`, `UnknownTotalFormat`, `PagingBarStyle`, `NextPageKey`, `PreviousPageKey`, `PageAtEdges`, `EndReached` silence while paging, 1.7 rendering with `None` | `DataTablePaging` |
+| `DataTableState`, `DataTable.State`, `SetLoading`, `SetError`, `ErrorMessage`, `LoadingText`, `RefreshingText`, `ErrorFormat`, `ErrorStyle`, `RetryKey`, `RetryRequested` | `DataTableLoadState` |
+| `DataTableLoader<T>` (`LoadAsync`, `Reload`, `IsLoading`, `ErrorText`, `LoadFailed`, `Dispose`), `DataTablePage<T>` | `DataTableLoader` |
+| `DataColumn.Key`, `HasExplicitKey`, `Visible`, `CanHide`, the keyed constructor; `DataTable.Column(key, name, value, sortable)`, `SortByColumn(string, bool)`, `VisibleColumns`, `SetColumnVisible`, `SetVisibleColumns`, `ColumnsChanged`, `CreateColumnChooser`, `ApplyColumnChooser`, `ShowColumnCursor`, `FocusedColumn`, `FocusedHeaderStyle`, `SortFocusedColumn`, `SortKey`, `ReverseSortKey`; `DataTableSortChangedEventArgs.ColumnKey` and its four-argument constructor | `DataTableColumns` |
+
 ## 1.7.0 additions
 
 The 1.7.0 work (see `archive/MARKDOWN_VIEW_IMPROVEMENTS.md`) added the public surface below, each with positive and negative Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **976 console cases** (977 through the xUnit/NUnit wrappers), all green. The 934 cases that existed at 1.6.0 pass, with one expectation updated for the intended change (`MarkdownView` wheel scrolling now clamps at once). Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **84.2%**; the new and changed files (`MarkdownView`, `MarkdownLayoutCache`, `SearchHighlighter`, `MarkdownRenderer`, `MarkdownRenderOptions`, `MarkdownStyles`) are at **96.7%**.

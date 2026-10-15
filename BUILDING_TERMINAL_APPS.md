@@ -316,6 +316,8 @@ app.MouseReceived += m =>
 
 Mouse decoding is SGR (1006), so coordinates beyond column 223 work. Double/triple clicks are synthesized from timing via `ClickSynthesizer`.
 
+To let a paste land in whatever field has focus, set `app.RoutePasteToFocus = true`: a paste outside a modal goes to the focused region's field when it is an `IPasteTarget` (`TextField`, `TextEditor`, `FuzzyList<T>`, or a `Form`, which forwards to its focused field), and `PasteReceived` is raised only when nothing took it. A dialog of your own that derives from `DialogModal` overrides `PasteTarget` to return its field, and pastes reach it too.
+
 `KeyReceived`, `PasteReceived`, and `MouseReceived` are the raw escape hatches — they always work. But for a standard interactive app you rarely need them: the host wires focus, key precedence, and mouse hit-testing for you, described next.
 
 ### The interaction contract (focus, precedence, and mouse)
@@ -578,6 +580,30 @@ picker.Query = "recmd";
 string? chosen = picker.SelectedItem;
 ```
 
+#### Server-backed lists
+
+A list that lives on a server is read one page at a time. Put the table in `Remote` paging mode, give its columns keys the server understands, and let a `DataTableLoader<T>` do the async part: it calls your delegate for each `PageRequested` (a page move, a page-size change, or a sort), cancels the load a newer one supersedes, drops late results, and posts the result to the UI thread. While a page loads the table says "Loading..." (or keeps the rows and says "Refreshing..."), and a failed load shows its message with the retry key.
+
+```csharp
+DataTable<Job> jobs = new DataTable<Job>()
+    .Column("id", "Id", j => j.Id.ToString(), sortable: true)
+    .Column("name", "Name", j => j.Name, sortable: true);
+jobs.PagingMode = DataTablePagingMode.Remote;
+jobs.KeySelector = j => j.Id.ToString();   // marks survive paging
+jobs.RetryKey = KeyChord.Parse("f5");
+
+using DataTableLoader<Job> loader = new DataTableLoader<Job>(jobs,
+    (request, ct) => api.PageAsync(request.Offset, request.PageSize, request.SortColumnKey, request.SortAscending, ct),
+    app.Post);
+loader.Reload();
+```
+
+When all the rows are already in memory, `Local` mode pages them for you and keeps every index absolute. Wide tables can let the user choose columns: `CreateColumnChooser` returns a `MultiSelectModal` to show, `ApplyColumnChooser` applies it, and `SetVisibleColumns` restores a saved layout by key. `ShowColumnCursor` with `SortKey` and `ReverseSortKey` sorts from the keyboard.
+
+#### Pickers
+
+`FuzzyList<T>` is a picker as well as a filter: `Detail` shows an id or path after each label, `IsEnabled` lists entries that cannot be chosen right now, `MultiSelect` adds checkboxes, `ItemsProvider` computes the entries from the query (a "Create <query>" row, or a local lookup), and `ItemActivated` fires on Enter.
+
 Forward keys to a focused widget so it can navigate:
 
 ```csharp
@@ -622,6 +648,8 @@ var field  = new TextField { Value = "name" };     // single line
 var check  = new Checkbox("verbose", isChecked: true);
 var radio  = new RadioGroup(new[] { "Dark", "Light", "High-contrast" });
 ```
+
+A `TextField` covers sign-in and settings screens once you turn its options on: `UseLineEditingKeys` adds the shell keys (Ctrl+A/E, Ctrl+U/K, Ctrl+W, Ctrl+Left/Right), `SelectAll` after setting a remembered `Value` makes the first key replace it, `RevealKey` toggles a masked value, `Submitted` fires on Enter, `MaxLength` limits input in graphemes, and `Validator` with `Validate` and `Error` checks the value. The field never draws its error; show `Error` under it yourself.
 
 Widget colors are configurable. `TextEditor` and `TextField` expose a `NormalStyle` that paints both
 the surface fill and the text (the caret inverts against it), so you can give an editor a solid

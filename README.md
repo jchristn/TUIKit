@@ -50,11 +50,11 @@ It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`. The modern targets a
 - **Mouse, links, and selection.** Full pointer support: click-to-focus, single/double/triple click synthesis, drag, vertical **and horizontal** wheel, and **hover** - any-motion tracking (on by default, with per-frame move coalescing) delivers `Enter`/`Leave` events synthesized from a per-frame hit-test map, so widgets highlight under the pointer. Terminal **focus reporting** (`TerminalFocusChanged`) lets an app dim itself when the window blurs. Virtual links get per-frame hit-testing, a security allowlist for auto-linkification, hover tracking (`LinkHovered` for status-bar URL previews), OSC 8 hyperlink emission, and keyboard link hints; text selection and OSC 52 clipboard copy work over SSH. A one-key toggle hands the mouse back to the terminal for native drag-select, and `MouseTrackingMode` drops to drag-only or off for chatty links. See [Mouse support by environment](#mouse-support-by-environment) for the exact matrix.
 - **A host-owned interaction contract.** The host wires the interactive skeleton for you: a **focus ring** across bound focusable widgets (`Focus`, `FocusNext`/`FocusPrevious`, `FocusChanged`, `Tab` traversal, `FocusContext` that follows focus), an explicit **key-precedence chain** (modal → pre-filter → focus-scoped commands → focused-widget first refusal → global commands → fallback), **click-to-focus** and wheel routing from a per-frame hit-test map, and application-shell **dock layout helpers** (`DockTop`/`DockBottom`/`DockLeft`/`DockRight`/`Fill`). Focus is always visible when you want it: `HighlightFocusedRegion` gives the focused region a heavy frame without shifting content (neighbouring frames can share one line with proper tee and cross joins), `CurrentFocusPath` names every container between the region and the focused widget, and `BindKeyHints` makes a status bar list the keys that work for whatever has focus, hiding single-letter shortcuts while a text field would type them, and the keys a text field swallows (Enter and the arrows in an editor). A `/` hint can stay while typing (`KeyHint.WhileTyping`), and `?` Help can read `F1` Help instead (`WithTypingAlternative`). Hidden or empty widgets drop out of the Tab order, and focus resting on a widget that disappears moves to its neighbour on the next frame (`FocusScope.RepairFocus`). Toolbars and status chips can stay clickable without being Tab stops (`IFocusStop`). A focused frame that shares a line with a neighbour is drawn whole in its own weight, so it reads as one shape. It's all additive - the raw `KeyReceived`/`MouseReceived`/`RenderOverlay` hooks still work.
 - **Modals, notifications, and prompts.** A focus-trapping modal stack with awaitable, **typed** results (`ShowAsync<T>`, plus `ConfirmAsync` / `PromptAsync` / `SelectAsync`), a reusable `DialogModal` base that auto-sizes a centered box with a title and footer hint so custom dialogs stop hand-rolling geometry, a `MultiSelectModal<T>` for choosing several options, a `Post(Action)` loop scheduler for marshalling continuations back onto the UI thread, non-focus-stealing toasts, and a global focus manager for `Tab` order.
-- **A broad widget toolkit.** Inputs (text field with optional character masking for secret entry such as passwords and tokens, multi-line editor with undo and a kill ring, checkbox, radio group, forms); selection (`CheckList<T>` multi-select, sortable virtualized `DataTable<T>`, tree, tabs, fuzzy finder, list); navigation (menu bar, file browser, scroll view, collapsible section, status bar); status and feedback (a `DefinitionList` labeled-value panel, `ActivityIndicator` working line, gauge, sparkline, progress bar, spinner, concurrent multi-task progress); a `Rule` divider; plus a user-editable key-binding editor.
+- **A broad widget toolkit.** Inputs (text field with masking and a reveal key for secrets, shell line-editing keys, prefill selection, a length limit, validation, and Enter to submit, multi-line editor with undo and a kill ring, checkbox, radio group, forms); selection (`CheckList<T>` multi-select, sortable virtualized `DataTable<T>`, tree, tabs, fuzzy finder, list); navigation (menu bar, file browser, scroll view, collapsible section, status bar); status and feedback (a `DefinitionList` labeled-value panel, `ActivityIndicator` working line, gauge, sparkline, progress bar, spinner, concurrent multi-task progress); a `Rule` divider; plus a user-editable key-binding editor.
 - **Framed screens.** `FramedStack` frames every pane of a screen with shared lines, sizes them with `StackSize.Fixed`, `Weighted`, and `Min`, nests into grids, routes clicks and Tab between panes, and opens an overlay drawer that takes focus. `TabStrip` is a tab strip without content for apps that route tab content themselves, and bracket markers (`TabFocusPrefix`/`TabFocusSuffix`) keep tabs in place when focus moves.
-- **Nested focus, change events, and form controls.** `FocusScope` and `IFocusContainer` give hierarchical focus: tabs, split panes, scroll views, collapsible sections, button rows, and forms route keys to their children and Tab moves through nested scopes. Inputs and pickers raise change events (also for programmatic sets) and support disabled and read-only states; forms hide rows and track dirty state. `Button`, wrapping `ButtonRow`, `Dropdown<T>`, `ComboBox`, `ContextMenu`, `Badge`, and pointer tooltips (`ITooltipProvider`) round out the controls, and `DataTable<T>` offers sized and aligned columns, typed sorting with header indicators and header clicks, server-side sort, multi-select, per-cell styles, and a paging hook.
+- **Nested focus, change events, and form controls.** `FocusScope` and `IFocusContainer` give hierarchical focus: tabs, split panes, scroll views, collapsible sections, button rows, and forms route keys to their children and Tab moves through nested scopes. Inputs and pickers raise change events (also for programmatic sets) and support disabled and read-only states; forms hide rows and track dirty state. `Button`, wrapping `ButtonRow`, `Dropdown<T>`, `ComboBox`, `ContextMenu`, `Badge`, and pointer tooltips (`ITooltipProvider`) round out the controls, and `DataTable<T>` offers sized and aligned columns, typed sorting with header indicators and header clicks, server-side sort, multi-select, per-cell styles, local and server paging with load and error states (`DataTableLoader<T>` does the async plumbing), and column keys, visibility, a chooser, and a keyboard column cursor.
 - **Theme-aware widgets and a notification center.** Opt in with `ApplyThemeToWidgets` and every bound widget, modal, toast, tooltip, and Markdown style follows the active theme. Toasts can carry titles and action buttons, wrap over several lines, be dismissed by click, coalesce repeats into one toast with a count (by action key or label, so a fresh lambda per call still coalesces, or by an explicit `CoalesceKey`), carry a text severity label so severity is never color alone, leave room for a header bar (`TopOffset`), run the newest toast's action from a key (`InvokeLatestNotificationAction`), and stay in a notification history (`ShowNotificationHistoryAsync`). A built-in command palette (`ShowCommandPaletteAsync`) and key-help overlay (`ShowKeyHelpAsync`) work from a `CommandRegistry`.
-- **Selection and editing lists.** Generic `ListView<T>` and `FuzzyList<T>` return the selected object (not a string), `ActionListView<T>` gives rows keyboard actions with a typed result, and `ReorderableList<T>` moves and removes items in place. Custom-drawn rows can carry clickable `InlineButton`s resolved by a `ClickRegionMap<TAction>`, which stays correct when the content scrolls.
+- **Selection and editing lists.** Generic `ListView<T>` and `FuzzyList<T>` return the selected object (not a string), and `FuzzyList<T>` adds detail text, disabled entries, checkboxes, and a query-driven items provider for pickers; `ActionListView<T>` gives rows keyboard actions with a typed result, and `ReorderableList<T>` moves and removes items in place. Custom-drawn rows can carry clickable `InlineButton`s resolved by a `ClickRegionMap<TAction>`, which stays correct when the content scrolls.
 - **Command surfaces and typeahead.** A `CommandRegistry` drives key bindings, a grouped menu bar, a fuzzy command palette, and a `/slash` router from one command list, and an `AutocompleteOverlay` (with a pluggable `ISuggestionProvider`) shows caret-anchored suggestions for any text input.
 - **Streaming and text helpers.** A `StreamingTranscript` that projects streamed text and keyed in-place status lines onto a pane (finalizing each block as Markdown, or with `RenderOptions` set, as one block that reflows with the pane), plus `HintText` footer wrapping, `ColumnFormatter` column alignment, and a `SubmitKeyResolver` that settles the cross-terminal Enter-vs-newline question for multi-line editors.
 - **Charts, diffs, and images.** Braille line and bar charts, a sparkline, and three distribution widgets - a `BoxPlotChart` (horizontal box-and-whisker over a caller-supplied five-number summary such as min / avg / p95 / p99 / max), a `Histogram` (bucketed frequency with the eighth-block ramp, live via `Push`), and a `HeatMap` (a grid of cells shaded by magnitude) - plus a diff viewer with syntax highlighting, FIGlet-style banners, a color picker, and image rendering - half-block on any terminal, sixel or kitty where supported.
@@ -98,7 +98,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.7.0" />
+<PackageReference Include="TUIKit" Version="1.8.0" />
 ```
 
 ## Quick start
@@ -180,6 +180,56 @@ app.Bind("F2", () => screen.Overlay = screen.Overlay == null ? pinned : null); /
 ```
 
 The nested stack joins its lines with the outer one, so the two form a grid with proper tees.
+
+### Text entry, pickers, and server-backed tables
+
+A login, settings, or create screen needs more from a text field than typing. Every feature below is opt-in, so a 1.7 field behaves the same until you turn it on:
+
+```csharp
+TextField user = new TextField { UseLineEditingKeys = true };  // Ctrl+A/E, Ctrl+U/K, Ctrl+W, Ctrl+Left/Right
+user.Value = settings.LastUser;
+user.SelectAll();                                               // the first key replaces the remembered value
+
+TextField token = new TextField { MaskChar = '*', MaxLength = 64, RevealKey = KeyChord.Parse("ctrl+r") };
+token.Validator = v => v.Length < 20 ? "Paste the whole token" : null;
+token.Submitted += (s, e) => { if (token.Validate()) SignIn(user.Value, token.Value); };  // Enter, only with a handler
+
+app.RoutePasteToFocus = true;                                   // a paste lands in the focused field
+```
+
+`FuzzyList<T>` covers pickers and command palettes: secondary text, entries that cannot be chosen, checkboxes, and results computed from the query.
+
+```csharp
+FuzzyList<Package> picker = new FuzzyList<Package>(packages, p => p.Name)
+{
+    Detail = p => p.Version,                                    // drawn after the name, truncated first
+    IsEnabled = p => !p.Deprecated,                             // listed dim; navigation skips it
+    MultiSelect = true,                                         // Space checks, Ctrl+A checks all
+    ItemsProvider = q => Search(q),                             // e.g. add a "Create <query>" entry
+};
+picker.ItemActivated += (s, p) => Install(picker.CheckedItems);
+```
+
+`DataTable<T>` pages a list that lives on a server, shows when it is loading or failed, and lets the user pick columns. `DataTableLoader<T>` does the async part: it cancels a superseded fetch, ignores late results, and posts results back to the UI thread.
+
+```csharp
+DataTable<Job> jobs = new DataTable<Job>()
+    .Column("id", "Id", j => j.Id.ToString(), sortable: true)   // the key is what the server sorts by
+    .Column("status", "Status", j => j.Status, sortable: true);
+jobs.PagingMode = DataTablePagingMode.Remote;                   // "Showing 26-50 of 248. Page 2 of 10."
+jobs.RetryKey = KeyChord.Parse("f5");                           // shown with the error
+jobs.NextPageKey = KeyChord.Parse(">");
+jobs.PreviousPageKey = KeyChord.Parse("<");
+
+DataTableLoader<Job> loader = new DataTableLoader<Job>(jobs,
+    async (request, ct) => await api.PageAsync(request.Offset, request.PageSize, request.SortColumnKey, request.SortAscending, ct),
+    app.Post);
+loader.Reload();
+
+MultiSelectModal<DataColumn<Job>> chooser = jobs.CreateColumnChooser("Columns");
+await app.ShowAsync(chooser);
+jobs.ApplyColumnChooser(chooser);                               // keys make a saved layout possible
+```
 
 ### Markdown
 
