@@ -18,7 +18,15 @@ width, cell overflow, and fallback with `b`, `w`, `o`, and `f`). Pages 7 and 8 c
 screens** (a `FramedStack` of channels, transcript, and composer with whole focused frames, left titles,
 a composer whose hints keep `/` and show `F1` for help while typing, a status bar with a reserved hint
 and right text, and an **F2** drawer that takes focus) and **Tab strip** (a `TabStrip` with bracket
-markers above content the app routes itself).
+markers above content the app routes itself). The last three pages cover 1.8: **Text fields that log in** (a sign-in form whose
+remembered user arrives selected, a masked token with **Ctrl+R** reveal, validation shown on **Enter**, and
+**F5** to **F9** switching line-editing keys, the reveal key, the length limit, and the validation mode),
+**Pickers** (a `FuzzyList` with detail text, a disabled package, checkboxes on **F7**, and a "Create <query>"
+provider on **F8**), and **Server-backed tables** (a `DataTable` over a simulated 1,000-row server with a 300 ms
+delay: `<` and `>` page, `f` fails the next load, **F5** retries, Space marks rows across pages, `c` opens the
+column chooser, `k` turns on the column cursor with `s` and `S` to sort, `z` cycles the page size, and `m`
+switches to local paging). While a text-entry page is focused it gets first refusal on the keys it would type,
+so `?` or Ctrl+K reach the field, and a paste goes to it.
 
 Global keys open live UI on top of the tour:
 

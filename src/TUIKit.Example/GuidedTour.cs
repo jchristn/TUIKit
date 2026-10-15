@@ -40,6 +40,7 @@ namespace TUIKit.Example
         private string _Input = string.Empty;
         private StreamingDemoWidget? _Streaming;
         private MarkdownDemoWidget? _Markdown;
+        private DataPagingDemoWidget? _Data;
 
         internal GuidedTour(TuiApplication app)
         {
@@ -51,6 +52,8 @@ namespace TUIKit.Example
                     _Streaming = streaming;
                 if (page.Demo is MarkdownDemoWidget markdown)
                     _Markdown = markdown;
+                if (page.Demo is DataPagingDemoWidget data)
+                    _Data = data;
             }
 
             _Layout = Layout.Create()
@@ -88,6 +91,8 @@ namespace TUIKit.Example
 
             _App.CtrlCPolicy = CtrlCPolicy.DoubleTapToExit;
             _App.KeyReceived += OnKey;
+            _App.KeyFilter = PreFilter;
+            _App.PasteReceived += OnPaste;
             _App.MouseReceived += OnMouse;
             _App.TerminalFocusChanged += focused =>
             {
@@ -246,6 +251,7 @@ namespace TUIKit.Example
         {
             _Streaming?.Dispose();
             _Markdown?.Dispose();
+            _Data?.Dispose();
             _App.Stop();
         }
 
@@ -282,6 +288,37 @@ namespace TUIKit.Example
 
             Draw(surface);
             return TUIKit.Testing.Snapshot.ToText(buffer);
+        }
+
+        // A text-entry demo gets first refusal on the keys it would type or consume (for example Ctrl+K or '?'
+        // in a text field), ahead of the tour's global commands, the way a focused bound widget does. Tab and
+        // PageUp/PageDown stay with the tour.
+        private bool PreFilter(KeyEvent key)
+        {
+            if (_App.Modals.Count > 0 || _ShowHelp || _FocusIndex != FocusLiveDemo)
+                return false;
+            if (key.Code == KeyCode.Tab || key.Code == KeyCode.PageUp || key.Code == KeyCode.PageDown)
+                return false;
+
+            IWidget demo = _Pages[_Index].Demo;
+            if (!(demo is ITextEntry entry) || !entry.AcceptsText || !(demo is IFocusable focusable))
+                return false;
+
+            KeyChord chord = KeyChord.FromKeyEvent(key);
+            bool wanted = chord.InsertsTextWhenTyping() || (demo is ITextEntryKeys keys && keys.ConsumesChord(chord));
+            if (!wanted || !focusable.HandleKey(key))
+                return false;
+
+            Log(Describe(key) + " sent to the " + _Pages[_Index].Title + " demo");
+            return true;
+        }
+
+        private void OnPaste(string text)
+        {
+            if (_FocusIndex == FocusLiveDemo && _Pages[_Index].Demo is IPasteTarget target && target.HandlePaste(text))
+                Log("Pasted " + text.Length + " characters into the " + _Pages[_Index].Title + " demo");
+            else if (_FocusIndex == FocusInteractive)
+                _Input += text.Replace("\r", string.Empty).Replace("\n", " ");
         }
 
         private void OnKey(KeyEvent key)
@@ -1243,6 +1280,59 @@ namespace TUIKit.Example
                     "string s = SixelEncoder.Encode(px);",
                     "string k = KittyImageEncoder.Encode(px);",
                     "backend.Write(s); // at the cursor"
+                }));
+
+            pages.Add(new TourPage(
+                "Text fields that log in",
+                "The user field arrives [bold]selected[/]: type to replace it. [bold]Ctrl+R[/] reveals the token, [bold]Enter[/] submits, [bold]F5-F9[/] switch features.",
+                new TextEntryDemoWidget(),
+                new[]
+                {
+                    "user.Value = remembered;",
+                    "user.SelectAll();       // first key replaces",
+                    "user.UseLineEditingKeys = true; // Ctrl+A/E/U/K/W",
+                    "token.MaskChar = '*';",
+                    "token.RevealKey = KeyChord.Parse(\"ctrl+r\");",
+                    "token.MaxLength = 32;   // graphemes",
+                    "token.Validator = v => v.Length < 6",
+                    "  ? \"Too short\" : null;",
+                    "token.Submitted += (s, e) => token.Validate();",
+                    "app.RoutePasteToFocus = true; // paste in"
+                }));
+
+            pages.Add(new TourPage(
+                "Pickers",
+                "Type to filter. A deprecated package is [bold]disabled[/]; [bold]F7[/] adds checkboxes, [bold]F8[/] offers \"Create <query>\", [bold]Enter[/] chooses.",
+                new PickerDemoWidget(app),
+                new[]
+                {
+                    "FuzzyList<Package> list = new FuzzyList<Package>(",
+                    "  packages, p => p.Name, new NameComparer());",
+                    "list.Detail = p => p.Version;",
+                    "list.IsEnabled = p => !p.Deprecated;",
+                    "list.MultiSelect = true; // Space, Ctrl+A",
+                    "list.ItemsProvider = q => Search(q);",
+                    "list.ItemActivated += (s, p) => Install(p);",
+                    "list.UseThemeStyles = true;",
+                    "list.CheckedItems // in item order"
+                }));
+
+            pages.Add(new TourPage(
+                "Server-backed tables",
+                "[bold]< >[/] page, [bold]f[/] fails the next load, [bold]F5[/] retries, [bold]Space[/] marks across pages, [bold]c[/] columns, [bold]k[/] column cursor, [bold]m[/] local mode.",
+                new DataPagingDemoWidget(app),
+                new[]
+                {
+                    "table.PagingMode = DataTablePagingMode.Remote;",
+                    "table.RetryKey = KeyChord.Parse(\"f5\");",
+                    "using DataTableLoader<Job> loader = new(",
+                    "  table, (req, ct) => api.PageAsync(",
+                    "    req.Offset, req.PageSize,",
+                    "    req.SortColumnKey, ct), app.Post);",
+                    "loader.Reload();",
+                    "",
+                    "table.Column(\"size\", \"Size KB\", r => ...);",
+                    "app.ShowAsync(table.CreateColumnChooser(\"Columns\"));"
                 }));
 
             return pages;
