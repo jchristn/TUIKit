@@ -136,7 +136,17 @@ namespace Test.Shared
                     ToastKeySuite.Suite(),
                     FramedStackSuite.Suite(),
                     TabStripSuite.Suite(),
-                    TypingHintsSuite.Suite()
+                    TypingHintsSuite.Suite(),
+                    TextFieldEditingSuite.Suite(),
+                    TextFieldPrefillSuite.Suite(),
+                    TextFieldValidationSuite.Suite(),
+                    PasteRoutingSuite.Suite(),
+                    FuzzyListPickerSuite.Suite(),
+                    FuzzyListMultiSelectSuite.Suite(),
+                    DataTablePagingSuite.Suite(),
+                    DataTableLoadStateSuite.Suite(),
+                    DataTableLoaderSuite.Suite(),
+                    DataTableColumnsSuite.Suite()
                 };
             }
         }
