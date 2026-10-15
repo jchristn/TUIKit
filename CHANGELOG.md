@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Most diffs a terminal app shows are not computed locally: they come from git, a code review API, or a patch
 file, already in unified form and often covering many files. Most heat maps in software are contribution
-calendars the user moves through. This release, the last of the three planned in `NEW_CAPABILITIES.md`, adds
+calendars the user moves through. This release, the last of the three planned in `archive/NEW_CAPABILITIES.md`, adds
 both, and makes `HeatMap` interactive. New behavior is opt-in; the few visible changes are listed under Changed.
 
 ### Added
@@ -64,7 +64,7 @@ both, and makes `HeatMap` interactive. New behavior is opt-in; the few visible c
 A create or settings dialog needs more than labeled fields: headings, a hint under a field, the error shown where
 it belongs, Save and Cancel, and a "you have unsaved changes" prompt that goes away when the user puts a value
 back. Setup and import screens need a multi-step flow. This release, the second of the three planned in
-`NEW_CAPABILITIES.md`, adds both. Everything new is opt-in, so a 1.8 form looks and behaves the same.
+`archive/NEW_CAPABILITIES.md`, adds both. Everything new is opt-in, so a 1.8 form looks and behaves the same.
 
 ### Added
 - **Form structure.** `AddSection` draws a heading row that takes no focus and does not shift field indexes
@@ -111,7 +111,7 @@ An app that reaches a login screen, a picker, or a list backed by a server soon 
 This release adds the general capabilities those replacements carried: the editing, prefill, reveal, submit,
 limit, and validation a text field needs; the detail, disabled items, checkboxes, and computed results a picker
 needs; and paging, load states, and column control for a server-backed table. It is the first of three
-releases planned in `NEW_CAPABILITIES.md` (1.9 adds forms and multi-step flows, 1.10 viewers). Everything new
+releases planned in `archive/NEW_CAPABILITIES.md` (1.9 adds forms and multi-step flows, 1.10 viewers). Everything new
 is opt-in where it would change how a 1.7 app looks, which keys it consumes, or how focus moves.
 
 ### Added

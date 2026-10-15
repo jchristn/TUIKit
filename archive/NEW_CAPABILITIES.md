@@ -127,7 +127,7 @@ Phases 0, 5, 6, and 7 run once per release, covering only that release's items. 
 | 7 | Verification and publishing | P1 to P5 | each | DONE (P3 and P4 partly; see the record) |
 | 8 | Armada adoption (tracked here, done in Armada) | X1 | each | TODO (owner) |
 
-_Last updated: 2026-10-14. All nine items shipped: 1.8.0 (C1 to C4), 1.9.0 (C6, C7), and 1.10.0 (C5, C8, C9). Armada adoption (X1) is the owner's next step._
+_Last updated: 2026-10-14. Archived after 1.10.0. All nine items shipped: 1.8.0 (C1 to C4), 1.9.0 (C6, C7), and 1.10.0 (C5, C8, C9). Armada adoption (X1) is the owner's next step._
 
 ---
 
