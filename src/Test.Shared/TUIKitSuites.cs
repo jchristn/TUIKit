@@ -146,7 +146,13 @@ namespace Test.Shared
                     DataTablePagingSuite.Suite(),
                     DataTableLoadStateSuite.Suite(),
                     DataTableLoaderSuite.Suite(),
-                    DataTableColumnsSuite.Suite()
+                    DataTableColumnsSuite.Suite(),
+                    FormLayoutSuite.Suite(),
+                    FormValidationSuite.Suite(),
+                    FormSubmitSuite.Suite(),
+                    FormDirtySuite.Suite(),
+                    WizardSuite.Suite(),
+                    WizardModalSuite.Suite()
                 };
             }
         }
