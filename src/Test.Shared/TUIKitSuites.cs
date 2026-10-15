@@ -152,7 +152,11 @@ namespace Test.Shared
                     FormSubmitSuite.Suite(),
                     FormDirtySuite.Suite(),
                     WizardSuite.Suite(),
-                    WizardModalSuite.Suite()
+                    WizardModalSuite.Suite(),
+                    DiffViewUnifiedSuite.Suite(),
+                    DiffViewSearchSuite.Suite(),
+                    HeatMapInteractionSuite.Suite(),
+                    CalendarHeatMapSuite.Suite()
                 };
             }
         }

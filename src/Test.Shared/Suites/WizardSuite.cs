@@ -248,6 +248,25 @@ namespace Test.Shared.Suites
                             Check.True(wizard.FocusedChild != null, "FocusedChild");
                             return Task.CompletedTask;
                         }),
+                    new TestCaseDescriptor(_Id, "OptionArrowBytes", "The bytes macOS terminals send for Option+Left and Option+Right (ESC b, ESC f) and the CSI Alt arrows all move steps",
+                        _ =>
+                        {
+                            Wizard wizard = Three(out TextField name, out TextField _, out TextField _);
+                            name.Value = "ada";
+                            foreach (string bytes in new[] { "\u001bf", "\u001bb", "\u001b[1;3C", "\u001b[1;3D" })
+                            {
+                                InputParser parser = new InputParser();
+                                byte[] data = System.Text.Encoding.ASCII.GetBytes(bytes);
+                                parser.Feed(data, data.Length);
+                                List<InputEvent> events = parser.Drain().Concat(parser.Flush()).ToList();
+                                Check.Equal(1, events.Count, "one key for " + bytes.Replace("\u001b", "ESC "));
+                                int before = wizard.CurrentIndex;
+                                Check.True(wizard.HandleKey(events[0].Key), "consumed: " + bytes.Replace("\u001b", "ESC "));
+                                Check.True(wizard.CurrentIndex != before, "moved for " + bytes.Replace("\u001b", "ESC "));
+                            }
+
+                            return Task.CompletedTask;
+                        }),
                 });
         }
 
