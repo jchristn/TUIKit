@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-14
+
+A create or settings dialog needs more than labeled fields: headings, a hint under a field, the error shown where
+it belongs, Save and Cancel, and a "you have unsaved changes" prompt that goes away when the user puts a value
+back. Setup and import screens need a multi-step flow. This release, the second of the three planned in
+`NEW_CAPABILITIES.md`, adds both. Everything new is opt-in, so a 1.8 form looks and behaves the same.
+
+### Added
+- **Form structure.** `AddSection` draws a heading row that takes no focus and does not shift field indexes
+  (`SectionStyle`). `SetFieldHint` draws a wrapped hint under a field (`HintStyle`).
+- **Field errors.** `ValidateAll` runs every visible field's validator, and a `TextField`'s own `Validator`, stores
+  each error, and returns `FormFieldError` values (`FieldIndex`, `Label`, `Message`) in field order.
+  `GetFieldError` and `ClearErrors` read and reset them. With `ShowFieldErrors` (default false) each error is
+  drawn under its field in `ErrorStyle` with `ErrorPrefix` (default `"! "`, so it is not conveyed by color alone),
+  and it re-checks when the field changes. `ValidationMode` (`OnSubmit` default, `OnLeave`, `OnChange`) decides
+  when fields validate on their own. `Validate` is unchanged.
+- **Submit and cancel.** `Submit` validates, focuses the first invalid field, and raises `SubmitRequested` only
+  when the form is valid; `Cancel` raises `CancelRequested` and leaves the confirmation to the app.
+  `SubmitKey` and `CancelKey` (default none; Ctrl+S and Esc are common) bind them, and `ShowButtons` adds a Save
+  and Cancel `ButtonRow` (`Buttons`, `SubmitLabel`, `CancelLabel`) that joins the focus order. The form lists
+  its keys as hints (`IKeyHintSource`).
+- **Labels beside fields and arrow keys.** `LabelPlacement` (`Above` default, `Left`) with `LabelWidth` (0 for
+  automatic) puts short fields on their label's row. `ArrowKeysMoveFocus` (default false) moves between fields on
+  Up and Down that the field does not use, so a `TextEditor` keeps its arrows.
+- **Snapshot dirty tracking.** `DirtyTracking` set to `FormDirtyTracking.Snapshot` makes `IsDirty` true exactly
+  while some field differs from its value at `MarkClean`, so typing a character and deleting it leaves the form
+  clean and raises `DirtyChanged(false)`. The new `IValueSnapshot` is implemented by `TextField`, `TextEditor`,
+  `Checkbox`, `RadioGroup`, `Dropdown<T>`, `ComboBox`, and `CheckList<T>`; `SetFieldSnapshot` covers a custom
+  field, and fields without a snapshot fall back to change events.
+- **`Wizard`.** A multi-step flow: a header (`HeaderFormat`, default `"Step {0} of {1}: {2}"`), a step list on top,
+  on the left, or hidden (`StepListPlacement`) with done, current, and pending glyphs (ASCII on an ASCII theme),
+  the step's content, an error row, and Back, Skip, Next or Finish, and Cancel buttons with localizable labels.
+  `WizardStep` has `Title`, `Content`, `Optional`, `Validate`, and `IsApplicable` (a step that does not apply is
+  skipped both ways and left out of the count). `Next`, `Back`, `Skip`, `GoTo` (with `AllowJumpAhead`), and
+  `Cancel` navigate; `StepChanging` can veto a move, and `StepChanged`, `Finished`, and `Cancelled` report.
+  Focus lands in the step's content, Tab moves on to the buttons, and pastes reach the focused field.
+  `NextStepKey` and `PreviousStepKey` default to Alt+Right and Alt+Left, and `NextStepAltKey` and
+  `PreviousStepAltKey` to Alt+F and Alt+B, which macOS Terminal and iTerm2 send for Option+arrows.
+- **`WizardModal`.** Hosts a `Wizard` in a dialog that closes when it finishes or is cancelled, so
+  `Modal.Completion` resolves to a `WizardOutcome` (`Finished`, `Cancelled`). Esc cancels.
+- **Example.** A "Forms and flows" tour page: a settings form with sections, a hint, labels beside the fields,
+  errors under each field, Ctrl+S and Esc, buttons, arrow keys, and live snapshot dirty tracking, with F5 to F9
+  switching each feature; F4 opens a three-step `WizardModal` with an optional step and a step that an earlier
+  answer turns on. The headless tour snapshot now draws open modals.
+
 ## [1.8.0] - 2026-10-14
 
 An app that reaches a login screen, a picker, or a list backed by a server soon finds that TUIKit's

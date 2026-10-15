@@ -79,8 +79,8 @@ simplicity.
 | C5 | `DiffView`: unified diff input, file navigation, search, theming | 7 | 7 | 14 | 1.10 | TODO |
 | C4 | `FuzzyList`: detail, disabled items, multi-select, paste, provider, theming | 6 | 7 | 13 | 1.8 | DONE |
 | C3 | `DataTable`: column keys, visibility, chooser, and a column cursor | 6 | 7 | 13 | 1.8 | DONE |
-| C7 | `Wizard`: a multi-step flow widget and `WizardModal` | 6 | 7 | 13 | 1.9 | TODO |
-| C6 | `Form`: sections, hints, field errors, submit and cancel, snapshot dirty tracking | 4 | 8 | 12 | 1.9 | TODO |
+| C7 | `Wizard`: a multi-step flow widget and `WizardModal` | 6 | 7 | 13 | 1.9 | DONE |
+| C6 | `Form`: sections, hints, field errors, submit and cancel, snapshot dirty tracking | 4 | 8 | 12 | 1.9 | DONE |
 | C9 | `CalendarHeatMap`: a day-by-week heat map | 6 | 6 | 12 | 1.10 | TODO |
 | C8 | `HeatMap`: selection, levels, legend, wide cells | 7 | 5 | 12 | 1.10 | TODO |
 
@@ -117,17 +117,17 @@ Phases 0, 5, 6, and 7 run once per release, covering only that release's items. 
 
 | Phase | Title | Items | Release | Status |
 |---|---|---|---|---|
-| 0 | Release setup | branch, version proposal | each | WIP (1.8 done) |
+| 0 | Release setup | branch, version proposal | each | WIP (1.8, 1.9 done) |
 | 1 | Text entry | C1, C4 | 1.8 | DONE |
 | 2 | Data | C2, C3 | 1.8 | DONE |
-| 3 | Forms and flows | C6, C7 | 1.9 | TODO |
+| 3 | Forms and flows | C6, C7 | 1.9 | DONE |
 | 4 | Viewers | C5, C8, C9 | 1.10 | TODO |
-| 5 | Example application | E1 to E5 | per item | WIP (E1, E2 done) |
-| 6 | Documentation | D1 to D4 | each | WIP (1.8 done) |
-| 7 | Verification and publishing | P1 to P5 | each | WIP (1.8 done) |
+| 5 | Example application | E1 to E5 | per item | WIP (E1 to E3 done) |
+| 6 | Documentation | D1 to D4 | each | WIP (1.8, 1.9 done) |
+| 7 | Verification and publishing | P1 to P5 | each | WIP (1.8, 1.9 done) |
 | 8 | Armada adoption (tracked here, done in Armada) | X1 | each | TODO |
 
-_Last updated: 2026-10-14. 1.8.0 (C1 to C4) implemented, tested, documented, and published; 1.9.0 next._
+_Last updated: 2026-10-14. 1.8.0 (C1 to C4) and 1.9.0 (C6, C7) implemented, tested, documented, and published; 1.10.0 next._
 
 ---
 
@@ -193,7 +193,7 @@ Run this phase once per release. Each release starts from `main` after the previ
       bar. `ShowKeyHints` (default true) turns it off.
 
   Record the decision and date here before touching any version field.
-  1.8.0 approved by/on: owner, in the release request, 2026-10-14  1.9.0 approved by/on: ______  1.10.0 approved by/on: ______
+  1.8.0 approved by/on: owner, in the release request, 2026-10-14  1.9.0 approved by/on: owner, in the release request, 2026-10-14  1.10.0 approved by/on: ______
 - [ ] Once approved, set `Version`, `AssemblyVersion`, and `FileVersion` in `src/TUIKit/TUIKit.csproj`, update
       `PackageReleaseNotes`, and open `## [1.x.0] - YYYY-MM-DD` under `## [Unreleased]` in `CHANGELOG.md`.
 
@@ -691,8 +691,15 @@ with a test.
 
 ### C6: `Form` sections, hints, field errors, submit and cancel, and snapshot dirty tracking
 
-**Status:** TODO  **Simplicity 4, Value 8**
-**Notes:**
+**Status:** DONE  **Simplicity 4, Value 8**
+**Notes:** Done in 1.9.0 (`FormLayout`, `FormValidation`, `FormSubmit`, `FormDirty`; 19 cases). Decisions: `FocusedIndex` is
+-1 while the buttons hold focus; the buttons stay last in the focus ring (fields added later are placed before
+them) and survive `Clear`; `SubmitKey`, `CancelKey`, and the arrow keys are checked after the focused field had the
+key, so an open dropdown closes on Esc first. The automatic label width is the widest label plus three (the
+two-column focus marker and a space), capped at a third of the width, and a capped label keeps one blank column
+before its field. Changing `DirtyTracking` re-baselines (calls `MarkClean`). In `Snapshot` mode `IsDirty` is also
+re-checked after every key and click, so a `CheckList` (which raises no change events) still updates it. Form
+validators run before a `TextField.Validator`; the first error wins.
 
 **Problem.** `Form` (`Widgets/Form.cs`, 534 lines) lays out labeled fields, routes focus, validates, and tracks changes
 through `IChangeNotifier`. A create or settings dialog needs more:
@@ -762,30 +769,37 @@ set, errors not drawn, no buttons, no new keys, labels above, event dirty tracki
 
 **Tests** (`FormLayoutSuite`, `FormValidationSuite`, `FormSubmitSuite`, `FormDirtySuite`):
 
-- [ ] 1.7 snapshot of a three-field form is unchanged.
-- [ ] Sections draw, take no focus, and do not shift field indexes; hints wrap under their field.
-- [ ] `ValidateAll` returns errors in order and includes `TextField.Validator`; `ShowFieldErrors` false draws nothing;
+- [x] 1.7 snapshot of a three-field form is unchanged.
+- [x] Sections draw, take no focus, and do not shift field indexes; hints wrap under their field.
+- [x] `ValidateAll` returns errors in order and includes `TextField.Validator`; `ShowFieldErrors` false draws nothing;
       true draws each error with its prefix; an error clears after a fix.
-- [ ] Each `FormValidationMode` validates at the right moment.
-- [ ] `Submit` with errors focuses the first invalid field and raises nothing; without errors raises once.
-- [ ] Submit and cancel keys: null not consumed; set consumed. Buttons appear only with `ShowButtons` and join the
+- [x] Each `FormValidationMode` validates at the right moment.
+- [x] `Submit` with errors focuses the first invalid field and raises nothing; without errors raises once.
+- [x] Submit and cancel keys: null not consumed; set consumed. Buttons appear only with `ShowButtons` and join the
       focus order.
-- [ ] `Left` placement aligns labels, keeps checkboxes inline, and handles a multi-row field.
-- [ ] `ArrowKeysMoveFocus`: false leaves Up and Down to the field; true moves between `TextField`s but not out of a
+- [x] `Left` placement aligns labels, keeps checkboxes inline, and handles a multi-row field.
+- [x] `ArrowKeysMoveFocus`: false leaves Up and Down to the field; true moves between `TextField`s but not out of a
       `TextEditor` that consumed the key.
-- [ ] Snapshot mode: type then delete returns to clean and raises `DirtyChanged(false)`; a field without
+- [x] Snapshot mode: type then delete returns to clean and raises `DirtyChanged(false)`; a field without
       `IValueSnapshot` uses events; `SetFieldSnapshot` covers a custom field.
 
 **Tasks.**
 
-- [ ] Add `FormFieldError`, `FormValidationMode`, `FormLabelPlacement`, `FormDirtyTracking`, and `IValueSnapshot`.
-- [ ] Extend `Widgets/Form.cs` and `FormField.cs`; implement `IValueSnapshot` on the listed widgets.
-- [ ] Surface coverage, CHANGELOG, README forms section with a submit example.
+- [x] Add `FormFieldError`, `FormValidationMode`, `FormLabelPlacement`, `FormDirtyTracking`, and `IValueSnapshot`.
+- [x] Extend `Widgets/Form.cs` and `FormField.cs`; implement `IValueSnapshot` on the listed widgets.
+- [x] Surface coverage, CHANGELOG, README forms section with a submit example.
 
 ### C7: `Wizard`, a multi-step flow widget, and `WizardModal`
 
-**Status:** TODO  **Simplicity 6, Value 7**
-**Notes:**
+**Status:** DONE  **Simplicity 6, Value 7**
+**Notes:** Done in 1.9.0 (`Wizard`, `WizardModal`; 13 cases). Alt arrows: as recorded in the review, macOS Terminal and iTerm2
+with "Natural text editing" send ESC b and ESC f for Option+Left and Option+Right, which `InputParser` decodes as
+Alt+B and Alt+F. Option (a) was taken: `NextStepAltKey` and `PreviousStepAltKey` default to Alt+F and Alt+B. Deviation:
+the step keys are checked before the content instead of yielding to a text entry that reports consuming them,
+because `TextField.ConsumesChord` reports Left and Right with any modifier, which would have disabled the keys on
+every step with a text field; Alt+F and Alt+B therefore never type into a field. The button row does not wrap, so
+Tab moves from the last button back to the content. A `Form` step gets `WrapFocus = false`. There is no Skip hint
+(Skip has a button, not a key). `WizardModal` adds `NaturalWidth` and `NaturalHeight` (default 64 by 16).
 
 **Problem.** TUIKit has no multi-step flow. Setup, import, onboarding, and "create from template" flows are common in
 terminal apps, and each one rebuilds the same parts: a step header ("Step 2 of 5: Repository"), a step list showing
@@ -855,23 +869,23 @@ modal host. It implements `IWidget`, `IFocusable`, `IFocusContainer`, `IFocusAwa
 
 **Tests** (`WizardSuite`, `WizardModalSuite`):
 
-- [ ] Constructor guards; header and step list text for first, middle, and last steps.
-- [ ] `Next` blocked by validation shows the error and stays; passing moves and clears it; last step raises `Finished`.
-- [ ] `Back` never validates; `Skip` only on optional steps; `GoTo` rules with and without `AllowJumpAhead`.
-- [ ] `IsApplicable` false skips the step both ways and hides it from the list and the count.
-- [ ] `StepChanging` cancel vetoes the move; `StepChanged` reports from and to.
-- [ ] Focus lands in the step content on entry; Tab reaches the buttons; Back is disabled on the first step.
-- [ ] Alt+Right and Alt+Left move; they are not consumed when a focused text entry consumes them; null keys disable.
-- [ ] If option (a) is chosen: the parsed form of ESC f and ESC b moves steps; null disables them.
-- [ ] A paste into a `WizardModal` reaches the focused `TextField` in the current step.
-- [ ] ASCII theme uses ASCII glyphs.
-- [ ] `WizardModal` completes with `Finished` and `Cancelled`; Esc cancels.
+- [x] Constructor guards; header and step list text for first, middle, and last steps.
+- [x] `Next` blocked by validation shows the error and stays; passing moves and clears it; last step raises `Finished`.
+- [x] `Back` never validates; `Skip` only on optional steps; `GoTo` rules with and without `AllowJumpAhead`.
+- [x] `IsApplicable` false skips the step both ways and hides it from the list and the count.
+- [x] `StepChanging` cancel vetoes the move; `StepChanged` reports from and to.
+- [x] Focus lands in the step content on entry; Tab reaches the buttons; Back is disabled on the first step.
+- [x] Alt+Right and Alt+Left move; they are not consumed when a focused text entry consumes them; null keys disable.
+- [x] If option (a) is chosen: the parsed form of ESC f and ESC b moves steps; null disables them.
+- [x] A paste into a `WizardModal` reaches the focused `TextField` in the current step.
+- [x] ASCII theme uses ASCII glyphs.
+- [x] `WizardModal` completes with `Finished` and `Cancelled`; Esc cancels.
 
 **Tasks.**
 
-- [ ] Add `Wizard`, `WizardStep`, `WizardStepChangingEventArgs`, `WizardStepChangedEventArgs`,
+- [x] Add `Wizard`, `WizardStep`, `WizardStepChangingEventArgs`, `WizardStepChangedEventArgs`,
       `WizardStepListPlacement`, `WizardOutcome`, and `Modals/WizardModal.cs`.
-- [ ] Surface coverage, CHANGELOG, README widget table and a short example.
+- [x] Surface coverage, CHANGELOG, README widget table and a short example.
 
 ---
 
@@ -1138,7 +1152,7 @@ page, plus headless modes the test suite can run. Each page ships in the release
 - [x] **E2 Data page.** (1.8, "Server-backed tables"; the page size cycles with `z` and local mode is `m`) A 1,000-row table in `Remote` mode backed by a simulated server with a 300 ms delay and a
       "fail next load" toggle, driven by `DataTableLoader`, with `<` and `>` page keys, F5 retry, a column chooser (`c`),
       a column cursor with `s` and `S`, and marks that survive paging.
-- [ ] **E3 Forms page.** (1.9) A settings form with sections, hints, left-aligned labels, field errors, Ctrl+S and Esc,
+- [x] **E3 Forms page.** (1.9, "Forms and flows"; the form scrolls inside the demo box around the focused field) A settings form with sections, hints, left-aligned labels, field errors, Ctrl+S and Esc,
       buttons, arrow-key movement, and snapshot dirty tracking shown live ("unsaved changes" appears and disappears on
       revert); and a three-step `WizardModal` with an optional step and a step that is skipped by an earlier answer.
 - [ ] **E4 Viewers page.** (1.10) A `DiffView.FromUnifiedDiff` of a bundled three-file patch with `]` and `[`, line numbers,
@@ -1258,6 +1272,13 @@ roles at render time; `ApplyColumnChooser` returns `bool`; `ReverseSortKey` bind
 shift+letter chords; E1 became two tour pages. As in 1.5 to 1.7, the release was committed to `main` in phase
 commits with an annotated `v1.8.0` tag rather than on a `feature/v1.8.0` branch. The tour gained a `KeyFilter` that gives a focused text-entry demo
 first refusal on keys it would type or consume (so `?` and Ctrl+K reach a field) and routes pastes to the demo.
+
+**1.9.0, 2026-10-14.** C6 and C7 shipped with six new suites (32 cases). Final counts: 1084 console cases on net8.0
+and net10.0, and 1085 through xUnit and NUnit on both, all green; 0 warnings on all three library targets. Coverage
+of `TUIKit` on net10.0 is 85.4% (new and changed files 88.5%, after adding mouse and theme cases to reach the
+wizard's and the form's click paths). Deviations, each in its item's Notes: the wizard's step keys come before the
+content; `WizardModal` gained `NaturalWidth` and `NaturalHeight`; the Alt+F and Alt+B defaults were added. The
+headless tour snapshot now draws open modals, so `--tour-once --keys` can show the wizard.
 
 **Plan review, 2026-10-14 (before any work).** The plan's code references were checked against `main` at `aaa5d2c`
 and held up (file sizes, the masking defect, the Ctrl rejection in `TextField.HandleKey`, `FuzzyList`'s hard-coded

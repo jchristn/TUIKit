@@ -4,6 +4,19 @@
 
 This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
+## 1.9.0 additions
+
+The 1.9.0 work (items C6 and C7 of `NEW_CAPABILITIES.md`) added the public surface below, each with positive and negative Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **1084 console cases** (1085 through the xUnit/NUnit wrappers), all green. The 1052 cases that existed at 1.8.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **85.4%**; the new and changed files (`Form`, `FormField`, `FormFieldError`, `Wizard`, `WizardStep`, `WizardModal`, the wizard event args, `TextWords`) are at **88.5%**.
+
+| New/changed public surface | Test suite |
+|---|---|
+| `Form` 1.8 layout with defaults, `AddSection`, `SectionStyle`, `SetFieldHint`, `HintStyle`, `LabelPlacement`, `FormLabelPlacement`, `LabelWidth`, `ArrowKeysMoveFocus`, `ContentHeight` | `FormLayout` |
+| `Form.ValidateAll`, `FormFieldError`, `GetFieldError`, `ClearErrors`, `ShowFieldErrors`, `ErrorStyle`, `ErrorPrefix`, `ValidationMode`, `FormValidationMode` | `FormValidation` |
+| `Form.Submit`, `Cancel`, `SubmitRequested`, `CancelRequested`, `SubmitKey`, `CancelKey`, `ShowButtons`, `Buttons`, `SubmitLabel`, `CancelLabel`, `GetKeyHints` (`IKeyHintSource`), button clicks, `TryGetFocusRect` on the buttons, `ApplyTheme` for the new styles, `Clear` with buttons | `FormSubmit` |
+| `Form.DirtyTracking`, `FormDirtyTracking`, `SetFieldSnapshot`; `IValueSnapshot` on `TextField`, `TextEditor`, `Checkbox`, `RadioGroup`, `Dropdown<T>`, `ComboBox`, `CheckList<T>` | `FormDirty` |
+| `Wizard` (construction, `Steps`, `CurrentIndex`, `CurrentStep`, `IsFirst`, `IsLast`, `Error`, `Buttons`, `Next`, `Back`, `Skip`, `GoTo`, `AllowJumpAhead`, `Cancel`, `StepChanging`, `StepChanged`, `Finished`, `Cancelled`, `HeaderFormat`, the glyphs and labels, `StepListPlacement`, the four step keys, `GetKeyHints`, `HandlePaste`, `HandleMouse`, `ApplyTheme`, focus), `WizardStep`, `WizardStepChangingEventArgs`, `WizardStepChangedEventArgs`, `WizardStepListPlacement` | `Wizard` |
+| `WizardModal` (`Wizard`, `NaturalWidth`, `NaturalHeight`, Esc, paste, `ApplyTheme`), `WizardOutcome` | `WizardModal` |
+
 ## 1.8.0 additions
 
 The 1.8.0 work (items C1 to C4 of `NEW_CAPABILITIES.md`) added the public surface below, each with positive and negative Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **1052 console cases** (1053 through the xUnit/NUnit wrappers), all green. The 976 cases that existed at 1.7.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **84.9%**; the new and changed files (`TextField`, `FuzzyList`, `DataTable`, `DataColumn`, `DataTableLoader`, `DataTablePage`, `DataTablePageRequest`, `DataTableSortChangedEventArgs`, `TextWords`) are at **91.4%**.

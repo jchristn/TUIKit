@@ -651,6 +651,8 @@ var radio  = new RadioGroup(new[] { "Dark", "Light", "High-contrast" });
 
 A `TextField` covers sign-in and settings screens once you turn its options on: `UseLineEditingKeys` adds the shell keys (Ctrl+A/E, Ctrl+U/K, Ctrl+W, Ctrl+Left/Right), `SelectAll` after setting a remembered `Value` makes the first key replace it, `RevealKey` toggles a masked value, `Submitted` fires on Enter, `MaxLength` limits input in graphemes, and `Validator` with `Validate` and `Error` checks the value. The field never draws its error; show `Error` under it yourself.
 
+A `Form` grows into a full dialog with opt-in features: `AddSection` and `SetFieldHint` structure it, `ValidateAll` with `ShowFieldErrors` puts each error under its field (and `ValidationMode` decides whether that happens on submit, on leaving a field, or on every change), `Submit` and `Cancel` (bound with `SubmitKey` and `CancelKey`, or shown as buttons with `ShowButtons`) raise `SubmitRequested` only for a valid form and `CancelRequested` for the app to confirm, `LabelPlacement = Left` puts short fields beside their labels, and `DirtyTracking = Snapshot` compares values so a revert is not "unsaved". For a flow of several screens, put each screen in a `WizardStep` and show a `Wizard` in a `WizardModal`: steps validate before moving on, can be optional or apply only after an earlier answer, and the modal's completion is a `WizardOutcome`.
+
 Widget colors are configurable. `TextEditor` and `TextField` expose a `NormalStyle` that paints both
 the surface fill and the text (the caret inverts against it), so you can give an editor a solid
 background — `editor.NormalStyle = CellStyle.Default.WithBackground(Color.FromRgb(0x2A, 0x2A, 0x2A));`

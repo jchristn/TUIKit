@@ -52,7 +52,7 @@ It multi-targets `netstandard2.0`, `net8.0`, and `net10.0`. The modern targets a
 - **Modals, notifications, and prompts.** A focus-trapping modal stack with awaitable, **typed** results (`ShowAsync<T>`, plus `ConfirmAsync` / `PromptAsync` / `SelectAsync`), a reusable `DialogModal` base that auto-sizes a centered box with a title and footer hint so custom dialogs stop hand-rolling geometry, a `MultiSelectModal<T>` for choosing several options, a `Post(Action)` loop scheduler for marshalling continuations back onto the UI thread, non-focus-stealing toasts, and a global focus manager for `Tab` order.
 - **A broad widget toolkit.** Inputs (text field with masking and a reveal key for secrets, shell line-editing keys, prefill selection, a length limit, validation, and Enter to submit, multi-line editor with undo and a kill ring, checkbox, radio group, forms); selection (`CheckList<T>` multi-select, sortable virtualized `DataTable<T>`, tree, tabs, fuzzy finder, list); navigation (menu bar, file browser, scroll view, collapsible section, status bar); status and feedback (a `DefinitionList` labeled-value panel, `ActivityIndicator` working line, gauge, sparkline, progress bar, spinner, concurrent multi-task progress); a `Rule` divider; plus a user-editable key-binding editor.
 - **Framed screens.** `FramedStack` frames every pane of a screen with shared lines, sizes them with `StackSize.Fixed`, `Weighted`, and `Min`, nests into grids, routes clicks and Tab between panes, and opens an overlay drawer that takes focus. `TabStrip` is a tab strip without content for apps that route tab content themselves, and bracket markers (`TabFocusPrefix`/`TabFocusSuffix`) keep tabs in place when focus moves.
-- **Nested focus, change events, and form controls.** `FocusScope` and `IFocusContainer` give hierarchical focus: tabs, split panes, scroll views, collapsible sections, button rows, and forms route keys to their children and Tab moves through nested scopes. Inputs and pickers raise change events (also for programmatic sets) and support disabled and read-only states; forms hide rows and track dirty state. `Button`, wrapping `ButtonRow`, `Dropdown<T>`, `ComboBox`, `ContextMenu`, `Badge`, and pointer tooltips (`ITooltipProvider`) round out the controls, and `DataTable<T>` offers sized and aligned columns, typed sorting with header indicators and header clicks, server-side sort, multi-select, per-cell styles, local and server paging with load and error states (`DataTableLoader<T>` does the async plumbing), and column keys, visibility, a chooser, and a keyboard column cursor.
+- **Nested focus, change events, and form controls.** `FocusScope` and `IFocusContainer` give hierarchical focus: tabs, split panes, scroll views, collapsible sections, button rows, and forms route keys to their children and Tab moves through nested scopes. Inputs and pickers raise change events (also for programmatic sets) and support disabled and read-only states; forms hide rows, track dirty state (by events or by value snapshots that notice a revert), draw sections, hints, and per-field errors, and submit and cancel with keys or buttons; a `Wizard` runs multi-step flows. `Button`, wrapping `ButtonRow`, `Dropdown<T>`, `ComboBox`, `ContextMenu`, `Badge`, and pointer tooltips (`ITooltipProvider`) round out the controls, and `DataTable<T>` offers sized and aligned columns, typed sorting with header indicators and header clicks, server-side sort, multi-select, per-cell styles, local and server paging with load and error states (`DataTableLoader<T>` does the async plumbing), and column keys, visibility, a chooser, and a keyboard column cursor.
 - **Theme-aware widgets and a notification center.** Opt in with `ApplyThemeToWidgets` and every bound widget, modal, toast, tooltip, and Markdown style follows the active theme. Toasts can carry titles and action buttons, wrap over several lines, be dismissed by click, coalesce repeats into one toast with a count (by action key or label, so a fresh lambda per call still coalesces, or by an explicit `CoalesceKey`), carry a text severity label so severity is never color alone, leave room for a header bar (`TopOffset`), run the newest toast's action from a key (`InvokeLatestNotificationAction`), and stay in a notification history (`ShowNotificationHistoryAsync`). A built-in command palette (`ShowCommandPaletteAsync`) and key-help overlay (`ShowKeyHelpAsync`) work from a `CommandRegistry`.
 - **Selection and editing lists.** Generic `ListView<T>` and `FuzzyList<T>` return the selected object (not a string), and `FuzzyList<T>` adds detail text, disabled entries, checkboxes, and a query-driven items provider for pickers; `ActionListView<T>` gives rows keyboard actions with a typed result, and `ReorderableList<T>` moves and removes items in place. Custom-drawn rows can carry clickable `InlineButton`s resolved by a `ClickRegionMap<TAction>`, which stays correct when the content scrolls.
 - **Command surfaces and typeahead.** A `CommandRegistry` drives key bindings, a grouped menu bar, a fuzzy command palette, and a `/slash` router from one command list, and an `AutocompleteOverlay` (with a pluggable `ISuggestionProvider`) shows caret-anchored suggestions for any text input.
@@ -98,7 +98,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.8.0" />
+<PackageReference Include="TUIKit" Version="1.9.0" />
 ```
 
 ## Quick start
@@ -229,6 +229,35 @@ loader.Reload();
 MultiSelectModal<DataColumn<Job>> chooser = jobs.CreateColumnChooser("Columns");
 await app.ShowAsync(chooser);
 jobs.ApplyColumnChooser(chooser);                               // keys make a saved layout possible
+```
+
+### Forms and multi-step flows
+
+A settings or create dialog gets headings, hints, errors under each field, Save and Cancel, and an unsaved-changes flag that clears when the user puts a value back. All of it is opt-in:
+
+```csharp
+Form form = new Form { LabelPlacement = FormLabelPlacement.Left, ShowFieldErrors = true, ShowButtons = true };
+form.AddSection("Project");
+TextField prefix = new TextField();
+form.Add("Branch prefix", prefix, () => prefix.Value.EndsWith("/") ? null : "End it with /");
+form.SetFieldHint(0, "Used as the prefix for new work branches");
+form.SubmitKey = KeyChord.Parse("ctrl+s");
+form.CancelKey = KeyChord.Parse("escape");
+form.DirtyTracking = FormDirtyTracking.Snapshot;          // type, then delete: clean again
+form.SubmitRequested += (s, e) => { Save(); form.MarkClean(); };   // raised only when every field is valid
+form.CancelRequested += (s, e) => { if (form.IsDirty) AskToDiscard(); };
+```
+
+`Wizard` runs a setup or import flow: a header and step list, per-step validation, optional steps, steps that apply only after an earlier answer, and Back, Skip, Next, Finish, and Cancel. `WizardModal` shows it as a dialog whose completion tells you how it ended:
+
+```csharp
+Wizard wizard = new Wizard(new[]
+{
+    new WizardStep("Project", projectForm) { Validate = () => name.Value.Length == 0 ? "Name it first" : null },
+    new WizardStep("Repository", urlField) { IsApplicable = () => import.Checked },
+    new WizardStep("Extras", notesField) { Optional = true },
+});
+WizardOutcome? outcome = await app.ShowAsync<WizardOutcome>(new WizardModal("New project", wizard));
 ```
 
 ### Markdown
