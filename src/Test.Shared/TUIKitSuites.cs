@@ -59,6 +59,7 @@ namespace Test.Shared
                     DialogModalSuite.Suite(),
                     MultiSelectSuite.Suite(),
                     WidgetSuite.Suite(),
+                    PromptTimelineSuite.Suite(),
                     WidgetStyleSuite.Suite(),
                     HostingSuite.Suite(),
                     DiagnosticsSuite.Suite(),

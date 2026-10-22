@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application - the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v1.11.2 - native and application-handled hyperlinks.** Link labels to web URLs, local files, and email addresses with `StyledText.Link(label, Uri)`. Targets survive Markdown layout, wrapping, clipping, and incremental redraws. Automatic detection and explicit overrides work independently of color. See the [changelog](CHANGELOG.md).
+> **v1.12.0 - confirmation prompts and activity timelines.** Horizontal radio groups, Yes/No prompts with Left/Right selection, and connected workflow events with wrapping detail. Unicode and ASCII glyphs work through the existing terminal backends. See the [changelog](CHANGELOG.md).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -98,7 +98,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.11.2" />
+<PackageReference Include="TUIKit" Version="1.12.0" />
 ```
 
 ## URL and file hyperlinks
@@ -311,6 +311,77 @@ Wizard wizard = new Wizard(new[]
 });
 WizardOutcome? outcome = await app.ShowAsync<WizardOutcome>(new WizardModal("New project", wizard));
 ```
+
+### Confirmation prompts and activity timelines
+
+`RadioGroup` defaults to its existing vertical layout. Set `Orientation` to
+`RadioGroupOrientation.Horizontal` for Left/Right navigation on one row; Home/End select
+first/last. `SelectedMarker`, `UnselectedMarker`, and `Separator` customize its appearance:
+
+```csharp
+RadioGroup choice = new RadioGroup(new[] { "Yes", "No" })
+{
+    Orientation = RadioGroupOrientation.Horizontal,
+    SelectedMarker = "●",
+    UnselectedMarker = "○",
+    Separator = " / "
+};
+```
+
+`ConfirmPrompt` adds the question, marker gutter, and completion lifecycle. It defaults to No;
+pass `true` for Yes. Arrows or a mouse click change the selection without submitting. Enter
+submits; Escape cancels. `IsCompleted` distinguishes a pending prompt from a cancelled one;
+`Result` is `true`/`false` for a submitted answer and null for cancellation. `Completed` fires
+once per interaction; `Reset(defaultValue)` starts another. A completed prompt shows its answer.
+
+```csharp
+ConfirmPrompt prompt = new ConfirmPrompt("Proceed with installation?", true);
+prompt.Completed += (sender, args) =>
+{
+    if (prompt.Result == true)
+        StartInstallation();
+};
+prompt.ApplyTheme(app.Theme);
+```
+
+`ActivityTimeline` draws an ordered step log with a connecting gutter. `Add` returns an entry
+whose `Text`, `Status`, and optional `Detail` can be updated on the UI loop. Primary text and
+detail wrap at the available column width, preserving Unicode graphemes and explicit newlines.
+`Spacing` defaults to one connecting row; zero makes the timeline compact.
+
+```csharp
+ActivityTimeline timeline = new ActivityTimeline();
+timeline.Add("Repository cloned");
+timeline.Add("Found 1 skill");
+ActivityEntry skill = timeline.Add("Skill: humanizer", ActivityStatus.Active);
+app.Post(() =>
+{
+    skill.Status = ActivityStatus.Completed;
+    skill.Detail = "Installed successfully.";
+});
+```
+
+| Status | Unicode | ASCII |
+| --- | --- | --- |
+| Pending | ○ | o |
+| Active | ● | * |
+| Completed / informational | ◇ | + |
+| Failed | × | x |
+
+Both new widgets support `ApplyTheme(theme)` and `UseAsciiGlyphs`. Applying a theme sets the
+glyph preference from `UseAsciiBorders`; set `UseAsciiGlyphs` afterward to override it for a
+terminal/font. Status and selection remain distinguishable without color. The existing UTF-8,
+VT output and normalized input backends handle Windows, macOS, and Linux; no new native backend
+or font dependency is required.
+
+These widgets use the UI loop. Marshal background updates through `app.Post(...)`. They render
+inside their assigned surface and clip at its bounds. For long timelines, use `ScrollView` with
+an explicit content size and refresh it with `SetContentSize` as entries or width change; measure
+the timeline with the content width and a sufficiently large height. They do not manage an
+inline shell prompt session or commit completed prompts to terminal scrollback.
+
+The guided tour demonstrates them on **Confirmation prompts** (page 43) and **Activity timeline**
+(page 44). See the [example guide](src/TUIKit.Example/README.md) for keys and snapshot commands.
 
 ### Diffs and activity calendars
 

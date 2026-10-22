@@ -4,16 +4,58 @@ namespace TUIKit.Widgets
     using TUIKit;
     using TUIKit.Input;
     using TUIKit.Theming;
+    using TUIKit.Unicode;
 
     /// <summary>
-    /// A vertical group of mutually exclusive options. Up/Down change the selection and Home/End jump
-    /// to the first and last option.
+    /// A group of mutually exclusive options. Vertical groups use Up/Down; horizontal groups use
+    /// Left/Right. Home/End jump to the first and last option. Use only from the UI loop.
     /// </summary>
     public sealed class RadioGroup : IWidget, IFocusable, IMouseAware, IEnableable, IChangeNotifier, IThemeable, IValueSnapshot
     {
         private readonly string[] _Options;
         private int _Selected;
         private bool _Enabled = true;
+        private RadioGroupOrientation _Orientation;
+        private string _SelectedMarker = "(o)";
+        private string _UnselectedMarker = "( )";
+        private string _Separator = " / ";
+
+        /// <summary>Gets or sets the layout axis. Defaults to Vertical.</summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown for an undefined orientation.</exception>
+        public RadioGroupOrientation Orientation
+        {
+            get { return _Orientation; }
+            set
+            {
+                if (value != RadioGroupOrientation.Vertical && value != RadioGroupOrientation.Horizontal)
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                _Orientation = value;
+            }
+        }
+
+        /// <summary>Gets or sets the selected marker. Defaults to (o). Must not be null.</summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        public string SelectedMarker
+        {
+            get { return _SelectedMarker; }
+            set { _SelectedMarker = value ?? throw new ArgumentNullException(nameof(value)); }
+        }
+
+        /// <summary>Gets or sets the unselected marker. Defaults to ( ). Must not be null.</summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        public string UnselectedMarker
+        {
+            get { return _UnselectedMarker; }
+            set { _UnselectedMarker = value ?? throw new ArgumentNullException(nameof(value)); }
+        }
+
+        /// <summary>Gets or sets the horizontal separator. Defaults to " / ". Must not be null.</summary>
+        /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
+        public string Separator
+        {
+            get { return _Separator; }
+            set { _Separator = value ?? throw new ArgumentNullException(nameof(value)); }
+        }
 
         /// <summary>
         /// Raised after the selected option changes, whether from a key, a click, or a programmatic set of
@@ -46,7 +88,7 @@ namespace TUIKit.Widgets
         /// </summary>
         public System.Collections.Generic.IReadOnlyList<string> Options
         {
-            get { return _Options; }
+            get { return Array.AsReadOnly(_Options); }
         }
 
         /// <summary>
@@ -103,7 +145,7 @@ namespace TUIKit.Widgets
         /// </summary>
         /// <param name="options">The options. Must not be null or empty.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is null.</exception>
-        /// <exception cref="ArgumentException">Thrown when <paramref name="options"/> is empty.</exception>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="options"/> is empty or contains null.</exception>
         public RadioGroup(string[] options)
         {
             if (options == null)
@@ -111,11 +153,16 @@ namespace TUIKit.Widgets
             if (options.Length == 0)
                 throw new ArgumentException("At least one option is required.", nameof(options));
 
-            _Options = options;
+            for (int i = 0; i < options.Length; i++)
+            {
+                if (options[i] == null)
+                    throw new ArgumentException("Options must not contain null.", nameof(options));
+            }
+            _Options = (string[])options.Clone();
         }
 
         /// <summary>
-        /// Changes the selection with Up/Down (one option) and Home/End (first and last option).
+        /// Changes the selection with arrows along the layout axis and Home/End (first and last option).
         /// </summary>
         /// <param name="key">The key event.</param>
         /// <returns><c>true</c> when the key was consumed; otherwise <c>false</c>.</returns>
@@ -126,10 +173,12 @@ namespace TUIKit.Widgets
 
             switch (key.Code)
             {
-                case KeyCode.Up:
+                case KeyCode.Left when Orientation == RadioGroupOrientation.Horizontal:
+                case KeyCode.Up when Orientation == RadioGroupOrientation.Vertical:
                     SetSelected(Math.Max(0, _Selected - 1));
                     return true;
-                case KeyCode.Down:
+                case KeyCode.Right when Orientation == RadioGroupOrientation.Horizontal:
+                case KeyCode.Down when Orientation == RadioGroupOrientation.Vertical:
                     SetSelected(Math.Min(_Options.Length - 1, _Selected + 1));
                     return true;
                 case KeyCode.Home:
@@ -144,7 +193,7 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Selects the clicked option on a left press (each option occupies one row) and moves the selection
+        /// Selects the clicked option on a left press (rows vertically, cell spans horizontally) and moves the selection
         /// one option per wheel notch. Coordinates are widget-local. Other mouse events are not consumed.
         /// </summary>
         /// <param name="mouse">The mouse event in widget-local coordinates. Must not be null.</param>
@@ -158,10 +207,27 @@ namespace TUIKit.Widgets
             if (!_Enabled)
                 return false;
 
-            if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left && mouse.Y >= 0 && mouse.Y < _Options.Length)
+            if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left && mouse.X >= 0 && mouse.Y >= 0)
             {
-                SetSelected(mouse.Y);
-                return true;
+                if (Orientation == RadioGroupOrientation.Vertical && mouse.Y < _Options.Length)
+                {
+                    SetSelected(mouse.Y);
+                    return true;
+                }
+                if (Orientation == RadioGroupOrientation.Horizontal && mouse.Y == 0)
+                {
+                    int x = 0;
+                    for (int i = 0; i < _Options.Length; i++)
+                    {
+                        int width = TextFit.Width(OptionText(i));
+                        if (mouse.X >= x && mouse.X < x + width)
+                        {
+                            SetSelected(i);
+                            return true;
+                        }
+                        x += width + TextFit.Width(Separator);
+                    }
+                }
             }
 
             if (mouse.Kind == MouseEventKind.Wheel && mouse.Button == MouseButton.WheelUp)
@@ -182,7 +248,7 @@ namespace TUIKit.Widgets
         /// <inheritdoc/>
         public Size Measure(Size available)
         {
-            return new Size(available.Width, Math.Min(available.Height, _Options.Length));
+            return new Size(available.Width, Math.Min(available.Height, Orientation == RadioGroupOrientation.Horizontal ? 1 : _Options.Length));
         }
 
         /// <inheritdoc/>
@@ -194,16 +260,32 @@ namespace TUIKit.Widgets
             if (NormalStyle.Background.Kind != ColorKind.Default)
                 surface.Fill(new Rect(0, 0, surface.Size.Width, surface.Size.Height), Cell.Blank(NormalStyle));
 
-            for (int i = 0; i < _Options.Length && i < surface.Size.Height; i++)
+            int x = 0;
+            for (int i = 0; i < _Options.Length; i++)
             {
-                string mark = i == _Selected ? "(o) " : "( ) ";
-                CellStyle style = i == _Selected
-                    ? SelectedStyle.Over(NormalStyle)
-                    : NormalStyle;
+                int y = Orientation == RadioGroupOrientation.Horizontal ? 0 : i;
+                if (y >= surface.Size.Height || x >= surface.Size.Width)
+                    break;
+                CellStyle style = i == _Selected ? SelectedStyle.Over(NormalStyle) : NormalStyle;
                 if (!_Enabled)
                     style = DisabledStyle.Over(style);
-                surface.DrawText(0, i, mark + _Options[i], style);
+                string text = OptionText(i);
+                surface.DrawText(x, y, text, style);
+                if (Orientation == RadioGroupOrientation.Horizontal)
+                {
+                    x += TextFit.Width(text);
+                    if (i + 1 < _Options.Length)
+                    {
+                        surface.DrawText(x, y, Separator, _Enabled ? NormalStyle : DisabledStyle.Over(NormalStyle));
+                        x += TextFit.Width(Separator);
+                    }
+                }
             }
+        }
+
+        private string OptionText(int index)
+        {
+            return (index == _Selected ? SelectedMarker : UnselectedMarker) + " " + _Options[index];
         }
 
         private void SetSelected(int index)

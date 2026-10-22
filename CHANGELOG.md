@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-10-21
+
+### Added
+- Horizontal `RadioGroup` layout with Left/Right navigation, Unicode-width mouse hit regions,
+  configurable selected/unselected markers and separator. Vertical layout and ASCII defaults remain.
+- `ConfirmPrompt`: a question and horizontal Yes/No choice, Enter submission, Escape cancellation,
+  a single completion event per interaction, reset, disabled state, key hints, and collapsed answers.
+  Cancellation remains distinguishable from a submitted No.
+- `ActivityTimeline` and mutable `ActivityEntry` items with pending, active, completed, and failed
+  states, connected gutters, wrapped primary/detail text, configurable spacing, and clear support.
+- Unicode/ASCII and theme support for both new widgets, using the existing cross-platform rendering
+  and input abstractions. No native dependencies were added.
+- Guided-tour pages **Confirmation prompts** (43) and **Activity timeline** (44), including mouse
+  selection, reset, glyph switching, live status updates, and scrollable timeline history.
+- Twenty shared regression cases covering input, events, cancellation, wrapping, Unicode widths,
+  mouse regions, clipping, themes, ASCII output, validation, and existing vertical behavior.
+
+### Changed
+- Radio groups defensively copy and validate their options; callers cannot mutate option labels
+  through the original array or the read-only options view.
+
 ## [1.11.2] - 2026-10-21
 
 ### Fixed

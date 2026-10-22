@@ -1431,6 +1431,46 @@ namespace TUIKit.Example
                     "// HyperlinkMode.Never disables OSC 8."
                 }));
 
+            pages.Add(new TourPage(
+                "Confirmation prompts",
+                "A horizontal radio group: [bold]Left/Right[/] or click selects, [bold]Enter[/] submits, [bold]Esc[/] cancels. [bold]R[/] resets; [bold]G[/] switches Unicode/ASCII.",
+                new ConfirmPromptDemoWidget(app),
+                new[]
+                {
+                    "ConfirmPrompt prompt = new ConfirmPrompt(",
+                    "    \"Proceed with installation?\", true);",
+                    "prompt.Completed += (s, e) =>",
+                    "{",
+                    "    bool? answer = prompt.Result;",
+                    "    // null means cancelled after completion.",
+                    "};",
+                    "prompt.ApplyTheme(app.Theme);",
+                    "// Or use RadioGroup directly:",
+                    "radio.Orientation = RadioGroupOrientation.Horizontal;",
+                    "radio.SelectedMarker = \"●\";",
+                    "radio.UnselectedMarker = \"○\";"
+                }));
+
+            pages.Add(new TourPage(
+                "Activity timeline",
+                "Connected workflow events with wrapping detail. [bold]Enter[/] completes, [bold]F[/] fails, [bold]R[/] resets, [bold]A[/] appends, [bold]G[/] changes glyphs, [bold]S[/] changes spacing; [bold]Up/Down[/] scroll.",
+                new ActivityTimelineDemoWidget(app),
+                new[]
+                {
+                    "ActivityTimeline log = new ActivityTimeline();",
+                    "log.Add(\"Repository cloned\");",
+                    "ActivityEntry task = log.Add(",
+                    "    \"Installation\", ActivityStatus.Active);",
+                    "// Marshal worker updates onto the UI loop:",
+                    "app.Post(() =>",
+                    "{",
+                    "    task.Status = ActivityStatus.Completed;",
+                    "    task.Detail = \"Installed successfully.\";",
+                    "});",
+                    "log.UseAsciiGlyphs = true;",
+                    "log.Spacing = 0; // compact"
+                }));
+
             return pages;
         }
     }

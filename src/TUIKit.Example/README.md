@@ -192,3 +192,28 @@ dotnet run --project src/TUIKit.Example -- --links-always
 
 Auto output stays plain when redirected. Hyperlinks work independently of color (`NO_COLOR` disables
 color only); terminal capability detection is conservative and `HyperlinkMode.Never` disables OSC 8.
+
+## Confirmation prompts and activity timelines (1.12)
+
+Review **Confirmation prompts**, page **43/44**, and **Activity timeline**, page **44/44**.
+Use PageUp/PageDown while the Live demo is focused, or inspect deterministic snapshots:
+
+```sh
+dotnet run --project src/TUIKit.Example --framework net10.0 -- --tour-once --page 42
+dotnet run --project src/TUIKit.Example --framework net10.0 -- --tour-once --page 43
+```
+
+Snapshot page indices are zero-based; the interactive page numbers are one-based.
+
+On **Confirmation prompts**, Left/Right or a click selects Yes/No, Enter submits, and Escape
+cancels. The result stays visible. R resets to Yes; G switches Unicode/ASCII. The widget itself
+defaults to No when no initial value is supplied. Ctrl+T changes the tour theme.
+
+On **Activity timeline**, Enter completes the last task, F fails it with a wrapped explanation,
+R returns it to pending, and A appends a task. G switches Unicode/ASCII; S toggles compact/spaced
+entries. Up/Down, Home/End, or the mouse wheel scroll the history. Completion, failure, and append
+bring the updated final entry into view. Resize to see wrapping and use Ctrl+T to check themes.
+
+The timeline is hosted in a `ScrollView` whose content size is recalculated after updates and
+resizes. Worker updates in your own app should use `app.Post(...)`. Both controls draw through
+`ISurface`; they do not create a shell scrollback prompt session.

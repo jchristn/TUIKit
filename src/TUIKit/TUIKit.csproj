@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.11.2</Version>
-    <AssemblyVersion>1.11.2.0</AssemblyVersion>
-    <FileVersion>1.11.2.0</FileVersion>
+    <Version>1.12.0</Version>
+    <AssemblyVersion>1.12.0.0</AssemblyVersion>
+    <FileVersion>1.12.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -32,7 +32,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
     <PackageTags>tui;focus;accessibility;keyboard;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.11.2 - Reliable example file hyperlinks. The example bundles its README beside the executable on build and publish, and resolves its file URI from AppContext.BaseDirectory instead of the launch directory. Updated hyperlink documentation and release metadata. Native OSC 8 output and opt-in ordinary-click activation from 1.11.1 are unchanged. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.12.0 - Horizontal radio groups with configurable markers and separators; ConfirmPrompt with Yes/No selection, submission and cancellation; ActivityTimeline with connected status markers, wrapping detail, mutable entries, and Unicode/ASCII themes. Includes interactive example pages and shared regression tests. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
