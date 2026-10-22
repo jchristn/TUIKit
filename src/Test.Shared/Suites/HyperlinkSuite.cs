@@ -10,6 +10,7 @@ namespace Test.Shared.Suites
     using TUIKit.Hosting;
     using TUIKit.Input;
     using TUIKit.Layout;
+    using TUIKit.Modals;
     using TUIKit.Rendering;
     using TUIKit.Terminal;
 
@@ -229,6 +230,83 @@ namespace Test.Shared.Suites
                         app.Stop();
                     }
                 }),
+                Case("ApplicationClicks", () =>
+                {
+                    using (HeadlessBackend backend = new HeadlessBackend(40, 6,
+                        CapabilityDetector.Detect(_ => null, false)))
+                    using (TuiApplication app = new TuiApplication(backend))
+                    {
+                        Uri target = new Uri("https://example.com/docs");
+                        Uri file = new Uri(Path.Combine(Path.GetTempPath(), "settings file.json"));
+                        int activations = 0;
+                        Uri? opened = null;
+                        app.Layout = Layout.Create().Add("main", region => region.FillWidth().FillHeight().WithPadding(0)).Build();
+                        app.RenderOverlay = surface =>
+                        {
+                            surface.DrawStyledText(0, 0, StyledText.Link("docs", target));
+                            surface.DrawStyledText(0, 1, StyledText.Link("界file", file));
+                        };
+                        app.HyperlinkActivated += uri => { opened = uri; activations++; };
+                        app.Start();
+                        app.RenderOnce();
+                        Check.False(backend.TakeOutput().Contains("\u001b]8;"), "Emulate terminal without OSC 8");
+                        PumpMouse(app, backend, 0, 1, 1, "M");
+                        Check.Equal(0, activations, "Press alone does not open");
+                        PumpMouse(app, backend, 0, 1, 1, "m");
+                        Check.Equal(target.AbsoluteUri, opened!.AbsoluteUri, "Normal click activates URL without OSC 8");
+                        PumpMouse(app, backend, 0, 2, 2, "M");
+                        PumpMouse(app, backend, 0, 2, 2, "m");
+                        Check.Equal(file.AbsoluteUri, opened!.AbsoluteUri, "Wide continuation activates file target");
+                        Check.Equal(2, activations, "Exactly once per click");
+                        PumpMouse(app, backend, 0, 2, 2, "m");
+                        Check.Equal(2, activations, "Release without press cannot double-open native link");
+                        PumpMouse(app, backend, 0, 1, 1, "M");
+                        PumpMouse(app, backend, 32, 3, 1, "M");
+                        PumpMouse(app, backend, 0, 1, 1, "m");
+                        Check.Equal(2, activations, "Drag cancels activation even if pointer returns");
+                        foreach (int button in new[] { 1, 2, 4, 8, 16 })
+                        {
+                            PumpMouse(app, backend, button, 1, 1, "M");
+                            PumpMouse(app, backend, button, 1, 1, "m");
+                        }
+                        Check.Equal(2, activations, "Middle, right, and modified clicks do not activate");
+                        PumpMouse(app, backend, 0, 30, 5, "M");
+                        PumpMouse(app, backend, 0, 30, 5, "m");
+                        Check.Equal(2, activations, "Blank area does nothing");
+                        PumpMouse(app, backend, 0, 1, 1, "M");
+                        target = new Uri("https://example.com/changed");
+                        app.RenderOnce();
+                        PumpMouse(app, backend, 0, 1, 1, "m");
+                        Check.Equal(2, activations, "Changing target during click cancels");
+                        app.MouseCaptureEnabled = false;
+                        PumpMouse(app, backend, 0, 1, 1, "M");
+                        PumpMouse(app, backend, 0, 1, 1, "m");
+                        Check.Equal(2, activations, "Released capture leaves opening to terminal");
+                        app.MouseCaptureEnabled = true;
+                        PumpMouse(app, backend, 0, 1, 1, "M");
+                        app.Modals.Push(new MessageModal("Title", "body", new List<string> { "OK" }));
+                        PumpMouse(app, backend, 0, 1, 1, "m");
+                        Check.Equal(2, activations, "Modal prevents activation behind it");
+                        app.Stop();
+                    }
+                }),
+                Case("ApplicationClicksOptIn", () =>
+                {
+                    using (HeadlessBackend backend = new HeadlessBackend(30, 5))
+                    using (TuiApplication app = new TuiApplication(backend))
+                    {
+                        int received = 0;
+                        app.Layout = Layout.Create().Add("main", region => region.FillWidth().FillHeight().WithPadding(0)).Build();
+                        app.RenderOverlay = surface => surface.DrawStyledText(0, 0, StyledText.Link("docs", new Uri("https://example.com")));
+                        app.MouseReceived += _ => received++;
+                        app.Start();
+                        app.RenderOnce();
+                        PumpMouse(app, backend, 0, 1, 1, "M");
+                        PumpMouse(app, backend, 0, 1, 1, "m");
+                        Check.Equal(2, received, "No activation subscriber leaves existing mouse routing intact");
+                        app.Stop();
+                    }
+                }),
                 Case("Detection", () =>
                 {
                     Dictionary<string, string> env = new Dictionary<string, string>();
@@ -261,6 +339,12 @@ namespace Test.Shared.Suites
                     Check.False(CapabilityDetector.Detect(get, false).Hyperlinks, "Redirected output");
                 })
             });
+        }
+
+        private static void PumpMouse(TuiApplication app, HeadlessBackend backend, int button, int column, int row, string final)
+        {
+            backend.FeedInput("\u001b[<" + button + ";" + column + ";" + row + final);
+            app.PumpInputOnce();
         }
 
         private static TestCaseDescriptor Case(string id, Action action)

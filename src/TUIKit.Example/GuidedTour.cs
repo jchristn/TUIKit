@@ -2,6 +2,8 @@ namespace TUIKit.Example
 {
     using System;
     using System.Collections.Generic;
+    using System.ComponentModel;
+    using System.Diagnostics;
     using TUIKit;
     using TUIKit.Content;
     using TUIKit.Hosting;
@@ -94,6 +96,7 @@ namespace TUIKit.Example
             _App.KeyFilter = PreFilter;
             _App.PasteReceived += OnPaste;
             _App.MouseReceived += OnMouse;
+            _App.HyperlinkActivated += OpenHyperlink;
             _App.TerminalFocusChanged += focused =>
             {
                 Log(focused ? "Terminal focus gained (CSI I)" : "Terminal focus lost (CSI O)");
@@ -126,6 +129,24 @@ namespace TUIKit.Example
             _DemoHovered = inside;
             if (inside)
                 aware.HandleMouse(new MouseEvent(mouse.Kind, mouse.Button, mouse.X - rect.X, mouse.Y - rect.Y, mouse.Modifiers, mouse.ClickCount));
+        }
+
+        private void OpenHyperlink(Uri uri)
+        {
+            try
+            {
+                using (Process? process = Process.Start(new ProcessStartInfo(uri.IsFile ? uri.LocalPath : uri.AbsoluteUri)
+                {
+                    UseShellExecute = true
+                }))
+                {
+                }
+                Log("Opened " + uri.AbsoluteUri);
+            }
+            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException)
+            {
+                _App.Notify("Could not open link: " + ex.Message, NotificationSeverity.Error, 5000);
+            }
         }
 
         private void ToggleMouse()
@@ -1393,7 +1414,7 @@ namespace TUIKit.Example
 
             pages.Add(new TourPage(
                 "URI hyperlinks",
-                "Native URL and file links. Use your terminal's link-click modifier; [bold]F12[/] releases mouse capture. File links open on the terminal client, including over SSH.",
+                "Click URL and file links normally while mouse capture is on. Native terminal links use the terminal's modifier. Application-handled file links open on the machine running the demo.",
                 new HyperlinkDemoWidget(),
                 new[]
                 {
@@ -1404,7 +1425,8 @@ namespace TUIKit.Example
                     "    \"Open README\",",
                     "    new Uri(Path.GetFullPath(\"README.md\")));",
                     "pane.WriteLine(website.Append(\" | \").Append(file));",
-                    "// Auto by default; override for compatible tmux:",
+                    "app.HyperlinkActivated += uri => Open(uri);",
+                    "// Native OSC 8 override for compatible tmux:",
                     "app.Hyperlinks = HyperlinkMode.Always;",
                     "// HyperlinkMode.Never disables OSC 8."
                 }));

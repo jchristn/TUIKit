@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-10-21
+
+### Fixed
+- Ordinary clicks on the example's URI hyperlinks page now open the URL or file using the operating
+  system default association while mouse capture is on. This also works when native OSC 8 output is
+  unavailable or disabled, including Auto mode in macOS Terminal.app. Native terminal activation still
+  uses the terminal's modifier; file activation through the app occurs on the machine running the app.
+
+### Added
+- Opt-in `TuiApplication.HyperlinkActivated` event for unmodified left clicks on URI targets in the last
+  rendered frame, including wide-character continuation cells and registry-resolved links. The library
+  does not launch external processes. Activation happens on release at the pressed cell; drags, modified
+  clicks, changed targets, modal interactions, and unmatched releases do not activate. Existing routing
+  is unchanged without a subscriber. Mouse capture must be enabled.
+- Positive and negative headless regression coverage for application-managed hyperlink activation.
+
+
 ## [1.11.0] - 2026-10-21
 
 ### Added

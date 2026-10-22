@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application - the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v1.11.0 - native terminal hyperlinks.** Link labels to web URLs, local files, and email addresses with `StyledText.Link(label, Uri)`. Targets survive Markdown layout, wrapping, clipping, and incremental redraws. Automatic detection and explicit overrides work independently of color. See the [changelog](CHANGELOG.md).
+> **v1.11.1 - native and application-handled hyperlinks.** Link labels to web URLs, local files, and email addresses with `StyledText.Link(label, Uri)`. Targets survive Markdown layout, wrapping, clipping, and incremental redraws. Automatic detection and explicit overrides work independently of color. See the [changelog](CHANGELOG.md).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -98,7 +98,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.11.0" />
+<PackageReference Include="TUIKit" Version="1.11.1" />
 ```
 
 ## URL and file hyperlinks
@@ -120,8 +120,14 @@ console.WriteLine(website.Append(" | ").Append(file));
 ```
 
 TUIKit emits standard [OSC 8 hyperlinks](https://iterm2.com/documentation-escape-codes.html), so
-activation and the browser/file association belong to the terminal. Use the terminal's link-click
-modifier; if mouse capture interferes, release capture (F12 in the example tour).
+native activation and the browser/file association belong to the terminal. Use the terminal's
+link-click modifier; if mouse capture interferes, release capture (F12 in the example tour).
+For ordinary clicks while capture is on, subscribe to `app.HyperlinkActivated` and open the supplied
+`Uri` using your application's policy. This path works even without OSC 8 support. The example tour
+handles it using `Process.Start(new ProcessStartInfo(uri.IsFile ? uri.LocalPath : uri.AbsoluteUri)
+{ UseShellExecute = true })`, so ordinary clicks work on macOS, Windows, and Linux. The library itself
+does not launch anything. Application-handled file links open on the machine running the app;
+native terminal file links open through the terminal client.
 `new Uri(Path.GetFullPath(path))` encodes local Windows, macOS, and Linux paths, including spaces.
 Absolute `http`, `https`, `file`, and `mailto` URIs are supported. Relative URIs, other schemes, and
 raw control characters are rejected. Files open through the terminal client's handling; over SSH a

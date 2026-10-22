@@ -78,6 +78,8 @@ namespace TUIKit.Hosting
         private Rect _HoverRect;
         private LinkRegistry? _Links;
         private Link? _HoveredLink;
+        private Uri? _PressedHyperlink;
+        private Point _HyperlinkPressPosition;
         private int _TornDown;
         private ConsoleCancelEventHandler? _CancelKeyHandler;
         private EventHandler? _ProcessExitHandler;
@@ -856,6 +858,15 @@ namespace TUIKit.Hosting
         {
             get { return _HoveredLink; }
         }
+
+        /// <summary>
+        /// Raised for an unmodified left click on a rendered URI hyperlink while mouse capture is on.
+        /// Subscribe to handle ordinary clicks even when the terminal does not support OSC 8. The host
+        /// never launches a browser or file itself. Activation occurs on release at the pressed cell;
+        /// drags, modified clicks, and modal interactions do not activate. With no subscriber, mouse
+        /// routing is unchanged. Raised on the input/render loop thread.
+        /// </summary>
+        public event Action<Uri>? HyperlinkActivated;
 
         /// <summary>
         /// Raised when the link under the pointer changes: with the newly hovered <see cref="Link"/>,
@@ -2269,16 +2280,23 @@ namespace TUIKit.Hosting
             // Toasts draw above everything, so clicks on their actions or dismiss markers go to the
             // notification center first. Clicks elsewhere (and on plain toasts) fall through as before.
             if (_AutoRenderNotifications && mouse.Kind == MouseEventKind.Press && _Notifications.HandleMouse(mouse))
+            {
+                _PressedHyperlink = null;
                 return;
+            }
 
             // Modal trap: while a modal is active it receives the mouse before any region-bound widget,
             // mirroring the key trap above, so clicks land on the dialog and never leak to the interface
             // behind it. The event is consumed here whether or not the modal acts on it.
             if (_Modals.IsActive)
             {
+                _PressedHyperlink = null;
                 _Modals.HandleMouse(mouse);
                 return;
             }
+
+            if (HandleHyperlinkMouse(mouse))
+                return;
 
             // Built-in text selection runs before widget routing so a drag over a widget that consumes
             // mouse (a TextEditor, a scrollable pane) is still captured as a selection. It is inert
@@ -2291,6 +2309,46 @@ namespace TUIKit.Hosting
                 return;
 
             MouseReceived?.Invoke(mouse);
+        }
+
+        private bool HandleHyperlinkMouse(MouseEvent mouse)
+        {
+            Action<Uri>? activated = HyperlinkActivated;
+            if (!_MouseCaptureEnabled || _MouseTrackingMode == MouseTrackingMode.None || activated == null)
+            {
+                _PressedHyperlink = null;
+                return false;
+            }
+
+            if (mouse.Kind == MouseEventKind.Press)
+            {
+                _PressedHyperlink = null;
+                if (mouse.Button == MouseButton.Left && mouse.Modifiers == KeyModifiers.None)
+                {
+                    _PressedHyperlink = _Renderer?.HyperlinkAt(mouse.X, mouse.Y);
+                    _HyperlinkPressPosition = new Point(mouse.X, mouse.Y);
+                }
+                return _PressedHyperlink != null;
+            }
+
+            Uri? pressed = _PressedHyperlink;
+            if (pressed == null)
+                return false;
+            if (mouse.Kind == MouseEventKind.Move || mouse.Kind == MouseEventKind.Leave || mouse.Kind == MouseEventKind.Wheel)
+            {
+                if (mouse.Kind != MouseEventKind.Move || mouse.X != _HyperlinkPressPosition.X || mouse.Y != _HyperlinkPressPosition.Y)
+                    _PressedHyperlink = null;
+                return true;
+            }
+            if (mouse.Kind != MouseEventKind.Release)
+                return false;
+
+            _PressedHyperlink = null;
+            if (mouse.Button == MouseButton.Left && mouse.Modifiers == KeyModifiers.None
+                && mouse.X == _HyperlinkPressPosition.X && mouse.Y == _HyperlinkPressPosition.Y
+                && string.Equals(pressed.AbsoluteUri, _Renderer?.HyperlinkAt(mouse.X, mouse.Y)?.AbsoluteUri, StringComparison.Ordinal))
+                activated(pressed);
+            return true;
         }
 
         private bool RouteMouse(MouseEvent mouse)
@@ -2533,6 +2591,7 @@ namespace TUIKit.Hosting
 
         private void ClearHover(KeyModifiers modifiers)
         {
+            _PressedHyperlink = null;
             if (_HoveredLink != null)
             {
                 _HoveredLink = null;

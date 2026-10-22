@@ -18,12 +18,12 @@ namespace TUIKit.Example
         /// <inheritdoc/>
         public void Render(ISurface surface)
         {
-            surface.DrawStyledText(0, 0, Text.From("Native terminal hyperlinks").Bold());
+            surface.DrawStyledText(0, 0, Text.From("URL and file hyperlinks").Bold());
             surface.DrawStyledText(0, 2, Text.From("URL:  ").Append(StyledText.Link("Visit TUIKit on GitHub", new Uri("https://github.com/jchristn/TUIKit"))));
             surface.DrawStyledText(0, 3, Text.From("File: ").Append(StyledText.Link("Open local README.md", _FileUri)));
-            surface.DrawStyledText(0, 5, Text.From("Use your terminal's link-click modifier."));
-            surface.DrawStyledText(0, 6, Text.From("In the tour, F12 releases mouse capture."));
-            surface.DrawStyledText(0, 7, Text.From("File links open on the terminal client."));
+            surface.DrawStyledText(0, 5, Text.From("Click a link to open it (mouse capture on)."));
+            surface.DrawStyledText(0, 6, Text.From("Native links also use your terminal's modifier."));
+            surface.DrawStyledText(0, 7, Text.From("Normal clicks open files on this machine."));
             surface.DrawStyledText(0, 8, Text.From("File URI: " + _FileUri.AbsoluteUri).Dim());
         }
     }

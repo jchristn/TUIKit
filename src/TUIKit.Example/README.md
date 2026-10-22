@@ -175,8 +175,11 @@ If you add a public capability to the library, add a row here and wire it into t
 
 The **URI hyperlinks** tour page shows `StyledText.Link(label, Uri)` with a GitHub URL and a local
 `README.md` file built with `new Uri(Path.GetFullPath("README.md"))`. Run from the repository root
-so that the local link points to the root README. Use your terminal's link-click modifier, or press
-F12 to release mouse capture. File activation is handled by the terminal client, including over SSH.
+so that the local link points to the root README. Click normally while mouse capture is on: the tour
+handles `app.HyperlinkActivated` and uses the OS default browser or file association. This works in
+macOS Terminal.app without native OSC 8 support. Application-handled file links open on the machine
+running the demo. Native activation uses the terminal's modifier (or F12 to release capture) and its
+own client-side handling, which may differ over SSH.
 
 ```bash
 dotnet run --project src/TUIKit.Example -- --links-once

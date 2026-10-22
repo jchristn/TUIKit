@@ -191,6 +191,13 @@ namespace TUIKit.Rendering
             return copy;
         }
 
+        internal Uri? HyperlinkAt(int x, int y)
+        {
+            if (x < 0 || y < 0 || x >= _Front.Width || y >= _Front.Height)
+                return null;
+            return _Front.Get(x, y).Style.Hyperlink;
+        }
+
         private void SyncSize(Size size)
         {
             if (size.Width <= 0 || size.Height <= 0)
