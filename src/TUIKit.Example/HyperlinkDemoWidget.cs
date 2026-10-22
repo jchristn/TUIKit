@@ -7,7 +7,7 @@ namespace TUIKit.Example
 
     internal sealed class HyperlinkDemoWidget : IWidget
     {
-        private readonly Uri _FileUri = new Uri(Path.GetFullPath("README.md"));
+        private readonly Uri _FileUri = new Uri(Path.Combine(AppContext.BaseDirectory, "README.md"));
 
         /// <inheritdoc/>
         public Size Measure(Size available)

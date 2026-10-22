@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TUIKit\TUIKit.csproj" />
+    <None Update="README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

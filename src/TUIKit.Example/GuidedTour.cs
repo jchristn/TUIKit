@@ -1423,7 +1423,7 @@ namespace TUIKit.Example
                     "    new Uri(\"https://github.com/jchristn/TUIKit\"));",
                     "StyledText file = StyledText.Link(",
                     "    \"Open README\",",
-                    "    new Uri(Path.GetFullPath(\"README.md\")));",
+                    "    new Uri(Path.Combine(AppContext.BaseDirectory, \"README.md\")));",
                     "pane.WriteLine(website.Append(\" | \").Append(file));",
                     "app.HyperlinkActivated += uri => Open(uri);",
                     "// Native OSC 8 override for compatible tmux:",
