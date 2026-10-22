@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-10-21
+
 ### Fixed
 - The example's file hyperlink targets the README copied beside the executable on build and publish,
   rather than assuming `README.md` exists in the launch directory.

@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application - the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v1.11.1 - native and application-handled hyperlinks.** Link labels to web URLs, local files, and email addresses with `StyledText.Link(label, Uri)`. Targets survive Markdown layout, wrapping, clipping, and incremental redraws. Automatic detection and explicit overrides work independently of color. See the [changelog](CHANGELOG.md).
+> **v1.11.2 - native and application-handled hyperlinks.** Link labels to web URLs, local files, and email addresses with `StyledText.Link(label, Uri)`. Targets survive Markdown layout, wrapping, clipping, and incremental redraws. Automatic detection and explicit overrides work independently of color. See the [changelog](CHANGELOG.md).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -98,7 +98,7 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.11.1" />
+<PackageReference Include="TUIKit" Version="1.11.2" />
 ```
 
 ## URL and file hyperlinks
@@ -148,7 +148,9 @@ or `InlineRenderer.ToAnsiLines(buffer, depth, hyperlinks: true)`; `TerminalColor
 color while these overloads can still emit OSC 8.
 
 Try `dotnet run --project src/TUIKit.Example -- --links-once`, or add `--links-always` to force OSC 8.
-The default guided tour also includes a **URI hyperlinks** page.
+The default guided tour also includes a **URI hyperlinks** page. Its file link targets the example
+README bundled beside the executable on build and publish, so it works from any launch directory.
+For your own file links, ensure the target exists: constructing a file URI does not create the file.
 
 
 ## Quick start
