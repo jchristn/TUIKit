@@ -29,6 +29,7 @@ namespace Test.Shared
                     BufferSurfaceSuite.Suite(),
                     StyledTextSuite.Suite(),
                     TerminalSuite.Suite(),
+                    HyperlinkSuite.Suite(),
                     RenderSuite.Suite(),
                     LayoutSuite.Suite(),
                     RegionBackgroundSuite.Suite(),

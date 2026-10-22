@@ -8,7 +8,7 @@
 
 A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you drop a multi-pane, live-updating interface into an ordinary console application - the kind of surface an AI agent harness needs: a streaming transcript on one side, tool output and telemetry on another, an input composer at the bottom, and modal dialogs on top of it all.
 
-> **v1.3.0 - stable.** Hierarchical focus scopes, change events and disabled/read-only state across widgets, a richer `DataTable`, a command palette and key help, multi-series and stacked charts, and cell-width-correct layout for CJK and emoji. The ASCII-art library grows to **134 fonts**, adding the rest of patorjk TAAG's curated set (Isometric1-4, Epic, Star Wars, and others) and the TheDraw fonts FateGate and Bleach, and a FIGlet loader fix repairs 14 built-in TOIlet fonts. Built-in **observability** (v1.2.0) is unchanged: metrics and traces on a BCL `Meter` and `ActivitySource` named `TUIKit`. See [**TELEMETRY.md**](TELEMETRY.md) and the [**changelog**](CHANGELOG.md).
+> **v1.11.0 - native terminal hyperlinks.** Link labels to web URLs, local files, and email addresses with `StyledText.Link(label, Uri)`. Targets survive Markdown layout, wrapping, clipping, and incremental redraws. Automatic detection and explicit overrides work independently of color. See the [changelog](CHANGELOG.md).
 
 **Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
@@ -98,8 +98,52 @@ dotnet add package TUIKit
 Or add it to your project file:
 
 ```xml
-<PackageReference Include="TUIKit" Version="1.10.0" />
+<PackageReference Include="TUIKit" Version="1.11.0" />
 ```
+
+## URL and file hyperlinks
+
+```csharp
+using System;
+using System.IO;
+using TUIKit;
+using TUIKit.Terminal;
+
+StyledText website = StyledText.Link(
+    "Visit the docs", new Uri("https://example.com/docs"));
+StyledText file = StyledText.Link(
+    "Open settings.json", new Uri(Path.GetFullPath("settings.json")));
+
+StyledConsole console = StyledConsole.ForStandardOutput();
+console.WriteLine(website.Append(" | ").Append(file));
+// For a full-screen app, use pane.WriteLine(website) or surface.DrawStyledText(...).
+```
+
+TUIKit emits standard [OSC 8 hyperlinks](https://iterm2.com/documentation-escape-codes.html), so
+activation and the browser/file association belong to the terminal. Use the terminal's link-click
+modifier; if mouse capture interferes, release capture (F12 in the example tour).
+`new Uri(Path.GetFullPath(path))` encodes local Windows, macOS, and Linux paths, including spaces.
+Absolute `http`, `https`, `file`, and `mailto` URIs are supported. Relative URIs, other schemes, and
+raw control characters are rejected. Files open through the terminal client's handling; over SSH a
+remote path may require terminal-specific remote-file integration.
+
+`console.Hyperlinks` and `app.Hyperlinks` default to `HyperlinkMode.Auto`. Auto detects known terminals
+and disables inline hyperlinks for redirected/custom writers. Detection is independent of `NO_COLOR`.
+Use `HyperlinkMode.Always` for a known-compatible tmux session or explicit writer, and `Never` to disable
+OSC 8. Auto is conservative for unknown terminals and multiplexers; supporting terminals and their
+settings still determine whether activation works. Unsupported output retains the label; width-aware
+Markdown can additionally show destinations with `MarkdownRenderOptions.ShowLinkUrls = true`.
+
+Targets live in immutable `CellStyle.Hyperlink` values, so no registration is needed for these helpers.
+Existing registry-based `LinkId` cells also work in full-screen apps through `app.Links`; standalone
+`TerminalRenderer` users can provide `LinkResolver`. Command-only links remain application actions.
+Low-level callers can explicitly enable targets with `AnsiText.Render(text, depth, hyperlinks: true)`
+or `InlineRenderer.ToAnsiLines(buffer, depth, hyperlinks: true)`; `TerminalColorDepth.None` suppresses
+color while these overloads can still emit OSC 8.
+
+Try `dotnet run --project src/TUIKit.Example -- --links-once`, or add `--links-always` to force OSC 8.
+The default guided tour also includes a **URI hyperlinks** page.
+
 
 ## Quick start
 

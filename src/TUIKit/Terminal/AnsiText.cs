@@ -25,10 +25,21 @@ namespace TUIKit.Terminal
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public static string Render(StyledText text, TerminalColorDepth depth)
         {
+            return Render(text, depth, false);
+        }
+
+        /// <summary>Renders text with independently selected color and OSC 8 output.</summary>
+        /// <param name="text">The text. Must not be null.</param>
+        /// <param name="depth">The color depth; None suppresses SGR only.</param>
+        /// <param name="hyperlinks">Whether to emit hyperlinks. Defaults are selected by the caller.</param>
+        /// <returns>The rendered text, with links closed before newlines and at the end.</returns>
+        /// <exception cref="ArgumentNullException">The text is null.</exception>
+        public static string Render(StyledText text, TerminalColorDepth depth, bool hyperlinks)
+        {
             if (text == null)
                 throw new ArgumentNullException(nameof(text));
 
-            if (depth == TerminalColorDepth.None)
+            if (depth == TerminalColorDepth.None && !hyperlinks)
                 return text.ToPlainString();
 
             System.Collections.Generic.IReadOnlyList<StyledSpan> spans = text.Spans;
@@ -37,18 +48,35 @@ namespace TUIKit.Terminal
 
             StringBuilder builder = new StringBuilder();
             bool wroteAny = false;
+            string? currentLink = null;
             for (int i = 0; i < spans.Count; i++)
             {
                 StyledSpan span = spans[i];
                 if (span.Text.Length == 0)
                     continue;
 
-                builder.Append(Ansi.Sgr(span.Style, depth));
-                builder.Append(span.Text);
+                if (depth != TerminalColorDepth.None)
+                    builder.Append(Ansi.Sgr(span.Style, depth));
+                if (!hyperlinks || span.Style.Hyperlink == null)
+                {
+                    HyperlinkOutput.Transition(builder, ref currentLink, null);
+                    builder.Append(span.Text);
+                }
+                else
+                {
+                    for (int j = 0; j < span.Text.Length; j++)
+                    {
+                        char c = span.Text[j];
+                        HyperlinkOutput.Transition(builder, ref currentLink,
+                            c != '\r' && c != '\n' ? span.Style.Hyperlink : null);
+                        builder.Append(c);
+                    }
+                }
                 wroteAny = true;
             }
 
-            if (wroteAny)
+            HyperlinkOutput.Transition(builder, ref currentLink, null);
+            if (wroteAny && depth != TerminalColorDepth.None)
                 builder.Append(Ansi.ResetAttributes);
 
             return builder.ToString();

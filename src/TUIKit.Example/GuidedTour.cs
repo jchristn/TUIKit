@@ -1391,6 +1391,24 @@ namespace TUIKit.Example
                     "map.CellDescription = (r, c) => Describe(r, c);"
                 }));
 
+            pages.Add(new TourPage(
+                "URI hyperlinks",
+                "Native URL and file links. Use your terminal's link-click modifier; [bold]F12[/] releases mouse capture. File links open on the terminal client, including over SSH.",
+                new HyperlinkDemoWidget(),
+                new[]
+                {
+                    "StyledText website = StyledText.Link(",
+                    "    \"Visit TUIKit\",",
+                    "    new Uri(\"https://github.com/jchristn/TUIKit\"));",
+                    "StyledText file = StyledText.Link(",
+                    "    \"Open README\",",
+                    "    new Uri(Path.GetFullPath(\"README.md\")));",
+                    "pane.WriteLine(website.Append(\" | \").Append(file));",
+                    "// Auto by default; override for compatible tmux:",
+                    "app.Hyperlinks = HyperlinkMode.Always;",
+                    "// HyperlinkMode.Never disables OSC 8."
+                }));
+
             return pages;
         }
     }

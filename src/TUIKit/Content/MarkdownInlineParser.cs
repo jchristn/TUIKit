@@ -90,7 +90,7 @@ namespace TUIKit.Content
                 {
                     if (TryLink(text, i, end, out int labelEnd, out int afterLink, out string url))
                     {
-                        CellStyle linkStyle = MarkdownStyles.Overlay(style, styles.Link);
+                        CellStyle linkStyle = MarkdownStyles.Overlay(style, styles.Link).WithHyperlink(Terminal.HyperlinkOutput.TryTarget(url));
                         string label = text.Substring(i + 1, labelEnd - (i + 1));
                         ParseRange(label, 0, label.Length, linkStyle);
                         if (_Options.ShowLinkUrls && url.Length > 0 && !string.Equals(label.Trim(), url, StringComparison.Ordinal))
@@ -106,7 +106,9 @@ namespace TUIKit.Content
                     int close = TryAutolink(text, i, end);
                     if (close > 0)
                     {
-                        Emit(text.Substring(i + 1, close - i - 1), MarkdownStyles.Overlay(style, styles.Link));
+                        string label = text.Substring(i + 1, close - i - 1);
+                        string target = label.IndexOf('@') >= 0 && label.IndexOf(':') < 0 ? "mailto:" + label : label;
+                        Emit(label, MarkdownStyles.Overlay(style, styles.Link).WithHyperlink(Terminal.HyperlinkOutput.TryTarget(target)));
                         i = close + 1;
                         continue;
                     }

@@ -95,6 +95,19 @@ namespace TUIKit
             return new StyledText(new[] { new StyledSpan(value, style) });
         }
 
+        /// <summary>Creates a link with a display label and an absolute HTTP, HTTPS, file, or mailto URI.</summary>
+        /// <param name="text">The label. Must not be null.</param>
+        /// <param name="uri">The target. Must not be null.</param>
+        /// <returns>Underlined text carrying the target through layout and rendering.</returns>
+        /// <exception cref="ArgumentNullException">A required argument is null.</exception>
+        /// <exception cref="ArgumentException">The target is relative, unsafe, or uses an unsupported scheme.</exception>
+        public static StyledText Link(string text, Uri uri)
+        {
+            if (uri == null)
+                throw new ArgumentNullException(nameof(uri));
+            return From(text, CellStyle.Default.WithHyperlink(uri).WithAttribute(CellAttributes.Underline, true));
+        }
+
         /// <summary>
         /// Returns a copy of this text with the supplied text appended in the default style.
         /// </summary>
@@ -148,13 +161,13 @@ namespace TUIKit
 
         /// <summary>
         /// Returns a copy of this text with every span replaced by the supplied style, for example a
-        /// semantic theme role such as <c>theme.Success</c>.
+        /// semantic theme role such as <c>theme.Success</c>. An existing hyperlink target is preserved.
         /// </summary>
         /// <param name="style">The style to apply to the whole text.</param>
         /// <returns>The restyled text.</returns>
         public StyledText Style(CellStyle style)
         {
-            return Transform(_ => style);
+            return Transform(previous => style.WithHyperlink(previous.Hyperlink ?? style.Hyperlink));
         }
 
         /// <summary>

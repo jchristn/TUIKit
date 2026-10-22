@@ -234,7 +234,7 @@ namespace TUIKit.Content
         {
             Color foreground = overlay.Foreground.Kind != ColorKind.Default ? overlay.Foreground : baseStyle.Foreground;
             Color background = overlay.Background.Kind != ColorKind.Default ? overlay.Background : baseStyle.Background;
-            return new CellStyle(foreground, background, baseStyle.Attributes | overlay.Attributes, baseStyle.LinkId);
+            return new CellStyle(foreground, background, baseStyle.Attributes | overlay.Attributes, baseStyle.LinkId).WithHyperlink(baseStyle.Hyperlink);
         }
     }
 }

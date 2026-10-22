@@ -4,7 +4,7 @@ namespace TUIKit
 
     /// <summary>
     /// An immutable description of how a cell is painted: foreground and background colors, text
-    /// attributes, and an optional link identifier. Instances are value types and are safe to share
+    /// attributes, an optional link identifier, and an optional absolute hyperlink target. Instances are value types and are safe to share
     /// across threads. Use the <c>With*</c> methods to derive a modified copy.
     /// </summary>
     public readonly struct CellStyle : IEquatable<CellStyle>
@@ -30,6 +30,29 @@ namespace TUIKit
         /// </summary>
         public int LinkId { get; }
 
+        /// <summary>Gets the absolute hyperlink target, or null for no terminal hyperlink.</summary>
+        public Uri? Hyperlink { get; }
+
+        /// <summary>Returns a copy with an absolute HTTP, HTTPS, file, or mailto target, or null to remove it.</summary>
+        /// <param name="uri">The target, or null.</param>
+        /// <returns>The derived style.</returns>
+        /// <exception cref="ArgumentException">The target is relative, unsafe, or uses an unsupported scheme.</exception>
+        public CellStyle WithHyperlink(Uri? uri)
+        {
+            if (uri != null)
+                Terminal.HyperlinkOutput.Validate(uri);
+            return new CellStyle(Foreground, Background, Attributes, LinkId, uri);
+        }
+
+        private CellStyle(Color foreground, Color background, CellAttributes attributes, int linkId, Uri? hyperlink)
+        {
+            Foreground = foreground;
+            Background = background;
+            Attributes = attributes;
+            LinkId = linkId;
+            Hyperlink = hyperlink;
+        }
+
         /// <summary>
         /// Gets the default style: default foreground and background, no attributes, and no link.
         /// </summary>
@@ -51,6 +74,7 @@ namespace TUIKit
             Background = background;
             Attributes = attributes;
             LinkId = linkId;
+            Hyperlink = null;
         }
 
         /// <summary>
@@ -60,7 +84,7 @@ namespace TUIKit
         /// <returns>The derived style.</returns>
         public CellStyle WithForeground(Color foreground)
         {
-            return new CellStyle(foreground, Background, Attributes, LinkId);
+            return new CellStyle(foreground, Background, Attributes, LinkId, Hyperlink);
         }
 
         /// <summary>
@@ -70,7 +94,7 @@ namespace TUIKit
         /// <returns>The derived style.</returns>
         public CellStyle WithBackground(Color background)
         {
-            return new CellStyle(Foreground, background, Attributes, LinkId);
+            return new CellStyle(Foreground, background, Attributes, LinkId, Hyperlink);
         }
 
         /// <summary>
@@ -80,7 +104,7 @@ namespace TUIKit
         /// <returns>The derived style.</returns>
         public CellStyle WithAttributes(CellAttributes attributes)
         {
-            return new CellStyle(Foreground, Background, attributes, LinkId);
+            return new CellStyle(Foreground, Background, attributes, LinkId, Hyperlink);
         }
 
         /// <summary>
@@ -92,7 +116,7 @@ namespace TUIKit
         public CellStyle WithAttribute(CellAttributes attribute, bool enabled)
         {
             CellAttributes updated = enabled ? (Attributes | attribute) : (Attributes & ~attribute);
-            return new CellStyle(Foreground, Background, updated, LinkId);
+            return new CellStyle(Foreground, Background, updated, LinkId, Hyperlink);
         }
 
         /// <summary>
@@ -102,7 +126,7 @@ namespace TUIKit
         /// <returns>The derived style.</returns>
         public CellStyle WithLinkId(int linkId)
         {
-            return new CellStyle(Foreground, Background, Attributes, linkId);
+            return new CellStyle(Foreground, Background, Attributes, linkId, Hyperlink);
         }
 
         /// <summary>
@@ -117,7 +141,7 @@ namespace TUIKit
         {
             Color foreground = Foreground.Kind != ColorKind.Default ? Foreground : background.Foreground;
             Color back = Background.Kind != ColorKind.Default ? Background : background.Background;
-            return new CellStyle(foreground, back, Attributes, LinkId);
+            return new CellStyle(foreground, back, Attributes, LinkId, Hyperlink);
         }
 
         /// <summary>
@@ -136,7 +160,8 @@ namespace TUIKit
             return Foreground.Equals(other.Foreground)
                 && Background.Equals(other.Background)
                 && Attributes == other.Attributes
-                && LinkId == other.LinkId;
+                && LinkId == other.LinkId
+                && string.Equals(Hyperlink?.AbsoluteUri, other.Hyperlink?.AbsoluteUri, StringComparison.Ordinal);
         }
 
         /// <inheritdoc/>
@@ -155,6 +180,7 @@ namespace TUIKit
                 hash = (hash * 31) ^ Background.GetHashCode();
                 hash = (hash * 31) ^ (int)Attributes;
                 hash = (hash * 31) ^ LinkId;
+                hash = (hash * 31) ^ (Hyperlink == null ? 0 : StringComparer.Ordinal.GetHashCode(Hyperlink.AbsoluteUri));
                 return hash;
             }
         }

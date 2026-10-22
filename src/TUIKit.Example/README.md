@@ -170,3 +170,21 @@ Every marquee capability of the library maps to something concrete in this app. 
 | Headless mouse, frame capture, focus audit | `--focus-audit-once`; the test suites drive `FeedClick` and `CaptureFrame` |
 
 If you add a public capability to the library, add a row here and wire it into the app.
+
+## URI hyperlinks (1.11)
+
+The **URI hyperlinks** tour page shows `StyledText.Link(label, Uri)` with a GitHub URL and a local
+`README.md` file built with `new Uri(Path.GetFullPath("README.md"))`. Run from the repository root
+so that the local link points to the root README. Use your terminal's link-click modifier, or press
+F12 to release mouse capture. File activation is handled by the terminal client, including over SSH.
+
+```bash
+dotnet run --project src/TUIKit.Example -- --links-once
+# Force OSC 8 for a known-compatible terminal/multiplexer, or to inspect redirected escapes:
+dotnet run --project src/TUIKit.Example -- --links-once --links-always
+# The same override works in the interactive tour:
+dotnet run --project src/TUIKit.Example -- --links-always
+```
+
+Auto output stays plain when redirected. Hyperlinks work independently of color (`NO_COLOR` disables
+color only); terminal capability detection is conservative and `HyperlinkMode.Never` disables OSC 8.

@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-21
+
+### Added
+- `StyledText.Link(label, Uri)` and `CellStyle.WithHyperlink(Uri?)` carry absolute HTTP, HTTPS,
+  file, and mailto targets through fluent styling, surfaces, panes, wrapping, and clipping. File paths
+  can use `new Uri(Path.GetFullPath(path))` for platform-correct encoding.
+- Native OSC 8 output in the full-screen, flowing-text, and inline-buffer renderers. Links close
+  before newlines and cursor movement and at output boundaries. Stable target-derived OSC IDs associate
+  wrapped segments, and target-only changes trigger repainting, including reused registry IDs.
+- `HyperlinkMode.Auto`, `Always`, and `Never` on `TuiApplication`, `TerminalRenderer`, and `StyledConsole`.
+  Auto uses terminal capability detection and suppresses links for redirected inline output. Always
+  supports explicit writers and known-compatible multiplexer sessions. Color and hyperlinks are independent.
+- Width-aware Markdown links and autolinks retain URI targets, including nested styles and wrapped labels.
+  Relative and unsupported destinations remain readable without terminal hyperlink escapes.
+- The example's **URI hyperlinks** tour page, `--links-once`, and `--links-always` demonstrate URL and
+  local-file URIs. Shared positive and negative tests cover targets, redraws, boundaries, Markdown,
+  encoding, clipping, capability detection, output policies, and host integration.
+
+### Changed
+- Hyperlink detection no longer infers OSC 8 support from truecolor support. Auto is conservative for
+  unknown terminals, Apple Terminal, GNU screen, and tmux; compatible sessions can opt into Always.
+- `Ansi.OpenHyperlink` validates and encodes supported absolute targets and rejects control characters
+  and unsafe OSC identifier delimiters. Invalid inputs now throw argument exceptions.
+- `StyledText.Style` preserves an existing hyperlink while replacing its visual style. Existing two-argument
+  `AnsiText.Render` and `InlineRenderer.ToAnsiLines` overloads retain their previous escape-free plain mode;
+  new overloads select hyperlink output independently of color.
+
+
 ## [1.10.0] - 2026-10-14
 
 Most diffs a terminal app shows are not computed locally: they come from git, a code review API, or a patch

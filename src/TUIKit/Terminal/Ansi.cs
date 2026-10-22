@@ -1,5 +1,6 @@
 namespace TUIKit.Terminal
 {
+    using System;
     using System.Globalization;
     using System.Text;
 
@@ -236,8 +237,18 @@ namespace TUIKit.Terminal
         /// <param name="id">The link identifier, used to associate wrapped runs. May be null or empty.</param>
         /// <param name="uri">The target URI. Must not be null.</param>
         /// <returns>The opening sequence.</returns>
+        /// <exception cref="ArgumentNullException">The URI is null.</exception>
+        /// <exception cref="ArgumentException">The URI or identifier is unsafe or unsupported.</exception>
         public static string OpenHyperlink(string? id, string uri)
         {
+            if (uri == null)
+                throw new ArgumentNullException(nameof(uri));
+            Uri? target = HyperlinkOutput.TryTarget(uri);
+            if (target == null)
+                throw new ArgumentException("An absolute HTTP, HTTPS, file, or mailto URI is required.", nameof(uri));
+            if (id != null && (HyperlinkOutput.HasControl(id) || id.IndexOfAny(new[] { ':', ';', '=' }) >= 0))
+                throw new ArgumentException("The identifier contains OSC parameter delimiters or control characters.", nameof(id));
+            uri = target.AbsoluteUri;
             string parameters = string.IsNullOrEmpty(id) ? string.Empty : "id=" + id;
             return Esc + "]8;" + parameters + ";" + uri + Esc + "\\";
         }

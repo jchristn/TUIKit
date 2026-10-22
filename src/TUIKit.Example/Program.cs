@@ -61,6 +61,15 @@ namespace TUIKit.Example
                 return 0;
             }
 
+            if (Array.IndexOf(args, "--links-once") >= 0)
+            {
+                StyledConsole console = StyledConsole.ForStandardOutput();
+                if (Array.IndexOf(args, "--links-always") >= 0)
+                    console.Hyperlinks = HyperlinkMode.Always;
+                console.WriteLine(new HyperlinkDemoWidget(), 90);
+                return 0;
+            }
+
             bool harnessMode = Array.IndexOf(args, "--harness") >= 0;
             bool contractMode = Array.IndexOf(args, "--contract") >= 0;
             bool focusMode = Array.IndexOf(args, "--focus") >= 0;
@@ -68,6 +77,8 @@ namespace TUIKit.Example
             using (ConsoleBackend backend = new ConsoleBackend())
             using (TuiApplication app = new TuiApplication(backend))
             {
+                if (Array.IndexOf(args, "--links-always") >= 0)
+                    app.Hyperlinks = HyperlinkMode.Always;
                 Console.CancelKeyPress += (sender, eventArgs) =>
                 {
                     eventArgs.Cancel = true;

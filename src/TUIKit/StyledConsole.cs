@@ -14,7 +14,8 @@ namespace TUIKit
     /// markup, or render a whole <see cref="IWidget"/> (for example a <see cref="Widgets.Table"/>) as
     /// colored lines. Color is quantized to the resolved <see cref="ColorDepth"/>; when that is
     /// <see cref="TerminalColorDepth.None"/> (redirected output, <c>NO_COLOR</c>, or <c>TERM=dumb</c>)
-    /// everything is written as plain text. This type never enters the alternate screen and never emits
+    /// color escapes are suppressed. OSC 8 hyperlinks are controlled independently by <see cref="Hyperlinks"/>.
+    /// This type never enters the alternate screen and never emits
     /// cursor-movement sequences — all writes go only to the supplied <see cref="TextWriter"/>.
     /// </summary>
     /// <remarks>Not thread-safe: serialize writes to a single instance externally if shared.</remarks>
@@ -24,11 +25,24 @@ namespace TUIKit
         private readonly TextWriter _Output;
         private int _DefaultWidth = 80;
 
+        /// <summary>Gets or sets OSC 8 policy. Defaults to Auto, disabled for unrecognized or redirected writers.</summary>
+        public HyperlinkMode Hyperlinks { get; set; } = HyperlinkMode.Auto;
+
+        private bool EmitHyperlinks
+        {
+            get
+            {
+                bool interactive = ReferenceEquals(_Output, Console.Out) ? !Console.IsOutputRedirected
+                    : ReferenceEquals(_Output, Console.Error) && !Console.IsErrorRedirected;
+                return HyperlinkOutput.Enabled(Hyperlinks, CapabilityDetector.Detect(interactive).Hyperlinks);
+            }
+        }
+
         /// <summary>
         /// Initializes a new instance over an explicit writer and color depth (no auto-detection).
         /// </summary>
         /// <param name="output">The destination writer. Must not be null.</param>
-        /// <param name="colorDepth">The color depth to render at; <see cref="TerminalColorDepth.None"/> forces plain text.</param>
+        /// <param name="colorDepth">The color depth to render at; <see cref="TerminalColorDepth.None"/> disables color. Hyperlinks are controlled independently.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="output"/> is null.</exception>
         public StyledConsole(TextWriter output, TerminalColorDepth colorDepth)
         {
@@ -38,7 +52,7 @@ namespace TUIKit
 
         /// <summary>
         /// Creates a writer over <see cref="Console.Out"/> with the depth resolved by
-        /// <see cref="CapabilityDetector.ResolveOutputColorDepth"/> (plain when redirected, <c>NO_COLOR</c>, or <c>TERM=dumb</c>).
+        /// <see cref="CapabilityDetector.ResolveOutputColorDepth"/> (no color when redirected, <c>NO_COLOR</c>, or <c>TERM=dumb</c>).
         /// </summary>
         /// <returns>A configured writer.</returns>
         public static StyledConsole ForStandardOutput()
@@ -57,7 +71,7 @@ namespace TUIKit
         }
 
         /// <summary>
-        /// Gets the resolved color depth. <see cref="TerminalColorDepth.None"/> means output is plain.
+        /// Gets the resolved color depth. <see cref="TerminalColorDepth.None"/> disables color; hyperlinks are controlled independently.
         /// </summary>
         public TerminalColorDepth ColorDepth { get; }
 
@@ -86,7 +100,7 @@ namespace TUIKit
             if (text == null)
                 throw new ArgumentNullException(nameof(text));
 
-            _Output.Write(AnsiText.Render(text, ColorDepth));
+            _Output.Write(AnsiText.Render(text, ColorDepth, EmitHyperlinks));
         }
 
         /// <summary>Writes styled text followed by a newline.</summary>
@@ -194,7 +208,7 @@ namespace TUIKit
 
             CellBuffer buffer = new CellBuffer(resolvedWidth, height);
             widget.Render(new BufferSurface(buffer));
-            return InlineRenderer.ToAnsiLines(buffer, ColorDepth);
+            return InlineRenderer.ToAnsiLines(buffer, ColorDepth, EmitHyperlinks);
         }
 
         private int ResolveWidth()

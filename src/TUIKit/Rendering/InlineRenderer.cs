@@ -27,6 +27,17 @@ namespace TUIKit.Rendering
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="buffer"/> is null.</exception>
         public static IReadOnlyList<string> ToAnsiLines(CellBuffer buffer, TerminalColorDepth depth)
         {
+            return ToAnsiLines(buffer, depth, false);
+        }
+
+        /// <summary>Renders rows with independently selected color and OSC 8 output.</summary>
+        /// <param name="buffer">The source buffer. Must not be null.</param>
+        /// <param name="depth">The color depth; None suppresses SGR only.</param>
+        /// <param name="hyperlinks">Whether to emit targets stored in cell styles.</param>
+        /// <returns>Rows with balanced hyperlink boundaries, including wrapped rows.</returns>
+        /// <exception cref="ArgumentNullException">The buffer is null.</exception>
+        public static IReadOnlyList<string> ToAnsiLines(CellBuffer buffer, TerminalColorDepth depth, bool hyperlinks)
+        {
             if (buffer == null)
                 throw new ArgumentNullException(nameof(buffer));
 
@@ -46,7 +57,7 @@ namespace TUIKit.Rendering
                 while (end > 0 && IsBlank(row[end - 1]))
                     end--;
 
-                lines.Add(depth == TerminalColorDepth.None ? PlainRow(row, end) : StyledRow(row, end, depth));
+                lines.Add(depth == TerminalColorDepth.None && !hyperlinks ? PlainRow(row, end) : StyledRow(row, end, depth, hyperlinks));
             }
 
             return lines;
@@ -61,7 +72,7 @@ namespace TUIKit.Rendering
             return builder.ToString();
         }
 
-        private static string StyledRow(List<Cell> row, int end, TerminalColorDepth depth)
+        private static string StyledRow(List<Cell> row, int end, TerminalColorDepth depth, bool hyperlinks)
         {
             if (end == 0)
                 return string.Empty;
@@ -69,20 +80,24 @@ namespace TUIKit.Rendering
             StringBuilder builder = new StringBuilder();
             CellStyle current = CellStyle.Default;
             bool first = true;
+            string? currentLink = null;
             for (int i = 0; i < end; i++)
             {
                 CellStyle style = row[i].Style;
-                if (first || !style.Equals(current))
+                if (depth != TerminalColorDepth.None && (first || !style.Equals(current)))
                 {
                     builder.Append(Ansi.Sgr(style, depth));
                     current = style;
                     first = false;
                 }
 
+                HyperlinkOutput.Transition(builder, ref currentLink, hyperlinks ? style.Hyperlink : null);
                 builder.Append(Glyph(row[i]));
             }
 
-            builder.Append(Ansi.ResetAttributes);
+            HyperlinkOutput.Transition(builder, ref currentLink, null);
+            if (depth != TerminalColorDepth.None)
+                builder.Append(Ansi.ResetAttributes);
             return builder.ToString();
         }
 

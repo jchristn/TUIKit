@@ -1,6 +1,7 @@
 namespace TUIKit.Rendering
 {
     using System;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Text;
     using TUIKit.Diagnostics;
@@ -23,6 +24,13 @@ namespace TUIKit.Rendering
         private CellBuffer _Back;
         private Size _Size;
         private bool _RepaintPending;
+        private bool _HyperlinksEnabled;
+
+        /// <summary>Gets or sets OSC 8 output policy. Defaults to Auto using backend capabilities.</summary>
+        public HyperlinkMode Hyperlinks { get; set; } = HyperlinkMode.Auto;
+
+        /// <summary>Gets or sets the optional URI resolver for legacy cell LinkIds. Direct style targets take priority.</summary>
+        public Func<int, string?>? LinkResolver { get; set; }
 
         /// <summary>
         /// Gets the size of the surface the renderer is currently composing.
@@ -105,6 +113,11 @@ namespace TUIKit.Rendering
                 _Back.Clear(CellStyle.Default);
                 BufferSurface surface = new BufferSurface(_Back);
                 draw(surface);
+                bool hyperlinksEnabled = HyperlinkOutput.Enabled(Hyperlinks, backend.Capabilities.Hyperlinks);
+                if (hyperlinksEnabled != _HyperlinksEnabled)
+                    _RepaintPending = true;
+                _HyperlinksEnabled = hyperlinksEnabled;
+                ResolveLinks();
                 EndStage(stage, stageStart, ref stageSpan);
 
                 stage = TuiKitTelemetryNames.StageDiff;
@@ -236,6 +249,31 @@ namespace TUIKit.Rendering
             return false;
         }
 
+        private void ResolveLinks()
+        {
+            if (LinkResolver == null)
+                return;
+            Dictionary<int, Uri?> targets = new Dictionary<int, Uri?>();
+            for (int y = 0; y < _Size.Height; y++)
+            {
+                for (int x = 0; x < _Size.Width; x++)
+                {
+                    Cell cell = _Back.Get(x, y);
+                    if (cell.Style.Hyperlink != null || cell.Style.LinkId == 0)
+                        continue;
+                    if (!targets.TryGetValue(cell.Style.LinkId, out Uri? target))
+                    {
+                        target = HyperlinkOutput.TryTarget(LinkResolver(cell.Style.LinkId));
+                        targets.Add(cell.Style.LinkId, target);
+                    }
+                    if (target == null)
+                        continue;
+                    CellStyle style = cell.Style.WithHyperlink(target);
+                    _Back.Set(x, y, cell.IsContinuation ? Cell.Continuation(style) : Cell.Glyph(cell.Grapheme, style, cell.Width));
+                }
+            }
+        }
+
         private string BuildDiff(out int rowsRepainted)
         {
             rowsRepainted = 0;
@@ -275,6 +313,7 @@ namespace TUIKit.Rendering
             bool penInitialized = false;
             CellStyle pen = CellStyle.Default;
             int col = 0;
+            string? currentLink = null;
 
             while (col < _Size.Width)
             {
@@ -292,9 +331,11 @@ namespace TUIKit.Rendering
                     penInitialized = true;
                 }
 
+                HyperlinkOutput.Transition(builder, ref currentLink, _HyperlinksEnabled ? cell.Style.Hyperlink : null);
                 builder.Append(string.IsNullOrEmpty(cell.Grapheme) ? " " : cell.Grapheme);
                 col += cell.Width > 0 ? cell.Width : 1;
             }
+            HyperlinkOutput.Transition(builder, ref currentLink, null);
         }
     }
 }

@@ -70,6 +70,7 @@ namespace TUIKit.Hosting
         private bool _Disposed;
         private bool _MouseCaptureEnabled = true;
         private bool _ForceFullRepaint;
+        private HyperlinkMode _Hyperlinks = HyperlinkMode.Auto;
         private volatile bool _Suspended;
         private MouseTrackingMode _MouseTrackingMode = MouseTrackingMode.AnyMotion;
         private string? _HoverRegionId;
@@ -733,6 +734,18 @@ namespace TUIKit.Hosting
             }
         }
 
+        /// <summary>Gets or sets OSC 8 policy. Defaults to Auto using backend capabilities. Safe to set before starting.</summary>
+        public HyperlinkMode Hyperlinks
+        {
+            get { return _Hyperlinks; }
+            set
+            {
+                _Hyperlinks = value;
+                if (_Renderer != null)
+                    _Renderer.Hyperlinks = value;
+            }
+        }
+
         /// <summary>
         /// Gets or sets a value indicating whether every frame repaints all rows regardless of whether
         /// their content changed. Defaults to false, so the renderer emits only changed rows. Turn it on
@@ -821,12 +834,18 @@ namespace TUIKit.Hosting
         /// host tracks the link under the pointer in <see cref="HoveredLink"/> and raises
         /// <see cref="LinkHovered"/> on changes, so an overlay can underline the hovered link or
         /// preview its URI in a status bar. Null (the default) disables link hover tracking. The
-        /// registry is application-owned and typically rebuilt each frame.
+        /// registry is application-owned and typically rebuilt each frame. URI targets also resolve
+        /// LinkId cells for native OSC 8 output; command-only links emit no terminal hyperlink.
         /// </summary>
         public LinkRegistry? Links
         {
             get { return _Links; }
-            set { _Links = value; }
+            set
+            {
+                _Links = value;
+                if (_Renderer != null)
+                    _Renderer.LinkResolver = value == null ? null : ResolveLinkUri;
+            }
         }
 
         /// <summary>
@@ -1354,6 +1373,8 @@ namespace TUIKit.Hosting
                 Math.Max(1, _Backend.Size.Height),
                 _Backend.Capabilities.ColorDepth);
             _Renderer.SynchronizedOutput = _Backend.Capabilities.SynchronizedOutput;
+            _Renderer.Hyperlinks = _Hyperlinks;
+            _Renderer.LinkResolver = _Links == null ? null : ResolveLinkUri;
             _Renderer.ForceFullRepaint = _ForceFullRepaint;
 
             _SessionStartTimestamp = TuiKitInstruments.Timestamp();
@@ -2522,6 +2543,19 @@ namespace TUIKit.Hosting
                 return;
 
             DeliverLeave(modifiers, _HoverRect.X, _HoverRect.Y);
+        }
+
+        private string? ResolveLinkUri(int id)
+        {
+            if (_Links != null)
+            {
+                foreach (Link link in _Links.Links)
+                {
+                    if (link.Id == id)
+                        return link.Uri;
+                }
+            }
+            return null;
         }
 
         private void UpdateLinkHover(MouseEvent mouse)

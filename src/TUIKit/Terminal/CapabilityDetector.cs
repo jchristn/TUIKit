@@ -57,7 +57,12 @@ namespace TUIKit.Terminal
 
             bool modern = depth == TerminalColorDepth.TrueColor || enhancedKeyboard;
             bool sgrMouse = true;
-            bool hyperlinks = modern;
+            bool hyperlinks = isWindowsTerminal || isKitty || IsModernProgram(termProgram)
+                || string.Equals(term, "xterm-kitty", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(term, "xterm-ghostty", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(term, "foot", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(term, "foot-extra", StringComparison.OrdinalIgnoreCase)
+                || (int.TryParse(getEnvironmentVariable("VTE_VERSION"), out int vteVersion) && vteVersion >= 5000);
             bool clipboard = true;
             bool bracketedPaste = true;
 
@@ -70,6 +75,9 @@ namespace TUIKit.Terminal
                 && term!.StartsWith("screen", StringComparison.OrdinalIgnoreCase);
             bool isAppleTerminal = !string.IsNullOrEmpty(termProgram)
                 && termProgram!.IndexOf("Apple_Terminal", StringComparison.OrdinalIgnoreCase) >= 0;
+            // A multiplexer can hide the outer terminal or drop OSC 8. Auto is conservative;
+            // applications can opt into Always for a known-compatible tmux configuration.
+            hyperlinks = hyperlinks && !insideTmux && !isGnuScreen && !isAppleTerminal;
             bool anyMotionMouse = sgrMouse && !isGnuScreen && !isAppleTerminal;
             bool focusReporting = sgrMouse && !isGnuScreen && !isAppleTerminal;
 
