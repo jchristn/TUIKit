@@ -10,27 +10,55 @@ A concurrent, high-performance terminal UI framework for .NET. TUIKit lets you d
 
 > **v1.12.0 - confirmation prompts and activity timelines.** Horizontal radio groups, Yes/No prompts with Left/Right selection, and connected workflow events with wrapping detail. Unicode and ASCII glyphs work through the existing terminal backends. See the [changelog](CHANGELOG.md).
 
-**Quick links:** [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
+**Quick links:** [Screenshots](#screenshots) · [Building Terminal Apps guide](BUILDING_TERMINAL_APPS.md) · [Runnable example](src/TUIKit.Example) · [Changelog](CHANGELOG.md) · [Contributing](#contributing-issues-and-discussions)
 
 > **See it live** in ~30 seconds - a self-describing guided tour of every feature, with the code beside each one:
 >
 > ```bash
-> dotnet run --project src/TUIKit.Example              # guided tour
-> dotnet run --project src/TUIKit.Example -- --contract # the interaction-contract demo
+> dotnet run --project src/TUIKit.Example -f net10.0              # guided tour
+> dotnet run --project src/TUIKit.Example -f net10.0 -- --contract # the interaction-contract demo
 > ```
 
+## Screenshots
+
+Captured from the running [TUIKit.Example](src/TUIKit.Example) application. Click any image for the full-size PNG. Tour screenshots focus on the live widget and its accompanying C# code.
+
+**Agent harness.** A streamed Markdown reply, tool results, live telemetry, and an editable composer in one terminal. Run it with `dotnet run --project src/TUIKit.Example -f net10.0 -- --harness`.
+
+<a href="assets/screenshots/agent-harness.png"><img src="assets/screenshots/agent-harness.png" alt="TUIKit agent harness with a Markdown build report, test results, CPU telemetry, and a message composer" width="100%" /></a>
+
 <details>
-<summary><strong>Screenshots</strong></summary>
+<summary><strong>Explore seven more screenshots: layouts, Markdown, tables, forms, diffs, charts, and timelines</strong></summary>
 
-<br />
+Browse these pages in the guided tour with **PageUp / PageDown** while the Live demo pane has focus.
 
-<a href="assets/ss1.png"><img src="assets/ss1.png" alt="Screenshot 1" width="100%" /></a>
+**Framed layouts — page 8.** Nested channel, transcript, and composer panes share borders, with a prominent frame showing keyboard focus.
 
-<a href="assets/ss2.png"><img src="assets/ss2.png" alt="Screenshot 2" width="100%" /></a>
+<a href="assets/screenshots/framed-layout.png"><img src="assets/screenshots/framed-layout.png" alt="Nested channel list, transcript, and composer with a yellow focus frame and FramedStack code" width="100%" /></a>
 
-<a href="assets/ss3.png"><img src="assets/ss3.png" alt="Screenshot 3" width="100%" /></a>
+**Markdown — page 5.** Tables, links, task lists, and block quotes laid out to fit the available pane width.
 
-<a href="assets/ss4.png"><img src="assets/ss4.png" alt="Screenshot 4" width="100%" /></a>
+<a href="assets/screenshots/markdown.png"><img src="assets/screenshots/markdown.png" alt="Rendered Markdown with a cache comparison table, task list, and block quote beside the MarkdownView code" width="100%" /></a>
+
+**Server-backed tables — page 38.** A simulated 1,000-row data source with paging, row selection, and an asynchronous loader.
+
+<a href="assets/screenshots/data-table.png"><img src="assets/screenshots/data-table.png" alt="Paged job table showing two marked rows, job statuses, sizes, and DataTableLoader code" width="100%" /></a>
+
+**Forms and validation — page 39.** Section headings, field hints, inline errors, dirty tracking, and Save / Cancel controls.
+
+<a href="assets/screenshots/form-validation.png"><img src="assets/screenshots/form-validation.png" alt="Project settings form with an unsaved branch-prefix edit and an inline validation error beside the form configuration code" width="100%" /></a>
+
+**Git diffs — page 40.** File and hunk headers, line numbers, and syntax-highlighted additions and deletions from a unified patch.
+
+<a href="assets/screenshots/git-diff.png"><img src="assets/screenshots/git-diff.png" alt="Git patch with red deletions, green additions, line numbers, and DiffView code" width="100%" /></a>
+
+**Charts — page 16.** Two colored series rendered with sub-cell resolution on a braille canvas.
+
+<a href="assets/screenshots/line-chart.png"><img src="assets/screenshots/line-chart.png" alt="Cyan and magenta line-chart series beside the C# code that renders and overlays them" width="100%" /></a>
+
+**Activity timelines — page 44.** Connected workflow steps with completed, failed, and active states, plus detail text under each task.
+
+<a href="assets/screenshots/activity-timeline.png"><img src="assets/screenshots/activity-timeline.png" alt="Activity timeline showing completed steps, a failed task with a permission error, and an active task beside ActivityTimeline code" width="100%" /></a>
 
 </details>
 
@@ -483,7 +511,7 @@ A complete, runnable demo lives in [`src/TUIKit.Example`](src/TUIKit.Example) - 
 1. **Run it.**
 
    ```bash
-   dotnet run --project src/TUIKit.Example
+   dotnet run --project src/TUIKit.Example -f net10.0 -- --harness
    ```
 
    You land in a full-screen harness: a header bar, a streaming transcript on the left, a tool panel and live telemetry on the right, a bordered composer along the bottom, and a footer of shortcuts.
