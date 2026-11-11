@@ -158,7 +158,9 @@ namespace Test.Shared
                     DiffViewUnifiedSuite.Suite(),
                     DiffViewSearchSuite.Suite(),
                     HeatMapInteractionSuite.Suite(),
-                    CalendarHeatMapSuite.Suite()
+                    CalendarHeatMapSuite.Suite(),
+                    HeatMapSpacingSuite.Suite(),
+                    HeatMapPaletteSuite.Suite()
                 };
             }
         }

@@ -61,6 +61,12 @@ namespace TUIKit.Example
                 return 0;
             }
 
+            if (Array.IndexOf(args, "--heatmap-once") >= 0)
+            {
+                RunHeatMapSnapshot(args);
+                return 0;
+            }
+
             if (Array.IndexOf(args, "--links-once") >= 0)
             {
                 StyledConsole console = StyledConsole.ForStandardOutput();
@@ -288,6 +294,82 @@ namespace TUIKit.Example
                 ? new StyledConsole(Console.Out, TerminalColorDepth.TrueColor)
                 : StyledConsole.ForStandardOutput();
             console.WriteLine("TUIKit example: a year of activity at width " + width + " (--calendar-once" + (calendar.LevelGlyphs != null ? " --ascii" : string.Empty) + ")");
+            console.WriteLine(new string('=', width));
+            WriteBuffer(console, buffer);
+        }
+
+        // --heatmap-once [--ascii] [--width N] [--color]: prints the 1.13 heat map views: the hourly week at each CellGap,
+        // with RowGap 1, through every palette (glyphs, then tiles), and the activity calendar with a gap and a palette.
+        private static void RunHeatMapSnapshot(string[] args)
+        {
+            int width = 100;
+            int flag = Array.IndexOf(args, "--width");
+            if (flag >= 0 && flag + 1 < args.Length)
+                int.TryParse(args[flag + 1], out width);
+
+            width = Math.Max(30, width);
+            bool ascii = Array.IndexOf(args, "--ascii") >= 0;
+            string[] asciiGlyphs = { ".", "-", "=", "+", "#" };
+            StyledConsole console = Array.IndexOf(args, "--color") >= 0
+                ? new StyledConsole(Console.Out, TerminalColorDepth.TrueColor)
+                : StyledConsole.ForStandardOutput();
+            console.WriteLine("TUIKit example: heat map spacing and palettes at width " + width + " (--heatmap-once" + (ascii ? " --ascii" : string.Empty) + ")");
+
+            double[,] values = HeatMapSpacingDemoWidget.HourlyActivity();
+            for (int gap = 0; gap <= 2; gap++)
+            {
+                TUIKit.Widgets.HeatMap map = HeatMapSpacingDemoWidget.Build(values);
+                if (ascii)
+                    map.LevelGlyphs = asciiGlyphs;
+                map.CellGap = gap;
+                WriteHeatMap(console, map, width, "CellGap " + gap + ", CellWidth 1");
+            }
+
+            TUIKit.Widgets.HeatMap rows = HeatMapSpacingDemoWidget.Build(values);
+            if (ascii)
+                rows.LevelGlyphs = asciiGlyphs;
+            rows.CellWidth = 2;
+            rows.CellGap = 1;
+            rows.RowGap = 1;
+            WriteHeatMap(console, rows, width, "CellWidth 2, CellGap 1, RowGap 1");
+
+            foreach (TUIKit.Widgets.HeatMapPaletteMode mode in new[] { TUIKit.Widgets.HeatMapPaletteMode.Foreground, TUIKit.Widgets.HeatMapPaletteMode.Background })
+            {
+                foreach (TUIKit.Widgets.HeatMapPalette palette in HeatMapPaletteDemoWidget.AllPalettes())
+                {
+                    TUIKit.Widgets.HeatMap map = HeatMapSpacingDemoWidget.Build(values);
+                    if (ascii)
+                        map.LevelGlyphs = asciiGlyphs;
+                    map.CellWidth = 2;
+                    map.CellGap = 1;
+                    map.Palette = palette;
+                    map.PaletteMode = mode;
+                    WriteHeatMap(console, map, width, palette.Name + " palette, " + (mode == TUIKit.Widgets.HeatMapPaletteMode.Background ? "tiles" : "glyphs"));
+                }
+            }
+
+            CalendarDemoWidget demo = new CalendarDemoWidget(null);
+            TUIKit.Widgets.CalendarHeatMap calendar = demo.Calendar;
+            if (ascii)
+                calendar.LevelGlyphs = new[] { " ", ".", ":", "+", "#" };
+            calendar.CellWidth = 1;
+            calendar.CellGap = 1;
+            calendar.Palette = TUIKit.Widgets.HeatMapPalette.Blue;
+            CellBuffer buffer = new CellBuffer(width, 10);
+            calendar.Render(new BufferSurface(buffer));
+            console.WriteLine();
+            console.WriteLine("Activity calendar, CellGap 1, Blue palette");
+            console.WriteLine(new string('=', width));
+            WriteBuffer(console, buffer);
+        }
+
+        private static void WriteHeatMap(StyledConsole console, TUIKit.Widgets.HeatMap map, int width, string title)
+        {
+            Size size = map.Measure(new Size(width, 40));
+            CellBuffer buffer = new CellBuffer(width, size.Height);
+            map.Render(new BufferSurface(buffer));
+            console.WriteLine();
+            console.WriteLine(title);
             console.WriteLine(new string('=', width));
             WriteBuffer(console, buffer);
         }

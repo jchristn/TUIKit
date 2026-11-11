@@ -179,6 +179,93 @@ namespace Test.Shared.Suites
                             Check.False(calendar.HandleKey(KeyEvent.Special(KeyCode.Right)), "no keys without data");
                             return Task.CompletedTask;
                         }),
+
+                    new TestCaseDescriptor(_Id, "CellGap", "CellGap is forwarded: weeks, month labels, legend, footer, scrolling, and clicks stay aligned",
+                        _ =>
+                        {
+                            CalendarHeatMap calendar = new CalendarHeatMap();
+                            Check.Equal(0, calendar.CellGap, "CellGap defaults to 0");
+                            Check.Equal(0, calendar.RowGap, "RowGap defaults to 0");
+                            DateTime from = new DateTime(2025, 1, 1);
+                            calendar.SetData(from, from.AddDays(364), new Dictionary<DateTime, double> { { new DateTime(2025, 1, 8), 3 } });
+                            calendar.CellGap = 1;
+                            calendar.Select(from);
+                            Check.Equal(new Size(4 + 53 * 2 + 52, 10), calendar.Measure(new Size(400, 20)), "53 weeks of width 2 and 52 gaps");
+                            string[] lines = Snapshot.RenderWidget(calendar, 200, 11).Split('\n');
+                            int jan = lines[0].IndexOf("Jan", StringComparison.Ordinal);
+                            int feb = lines[0].IndexOf("Feb", StringComparison.Ordinal);
+                            Check.Equal(4, jan, "January over the first week");
+                            Check.Equal(jan + 4 * 3, feb, "February four weeks of three columns later");
+                            Check.Equal("  ", lines[1].Substring(4, 2), "Sunday of the first week is blank");
+                            Check.True(lines[4].Substring(4, 2).Trim().Length > 0, "Wednesday of the first week is drawn");
+                            Check.Equal(" ", lines[4].Substring(6, 1), "the gap after the first week is blank");
+                            Check.Equal("\u2588\u2588", lines[4].Substring(7, 2), "the second week starts after the gap");
+                            Check.True(lines[8].StartsWith("    Less", StringComparison.Ordinal), "legend on row 8: " + lines[8]);
+                            Check.True(lines[9].Contains("01/01/2025"), "footer on row 9: " + lines[9]);
+                            Check.False(calendar.HandleMouse(new MouseEvent(MouseEventKind.Press, MouseButton.Left, 6, 4, KeyModifiers.None, 1)), "a click in the gap");
+                            Check.Equal(from, calendar.SelectedDate, "selection unchanged");
+                            Check.True(calendar.HandleMouse(new MouseEvent(MouseEventKind.Press, MouseButton.Left, 8, 4, KeyModifiers.None, 1)), "a click on the second week");
+                            Check.Equal(new DateTime(2025, 1, 8), calendar.SelectedDate, "Wednesday of the second week");
+                            Check.True(calendar.GetTooltip(7, 4) != null && calendar.GetTooltip(7, 4)!.Contains("01/08/2025"), "tooltip on the second week");
+                            Check.True(calendar.GetTooltip(6, 4) == null, "no tooltip in the gap");
+
+                            calendar.HandleKey(KeyEvent.Special(KeyCode.End));
+                            Snapshot.RenderWidget(calendar, 25, 11);
+                            Check.Equal(52 - 7 + 1, calendar.FirstVisibleWeek, "seven weeks of three columns fit beside the labels");
+                            calendar.HandleKey(KeyEvent.Special(KeyCode.Home));
+                            Snapshot.RenderWidget(calendar, 25, 11);
+                            Check.Equal(0, calendar.FirstVisibleWeek, "scrolled to the start");
+                            Check.Throws<ArgumentOutOfRangeException>(() => calendar.CellGap = 3, "CellGap guard");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor(_Id, "RowGap", "RowGap is forwarded: weekday labels stay beside their rows and the legend and footer move down",
+                        _ =>
+                        {
+                            CalendarHeatMap calendar = Week();
+                            calendar.RowGap = 1;
+                            calendar.Select(new DateTime(2026, 3, 4));
+                            Check.Equal(new Size(6, 16), calendar.Measure(new Size(60, 30)), "header, 13 grid rows, legend, footer");
+                            string[] lines = Snapshot.RenderWidget(calendar, 60, 17).Split('\n');
+                            Check.True(lines[3].StartsWith("Mon", StringComparison.Ordinal), "Monday on row 3: " + lines[3]);
+                            Check.True(lines[7].StartsWith("Wed", StringComparison.Ordinal), "Wednesday on row 7");
+                            Check.True(lines[11].StartsWith("Fri", StringComparison.Ordinal), "Friday on row 11");
+                            Check.Equal(string.Empty, lines[2].Trim(), "gap rows are blank");
+                            Check.Equal("\u2588\u2588", lines[7].Substring(4, 2), "the busiest day beside its label");
+                            Check.True(lines[14].StartsWith("    Less", StringComparison.Ordinal), "legend on row 14: " + lines[14]);
+                            Check.True(lines[15].Contains("03/04/2026: 9"), "footer on row 15: " + lines[15]);
+                            Check.False(calendar.HandleMouse(new MouseEvent(MouseEventKind.Press, MouseButton.Left, 4, 6, KeyModifiers.None, 1)), "a click on a gap row");
+                            Check.True(calendar.HandleMouse(new MouseEvent(MouseEventKind.Press, MouseButton.Left, 4, 5, KeyModifiers.None, 1)), "a click on Tuesday");
+                            Check.Equal(new DateTime(2026, 3, 3), calendar.SelectedDate, "Tuesday selected");
+                            calendar.HandleKey(KeyEvent.Special(KeyCode.Down));
+                            Check.Equal(new DateTime(2026, 3, 4), calendar.SelectedDate, "Down still moves one day");
+                            Check.Throws<ArgumentOutOfRangeException>(() => calendar.RowGap = 2, "RowGap guard");
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor(_Id, "Palette", "Palette and PaletteMode are forwarded; empty days keep the dot and the empty color; the legend follows",
+                        _ =>
+                        {
+                            CalendarHeatMap calendar = Week();
+                            Check.True(calendar.Palette == null, "Palette defaults to null");
+                            Check.Equal(HeatMapPaletteMode.Foreground, calendar.PaletteMode, "PaletteMode defaults to Foreground");
+                            calendar.Palette = HeatMapPalette.Heat;
+                            CellBuffer buffer = MarkdownThemeSuite.Draw(calendar, 40, 11);
+                            Check.Equal(CellStyle.Default.WithForeground(HeatMapPalette.Heat.Colors[3]), buffer.Get(4, 4).Style, "the busiest day is the top color");
+                            Check.Equal("\u00B7", buffer.Get(4, 1).Grapheme, "an empty day keeps the dot");
+                            Check.Equal(CellStyle.Default.WithForeground(HeatMapPalette.Heat.EmptyColor), buffer.Get(4, 1).Style, "in the empty color");
+                            for (int level = 0; level < 5; level++)
+                                Check.Equal(CellStyle.Default.WithForeground(HeatMapPalette.Heat.ColorForLevel(level, 5)), buffer.Get(9 + level * 2, 8).Style, "legend level " + level);
+                            calendar.PaletteMode = HeatMapPaletteMode.Background;
+                            buffer = MarkdownThemeSuite.Draw(calendar, 40, 11);
+                            Check.Equal(HeatMapPalette.Heat.Colors[3], buffer.Get(4, 4).Style.Background, "tiles forwarded");
+                            Check.Equal(HeatMapPalette.Heat.Colors[3], buffer.Get(17, 8).Style.Background, "legend tiles");
+                            Check.Equal(Color.Default, buffer.Get(4, 1).Style.Background, "empty days are not tiled");
+                            calendar.LevelStyles = new[] { CellStyle.Default, CellStyle.Default, CellStyle.Default, CellStyle.Default, CellStyle.Default };
+                            Check.Equal(CellStyle.Default, MarkdownThemeSuite.Draw(calendar, 40, 11).Get(4, 4).Style, "LevelStyles take precedence");
+                            Check.Throws<ArgumentOutOfRangeException>(() => calendar.PaletteMode = (HeatMapPaletteMode)9, "PaletteMode guard");
+                            return Task.CompletedTask;
+                        }),
                 });
         }
 

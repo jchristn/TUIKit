@@ -4,6 +4,16 @@
 
 This is the closing coverage pass required by `archive/TUIKIT_PLAN.md`. It enumerates the public surface by subsystem, records what is under test, and states — with justification — what is deliberately not covered by automated headless tests.
 
+## 1.13.0 additions
+
+The 1.13.0 work added heat map spacing and palettes, with positive and negative Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **1167 console cases** (1168 through the xUnit/NUnit wrappers), all green. The 1149 cases that existed at 1.12.0 pass unchanged. `HeatMapSpacing` includes a regression guard whose expected text and styles were captured from the 1.12.0 library; during development the full cell buffers (glyph, foreground, background, attributes) of three configurations were also diffed against a 1.12.0 build and matched, as did the `--calendar-once` output with and without color.
+
+| New/changed public surface | Test suite |
+|---|---|
+| `HeatMap.CellGap`, `RowGap`: placement, gap style, `Measure`, visible columns and `FirstVisibleColumn`, column labels (plain and spanning), row labels, legend and footer rows, `HandleMouse` and `GetTooltip` in gaps, selection highlight, validation; 1.12.0 defaults | `HeatMapSpacing` |
+| `HeatMapPalette` (constructors, `Name`, `EmptyColor`, `Colors`, `ColorAt`, `ColorForLevel`, `Green`, `Blue`, `Purple`, `Heat`, `Grayscale`, `Presets`), `HeatMapPaletteMode`, `HeatMap.Palette`, `PaletteMode`: precedence over the theme and `CellColor`, `LevelStyles` over the palette, tiles, the legend, continuous shading, 256/16/no-color output, ASCII glyphs | `HeatMapPalette` |
+| `CalendarHeatMap.CellGap`, `RowGap`, `Palette`, `PaletteMode`: week and month-label alignment, legend and footer rows, `FirstVisibleWeek`, clicks and tooltips, empty days, validation | `CalendarHeatMap` |
+
 ## 1.10.0 additions
 
 The 1.10.0 work (items C5, C8, and C9 of `archive/NEW_CAPABILITIES.md`) added the public surface below, each with positive and negative Touchstone cases run identically through the console, xUnit, and NUnit runners on net8.0 and net10.0: **1115 console cases** (1116 through the xUnit/NUnit wrappers), all green. The 1084 cases that existed at 1.9.0 pass unchanged. Line coverage of the `TUIKit` assembly measured with coverlet on net10.0 is **85.5%**; the new and changed files (`DiffView`, `DiffLine`, `DiffFile`, `UnifiedDiffParser`, `GitPathUnquoter`, `HeatMap`, `CalendarHeatMap`) are at **88.2%**.
@@ -13,7 +23,7 @@ The 1.10.0 work (items C5, C8, and C9 of `archive/NEW_CAPABILITIES.md`) added th
 | `DiffView.FromUnifiedDiff`, `DiffLineKind.FileHeader`, `HunkHeader`, `Meta`, `LineKinds`, `Files`, `CurrentFileIndex`, `NextFile`, `PreviousFile`, `GoToFile`, `UseFileKeys`, `ShowLineNumbers`, `LineNumberStyle`, `FileHeaderStyle`, `HunkHeaderStyle`, `MetaStyle`, `PlainText`, the hunk-count parser, quoted paths, `/dev/null`, combined diffs, literal input, and the 1.9 two-text rendering | `DiffViewUnified` |
 | `DiffView.SetSearch`, `FindNext`, `FindPrevious`, `SearchText`, F3 keys, `PageByViewport`, `ViewportHeight`, `ScrollOffset`, `ScrollBy`, `ScrollToTop`, `ScrollToEnd`, `ContentHeight`, `TryGetFocusRect` (`IScrollExtent`), `UseThemeStyles`, `ApplyTheme` (`IThemeable`), `ShowKeyHints`, `GetKeyHints`, `OnFocusChanged`, `IsFocused` | `DiffViewSearch` |
 | `HeatMap.IsSelectable`, `IsFocusStop`, `IsFocused`, `SelectedRow`, `SelectedColumn`, `Select`, `SelectionChanged`, `CellActivated`, `SelectionStyle`, `HasSelection`, `IsCellSelectable`, `NavigateOverride`, `LevelCount`, `LevelGlyphs`, `LevelStyles`, `LevelOf`, `ShowLegend`, `LegendLowText`, `LegendHighText`, `CellWidth`, `SpanColumnLabels`, `CellDescription`, `ShowSelectionDescription`, `GetTooltip`, `FirstVisibleColumn`, `UseThemeStyles`, `ApplyTheme`, `GetKeyHints`, `HandleKey`, `HandleMouse`; the 1.9 defaults; host click focus for widgets that cannot take focus | `HeatMapInteraction` |
-| `CalendarHeatMap` (`SetData`, `ValueOn`, `From`, `To`, `WeekCount`, `SelectedDate`, `Select`, `DateSelected`, `DateActivated`, `FirstDayOfWeek`, `WeekdayLabels`, `Culture`, `LevelCount`, `LevelGlyphs`, `ShowLegend`, `DayDescription`, `Summary`, `FirstVisibleWeek`, `GetTooltip`), `WeekdayLabelMode` | `CalendarHeatMap` |
+| `CalendarHeatMap` (`SetData`, `ValueOn`, `From`, `To`, `WeekCount`, `SelectedDate`, `Select`, `DateSelected`, `DateActivated`, `FirstDayOfWeek`, `WeekdayLabels`, `Culture`, `LevelCount`, `LevelGlyphs`, `ShowLegend`, `DayDescription`, `Summary`, `FirstVisibleWeek`, `GetTooltip`), `WeekdayLabelMode` (1.13 adds `CellGap`, `RowGap`, `Palette`, `PaletteMode`; see above) | `CalendarHeatMap` |
 
 ## 1.9.0 additions
 
@@ -155,7 +165,7 @@ Measured with coverlet (`dotnet test src/Test.Xunit --collect:"XPlat Code Covera
 | Input | `KeyEvent`, `KeyChord`, `KeyCode`, `KeyModifiers`, `InputEvent`, `InputParser`, `MouseEvent`, routing table + router, `Link`, `LinkRegistry`, `LinkScanner`, `ClickSynthesizer`, policy enums | Input, MouseLink, Coverage |
 | Modals | `Modal`, `ModalStack`, `MessageModal`, `Notification`, `NotificationCenter`, `NotificationSeverity` | Modal, Coverage |
 | Widgets | `IWidget`, `Label`, `Gauge`, `Sparkline`, `ProgressBar`, `Spinner`, `ListView`, `Table`, `TextEditor`, `TextField`, `Checkbox`, `RadioGroup` | Widget, Coverage |
-| Charts | `BarChart`, `LineChart`, `BrailleCanvas`, `BoxPlotChart` + `BoxSummary`, `Histogram`, `HeatMap` | ChartsIconsColor, DistributionCharts |
+| Charts | `BarChart`, `LineChart`, `BrailleCanvas`, `BoxPlotChart` + `BoxSummary`, `Histogram`, `HeatMap`, `HeatMapPalette`, `HeatMapPaletteMode` | ChartsIconsColor, DistributionCharts, HeatMapInteraction, HeatMapSpacing, HeatMapPalette |
 | Theming | `Theme` | Hosting, Coverage |
 | Hosting | `TuiApplication` | Hosting |
 | Diagnostics | `FrameStats`, `InputRecording`, `DebugOverlay` | Diagnostics, Coverage |

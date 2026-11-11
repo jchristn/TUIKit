@@ -1396,7 +1396,7 @@ namespace TUIKit.Example
 
             pages.Add(new TourPage(
                 "Activity calendar",
-                "A year of activity: [bold]arrows[/] move by day and week, [bold]m[/] starts weeks on Monday, [bold]w[/] weekday labels, [bold]g[/] ASCII glyphs, [bold]t[/] theme.",
+                "A year of activity: [bold]arrows[/] move by day and week, [bold]m[/] starts weeks on Monday, [bold]w[/] weekday labels, [bold]g[/] ASCII glyphs, [bold]t[/] theme, [bold]s[/] gap between weeks, [bold]p[/] palette.",
                 new CalendarDemoWidget(app),
                 new[]
                 {
@@ -1409,7 +1409,11 @@ namespace TUIKit.Example
                     "// The grid underneath is a HeatMap:",
                     "map.IsSelectable = true;",
                     "map.LevelCount = 5; map.ShowLegend = true;",
-                    "map.CellDescription = (r, c) => Describe(r, c);"
+                    "map.CellDescription = (r, c) => Describe(r, c);",
+                    "",
+                    "// 1.13: spacing and palettes",
+                    "cal.CellGap = 1;",
+                    "cal.Palette = HeatMapPalette.Blue;"
                 }));
 
             pages.Add(new TourPage(
@@ -1469,6 +1473,45 @@ namespace TUIKit.Example
                     "});",
                     "log.UseAsciiGlyphs = true;",
                     "log.Spacing = 0; // compact"
+                }));
+
+            pages.Add(new TourPage(
+                "Heat map spacing",
+                "A week of activity by hour. [bold]Arrows[/] or a click select an hour; [bold]g[/] cycles the gap between cells, [bold]c[/] the cell width, [bold]r[/] the gap between rows. Clicks in a gap select nothing.",
+                new HeatMapSpacingDemoWidget(app),
+                new[]
+                {
+                    "HeatMap map = new HeatMap();",
+                    "map.SetCells(eventsByDayAndHour); // [7, 24]",
+                    "map.SetRowLabels(days);",
+                    "map.SetColumnLabels(hours);",
+                    "map.SpanColumnLabels = true;",
+                    "map.CellWidth = 1;",
+                    "map.CellGap = 1; // 0 to 2 blank columns",
+                    "map.RowGap = 1;  // 0 or 1 blank row",
+                    "map.IsSelectable = true;",
+                    "map.ShowSelectionDescription = true;",
+                    "map.CellDescription = (r, c) => Describe(r, c);"
+                }));
+
+            pages.Add(new TourPage(
+                "Heat map palettes",
+                "The same week through each palette. [bold]p[/] cycles the presets and a custom palette, [bold]b[/] switches glyphs and solid tiles, [bold]l[/] levels and continuous shading, [bold]a[/] ASCII glyphs. The legend follows the palette.",
+                new HeatMapPaletteDemoWidget(),
+                new[]
+                {
+                    "map.Palette = HeatMapPalette.Heat;",
+                    "// Green, Blue, Purple, Heat, Grayscale",
+                    "map.PaletteMode =",
+                    "    HeatMapPaletteMode.Background; // tiles",
+                    "",
+                    "map.Palette = new HeatMapPalette(",
+                    "    \"Custom\", Color.FromRgb(0x8C8C8C),",
+                    "    new[] { teal, blue, violet, magenta });",
+                    "",
+                    "// LevelStyles > Palette > theme > CellColor",
+                    "Color c = palette.ColorAt(0.5);",
+                    "Color l = palette.ColorForLevel(2, 5);"
                 }));
 
             return pages;

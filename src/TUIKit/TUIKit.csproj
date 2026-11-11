@@ -15,9 +15,9 @@
 
   <PropertyGroup>
     <PackageId>TUIKit</PackageId>
-    <Version>1.12.0</Version>
-    <AssemblyVersion>1.12.0.0</AssemblyVersion>
-    <FileVersion>1.12.0.0</FileVersion>
+    <Version>1.13.0</Version>
+    <AssemblyVersion>1.13.0.0</AssemblyVersion>
+    <FileVersion>1.13.0.0</FileVersion>
     <Title>TUIKit — concurrent terminal UI framework for .NET</Title>
     <Authors>Joel Christner</Authors>
     <Company>Joel Christner</Company>
@@ -32,7 +32,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryBranch>main</RepositoryBranch>
     <PackageTags>tui;focus;accessibility;keyboard;opentelemetry;telemetry;metrics;tracing;terminal;console;ui;ansi;vt;tui-framework;widgets;layout;curses;ncurses;spectre;terminal-gui;charts;sixel;markdown;figlet;ascii-art;banner</PackageTags>
-    <PackageReleaseNotes>v1.12.0 - Horizontal radio groups with configurable markers and separators; ConfirmPrompt with Yes/No selection, submission and cancellation; ActivityTimeline with connected status markers, wrapping detail, mutable entries, and Unicode/ASCII themes. Includes interactive example pages and shared regression tests. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.13.0 - HeatMap and CalendarHeatMap gain CellGap and RowGap for spacing between cells and rows, and HeatMapPalette (Green, Blue, Purple, Heat, Grayscale presets or custom colors) with glyph or solid-tile coloring. Defaults leave existing output unchanged. Includes interactive example pages, a --heatmap-once snapshot, and shared regression tests. Full release history: https://github.com/jchristn/TUIKit/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

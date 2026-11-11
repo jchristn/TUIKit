@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-11
+
+Every new setting defaults to the 1.12.0 behavior: with `CellGap` 0, `RowGap` 0, and no `Palette`, `HeatMap` and
+`CalendarHeatMap` draw the same cells, styles, and layout as before, and measure, scroll, and hit-test the same way.
+
+### Added
+- `HeatMap.CellGap` (0 to 2 blank columns between cells) and `HeatMap.RowGap` (0 or 1 blank row between rows).
+  Cell placement, `Measure`, the visible-column count, `FirstVisibleColumn` scrolling, column and row labels, the
+  legend and footer rows, mouse hit testing, and `GetTooltip` all use the new stride. Gaps are not painted, so they
+  keep the surface's own background. The selection highlight stays inside its cell. A click or hover in a gap finds
+  no cell: `HandleMouse` returns false and `GetTooltip` returns null, so a click never lands on a cell the pointer is
+  not over. Keyboard movement is still one cell at a time. When there is a gap, column labels may run into it but
+  keep one blank column before the next label, so `"Mon"`/`"Tue"` read as `M T` at width 1 and `Mo Tu` at width 2.
+  This replaces the workaround of wrapping the surface and dropping a column from each cell.
+- `HeatMapPalette`: an immutable ramp of two or more colors from low to high intensity plus an `EmptyColor` for the
+  zero level. `ColorAt(double)` blends neighboring truecolor stops in RGB (palette-index stops step to the nearer
+  one), and `ColorForLevel(level, levelCount)` spreads levels 1 and up over the ramp and gives level 0 the empty
+  color. Presets: `Green`, `Blue`, `Purple`, `Heat` (yellow to red), and `Grayscale`, listed in `Presets`. They use
+  mid-lightness colors that read on dark and light terminals and map to distinct 256-color indexes.
+- `HeatMap.Palette` (null by default) and `HeatMap.PaletteMode` (`HeatMapPaletteMode.Foreground`, the default, colors
+  the glyph; `Background` draws solid tiles). Color precedence is documented on each property: `LevelStyles`, then
+  `Palette`, then the theme (`UseThemeStyles`), then `CellColor`. The legend draws each level in the same style as
+  the cells. In tile mode the zero level keeps only its foreground, so empty cells stay distinct, and the selected
+  cell drops its tile so reverse video shows. Continuous maps color each cell by its normalized value.
+- `CalendarHeatMap.CellGap`, `RowGap`, `Palette`, and `PaletteMode`, forwarded to the inner `HeatMap`. Month labels,
+  weekday labels, the legend, the footer, and `FirstVisibleWeek` follow the spacing; empty days keep the dot glyph.
+- Example: guided-tour pages **Heat map spacing** (45) and **Heat map palettes** (46), `s` (gap) and `p` (palette)
+  keys on **Activity calendar**, and a headless `--heatmap-once` switch with `--ascii`, `--width`, and `--color`.
+- 18 shared regression cases (`HeatMapSpacing`, `HeatMapPalette`, and three new `CalendarHeatMap` cases), including
+  a guard that the defaults reproduce a 1.12.0 buffer exactly.
+
+### Notes
+- Palette colors are ordinary `Color` values, so the renderer reduces them to 256 or 16 colors with the existing
+  `ColorQuantizer`, and drops them with color off. Neighboring levels can share a color at 16 colors; level glyphs
+  (or `LevelGlyphs`) still tell them apart in glyph mode, and with color off in tile mode. In tile mode at 16 colors
+  the glyph takes the tile's color, so prefer glyph mode when a 16-color terminal must show every level.
+
 ## [1.12.0] - 2026-10-21
 
 ### Added

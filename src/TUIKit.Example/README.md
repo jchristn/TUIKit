@@ -35,7 +35,8 @@ three-step `WizardModal` whose Repository step appears only when "Import an exis
 numbers, `p` for viewport paging, and `t` for theme styles) and **Activity calendar** (a `CalendarHeatMap` over a
 year of generated commits: arrows move by day and week, Enter opens a day, `m` starts weeks on Monday, `w` cycles
 weekday labels, `g` switches to ASCII glyphs, and `t` follows the theme). `--diff-once` and `--calendar-once`
-print the same views without a terminal.
+print the same views without a terminal. The last two pages cover 1.13: **Heat map spacing** and **Heat map palettes**
+(see below), and **Activity calendar** gains `s` for the gap between weeks and `p` to cycle palettes.
 
 Global keys open live UI on top of the tour:
 
@@ -195,7 +196,7 @@ color only); terminal capability detection is conservative and `HyperlinkMode.Ne
 
 ## Confirmation prompts and activity timelines (1.12)
 
-Review **Confirmation prompts**, page **43/44**, and **Activity timeline**, page **44/44**.
+Review **Confirmation prompts**, page **43/46**, and **Activity timeline**, page **44/46**.
 Use PageUp/PageDown while the Live demo is focused, or inspect deterministic snapshots:
 
 ```sh
@@ -217,3 +218,30 @@ bring the updated final entry into view. Resize to see wrapping and use Ctrl+T t
 The timeline is hosted in a `ScrollView` whose content size is recalculated after updates and
 resizes. Worker updates in your own app should use `app.Post(...)`. Both controls draw through
 `ISurface`; they do not create a shell scrollback prompt session.
+
+## Heat map spacing and palettes (1.13)
+
+Review **Heat map spacing**, page **45/46**, and **Heat map palettes**, page **46/46**:
+
+```sh
+dotnet run --project src/TUIKit.Example --framework net10.0 -- --tour-once --page 44
+dotnet run --project src/TUIKit.Example --framework net10.0 -- --tour-once --page 45
+dotnet run --project src/TUIKit.Example --framework net10.0 -- --heatmap-once --color
+dotnet run --project src/TUIKit.Example --framework net10.0 -- --heatmap-once --ascii --width 80
+```
+
+**Heat map spacing** shows a week of activity by hour (7 rows by 24 columns) in a selectable `HeatMap`. Arrows
+or a click select an hour, and the footer and tooltip describe it. G cycles `CellGap` (0, 1, 2), C cycles
+`CellWidth` (1 to 4), and R toggles `RowGap`. A click in a gap selects nothing. When the grid is wider than the pane
+it scrolls with the selection, counting the gaps.
+
+**Heat map palettes** draws the same week with each `HeatMapPalette` preset (Green, Blue, Purple, Heat, Grayscale)
+and a custom teal-to-magenta palette built from explicit colors. P cycles them, B switches between colored glyphs
+and solid tiles, L switches between five levels and continuous shading, and A switches to ASCII glyphs. The legend
+follows the palette in every mode.
+
+On **Activity calendar**, S cycles the gap between weeks and P cycles the palettes (none, then each preset).
+
+`--heatmap-once` prints the hourly week at each `CellGap`, with `RowGap` 1, through every palette in both modes,
+and the activity calendar with a gap and the Blue palette. `--color` forces truecolor; without it, output follows
+the terminal and stays plain when redirected.

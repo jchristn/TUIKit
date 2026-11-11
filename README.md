@@ -432,6 +432,19 @@ activity.LevelGlyphs = new[] { " ", ".", ":", "+", "#" }; // readable without co
 activity.DateActivated += (s, day) => ShowCommits(day);  // Enter or a double click
 ```
 
+Since 1.13 both take spacing and a palette. `CellGap` puts 0 to 2 blank columns between cells and `RowGap` one blank row between rows; clicks in a gap select nothing. `Palette` colors the levels from a `HeatMapPalette` preset or your own colors, and `PaletteMode` switches between colored glyphs and solid tiles. The legend follows the palette, and the defaults draw exactly what 1.12 drew:
+
+```csharp
+activity.CellGap = 1;                                     // a blank column between weeks
+activity.Palette = HeatMapPalette.Blue;                   // Green, Blue, Purple, Heat, Grayscale
+activity.PaletteMode = HeatMapPaletteMode.Background;     // solid tiles; Foreground (default) colors the glyph
+
+HeatMap byHour = new HeatMap { CellGap = 1, RowGap = 1, LevelCount = 5 };
+byHour.Palette = new HeatMapPalette("Ocean", Color.FromRgb(0x8C8C8C),
+    new[] { Color.FromRgb(0x5CC8C8), Color.FromRgb(0x2F74C0), Color.FromRgb(0x1F4E96) });
+// Precedence: LevelStyles, then Palette, then the theme (UseThemeStyles), then CellColor.
+```
+
 ### Markdown
 
 Model replies are Markdown, and most of their structure only works at a known width. `Pane.WriteMarkdown` commits a block that is laid out at the pane's width every time it renders, so a table sizes its columns from its cells and reflows when the terminal is resized:
@@ -543,6 +556,7 @@ dotnet run --project src/TUIKit.Example -- --focus-audit-once  # FocusAudit over
 dotnet run --project src/TUIKit.Example -- --markdown-once --width 60  # the Markdown sample at a width (--color, --ascii, --theme dark|light|contrast)
 dotnet run --project src/TUIKit.Example -- --diff-once --numbers     # the bundled patch through DiffView.FromUnifiedDiff (--width, --color)
 dotnet run --project src/TUIKit.Example -- --calendar-once --ascii    # a year of activity through CalendarHeatMap (--width, --color)
+dotnet run --project src/TUIKit.Example -- --heatmap-once --color     # HeatMap spacing and every palette, glyphs and tiles (--width, --ascii)
 dotnet run --project src/TUIKit.Example | cat               # non-TTY -> plain line output
 ```
 

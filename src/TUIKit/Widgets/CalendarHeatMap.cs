@@ -178,7 +178,8 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Gets or sets one style per level, or null for <see cref="CellColor"/>. See <see cref="HeatMap.LevelStyles"/>.
+        /// Gets or sets one style per level, or null (the default) for <see cref="Palette"/>, then the theme, then
+        /// <see cref="CellColor"/>. Highest precedence. See <see cref="HeatMap.LevelStyles"/>.
         /// </summary>
         /// <exception cref="ArgumentException">Thrown when the list does not hold exactly <see cref="LevelCount"/> entries.</exception>
         public IReadOnlyList<CellStyle>? LevelStyles
@@ -188,7 +189,8 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Gets or sets the color the day glyphs are drawn in when there are no level styles. Defaults to palette green.
+        /// Gets or sets the color the day glyphs are drawn in when there are no level styles, no palette, and the theme is
+        /// not followed. Defaults to palette green. See <see cref="HeatMap.CellColor"/>.
         /// </summary>
         public Color CellColor
         {
@@ -213,6 +215,50 @@ namespace TUIKit.Widgets
         {
             get { return _Map.CellWidth; }
             set { _Map.CellWidth = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the number of blank columns between week columns. Defaults to 0; 0 to 2. Month labels span the
+        /// following weeks as before, kept one blank column from the next label. See <see cref="HeatMap.CellGap"/>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set outside 0 to 2.</exception>
+        public int CellGap
+        {
+            get { return _Map.CellGap; }
+            set { _Map.CellGap = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the number of blank rows between weekday rows. Defaults to 0; 0 or 1. The legend and footer move
+        /// down by six rows at 1 (the calendar is then 15 rows tall with the legend). See <see cref="HeatMap.RowGap"/>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set outside 0 to 1.</exception>
+        public int RowGap
+        {
+            get { return _Map.RowGap; }
+            set { _Map.RowGap = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the color ramp the days are drawn in, or null (the default) for the theme or
+        /// <see cref="CellColor"/>. Days with no activity (level 0) take <see cref="HeatMapPalette.EmptyColor"/> and keep
+        /// the dot glyph. <see cref="LevelStyles"/> takes precedence. See <see cref="HeatMap.Palette"/>.
+        /// </summary>
+        public HeatMapPalette? Palette
+        {
+            get { return _Map.Palette; }
+            set { _Map.Palette = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets whether <see cref="Palette"/> colors the glyphs (<see cref="HeatMapPaletteMode.Foreground"/>, the
+        /// default) or fills solid tiles (<see cref="HeatMapPaletteMode.Background"/>). See <see cref="HeatMap.PaletteMode"/>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a value that is not a defined <see cref="HeatMapPaletteMode"/>.</exception>
+        public HeatMapPaletteMode PaletteMode
+        {
+            get { return _Map.PaletteMode; }
+            set { _Map.PaletteMode = value; }
         }
 
         /// <summary>
@@ -408,7 +454,7 @@ namespace TUIKit.Widgets
 
             int mapHeight = Math.Max(0, height - 1);
             _Map.Render(new SurfaceView(surface, new Rect(0, 0, width, mapHeight)));
-            int footer = Math.Min(height - 1, 1 + 7 + (_Map.ShowLegend ? 1 : 0));
+            int footer = Math.Min(height - 1, 1 + 7 + 6 * _Map.RowGap + (_Map.ShowLegend ? 1 : 0));
             if (footer < 0 || footer >= height)
                 return;
 

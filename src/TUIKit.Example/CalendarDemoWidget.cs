@@ -12,7 +12,8 @@ namespace TUIKit.Example
     // The "Activity calendar" tour page (1.10, C8 and C9): a CalendarHeatMap over a year of generated activity, with
     // day and week movement, a legend, a summary, and a description of the selected day. 'm' starts weeks on
     // Monday, 'w' cycles the weekday labels, 'g' switches to distinct ASCII glyphs that read without color, and 't'
-    // follows the theme.
+    // follows the theme. 1.13: 's' cycles the gap between weeks (CellGap 0 to 2) and 'p' cycles the palettes (none, then
+    // each HeatMapPalette preset).
     internal sealed class CalendarDemoWidget : IWidget, IFocusable, IFocusAware, IMouseAware, IKeyHintSource
     {
         private static readonly string[] _AsciiGlyphs = { " ", ".", ":", "+", "#" };
@@ -20,6 +21,7 @@ namespace TUIKit.Example
         private readonly TuiApplication? _App;
         private readonly CalendarHeatMap _Calendar = new CalendarHeatMap();
         private Theme? _AppliedTheme;
+        private int _PaletteIndex = -1;
         private string _Status = "Arrows move by day and week; Enter opens a day.";
 
         internal CalendarDemoWidget(TuiApplication? app)
@@ -76,6 +78,15 @@ namespace TUIKit.Example
                     _Calendar.LevelGlyphs = _Calendar.LevelGlyphs == null ? _AsciiGlyphs : null;
                     _Status = _Calendar.LevelGlyphs != null ? "ASCII levels: readable without color." : "Shade levels.";
                     return true;
+                case 's':
+                    _Calendar.CellGap = (_Calendar.CellGap + 1) % 3;
+                    _Status = "Gap between weeks: " + _Calendar.CellGap + ".";
+                    return true;
+                case 'p':
+                    _PaletteIndex = _PaletteIndex + 1 >= HeatMapPalette.Presets.Count ? -1 : _PaletteIndex + 1;
+                    _Calendar.Palette = _PaletteIndex < 0 ? null : HeatMapPalette.Presets[_PaletteIndex];
+                    _Status = "Palette: " + (_Calendar.Palette?.Name ?? "none (CellColor or theme)") + ".";
+                    return true;
                 case 't':
                     _Calendar.UseThemeStyles = !_Calendar.UseThemeStyles;
                     _Status = "UseThemeStyles " + (_Calendar.UseThemeStyles ? "on" : "off") + ".";
@@ -93,6 +104,8 @@ namespace TUIKit.Example
                 hints.AddRange(own);
             hints.Add(new KeyHint("M", "Monday"));
             hints.Add(new KeyHint("G", "Glyphs"));
+            hints.Add(new KeyHint("S", "Gap"));
+            hints.Add(new KeyHint("P", "Palette"));
             return hints;
         }
 
@@ -131,7 +144,7 @@ namespace TUIKit.Example
                 _Calendar.ApplyTheme(theme);
             }
 
-            surface.DrawText(0, 0, TUIKit.Unicode.TextFit.Ellipsize(_Status + "  m w g t", width), CellStyle.Default.WithForeground(Color.FromPalette(2)));
+            surface.DrawText(0, 0, TUIKit.Unicode.TextFit.Ellipsize(_Status + "  m w g t s p", width), CellStyle.Default.WithForeground(Color.FromPalette(2)));
             _Calendar.Render(new SurfaceView(surface, new Rect(0, 1, width, height - 1)));
         }
     }

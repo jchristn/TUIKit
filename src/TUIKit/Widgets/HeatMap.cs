@@ -19,10 +19,13 @@ namespace TUIKit.Widgets
     /// terminal color depth and is deterministic to test against the headless buffer. An empty or
     /// zero-size grid renders nothing. Opt-in features: a selection the user moves with the keyboard and mouse
     /// (<see cref="IsSelectable"/>), discrete levels with their own glyphs and styles (<see cref="LevelCount"/>), a
-    /// legend (<see cref="ShowLegend"/>), wide cells (<see cref="CellWidth"/>), labels that span columns
-    /// (<see cref="SpanColumnLabels"/>), cell descriptions as tooltips or a footer (<see cref="CellDescription"/>),
-    /// and theme styles (<see cref="UseThemeStyles"/>). While not selectable the map takes no keys, clicks, or
-    /// focus, as in 1.9. This type is not thread-safe.
+    /// legend (<see cref="ShowLegend"/>), wide cells (<see cref="CellWidth"/>), blank space between cells and rows
+    /// (<see cref="CellGap"/>, <see cref="RowGap"/>), a color ramp (<see cref="Palette"/>, <see cref="PaletteMode"/>),
+    /// labels that span columns (<see cref="SpanColumnLabels"/>), cell descriptions as tooltips or a footer
+    /// (<see cref="CellDescription"/>), and theme styles (<see cref="UseThemeStyles"/>). While not selectable the map
+    /// takes no keys, clicks, or focus, as in 1.9. Cell colors resolve in this order: <see cref="LevelStyles"/>, then
+    /// <see cref="Palette"/>, then the theme (<see cref="UseThemeStyles"/>), then <see cref="CellColor"/>. This type is
+    /// not thread-safe.
     /// </remarks>
     public sealed class HeatMap : IWidget, IFocusable, IFocusStop, IFocusAware, IMouseAware, IKeyHintSource, IThemeable, ITooltipProvider, IFocusChildren
     {
@@ -40,6 +43,10 @@ namespace TUIKit.Widgets
         private IReadOnlyList<string>? _LevelGlyphs;
         private IReadOnlyList<CellStyle>? _LevelStyles;
         private int _CellWidth = 1;
+        private int _CellGap;
+        private int _RowGap;
+        private HeatMapPalette? _Palette;
+        private HeatMapPaletteMode _PaletteMode = HeatMapPaletteMode.Foreground;
         private int _SelectedRow;
         private int _SelectedColumn;
         private int _FirstVisibleColumn;
@@ -67,7 +74,9 @@ namespace TUIKit.Widgets
         public event EventHandler? CellActivated;
 
         /// <summary>
-        /// Gets or sets the color the shade glyphs are drawn in. Defaults to palette green.
+        /// Gets or sets the color the shade glyphs are drawn in. Defaults to palette green. Lowest precedence: used only
+        /// when <see cref="LevelStyles"/> and <see cref="Palette"/> are null and the theme is not followed
+        /// (<see cref="UseThemeStyles"/>).
         /// </summary>
         public Color CellColor { get; set; } = Color.FromPalette(2);
 
@@ -198,7 +207,9 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
-        /// Gets or sets one style per level, or null to fall back to <see cref="CellColor"/>.
+        /// Gets or sets one style per level, or null (the default) to fall back to <see cref="Palette"/>, then the theme,
+        /// then <see cref="CellColor"/>. Highest precedence: when set, it wins over every other color setting, and
+        /// <see cref="PaletteMode"/> does not apply.
         /// </summary>
         /// <exception cref="ArgumentException">Thrown when the list does not hold exactly <see cref="LevelCount"/> entries.</exception>
         public IReadOnlyList<CellStyle>? LevelStyles
@@ -255,6 +266,79 @@ namespace TUIKit.Widgets
         }
 
         /// <summary>
+        /// Gets or sets the number of blank columns between adjacent cells. Defaults to 0 (cells touch, the 1.12
+        /// rendering); 0 to 2. The gap is not painted: it keeps the surface's content (blank in the default style on a
+        /// cleared surface), the selection highlight stays inside its cell, and a click or hover in a gap finds no cell
+        /// (<see cref="HandleMouse"/> returns false and <see cref="GetTooltip"/> null). A column label may use its cell and
+        /// all but the last column of the gap after it (and, with <see cref="SpanColumnLabels"/>, the following unlabeled
+        /// cells), so labels stay one blank apart. Keyboard movement is in cells and is unaffected.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set outside 0 to 2.</exception>
+        public int CellGap
+        {
+            get { return _CellGap; }
+            set
+            {
+                if (value < 0 || value > 2)
+                    throw new ArgumentOutOfRangeException(nameof(value), "CellGap must be 0 to 2.");
+                _CellGap = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the number of blank rows between adjacent grid rows. Defaults to 0 (the 1.12 rendering); 0 or 1.
+        /// Row labels stay beside their rows, the legend and footer move below the taller grid, and
+        /// <see cref="Measure"/> includes the gaps. Like <see cref="CellGap"/>, gap rows are not painted and a click or
+        /// hover on one finds no cell.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set outside 0 to 1.</exception>
+        public int RowGap
+        {
+            get { return _RowGap; }
+            set
+            {
+                if (value < 0 || value > 1)
+                    throw new ArgumentOutOfRangeException(nameof(value), "RowGap must be 0 or 1.");
+                _RowGap = value;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the color ramp cells are drawn in, or null (the default) for the 1.12 colors (the theme's
+        /// <see cref="Theme.Success"/> with <see cref="UseThemeStyles"/>, otherwise <see cref="CellColor"/>). Precedence:
+        /// <see cref="LevelStyles"/> wins over the palette, and the palette wins over the theme and
+        /// <see cref="CellColor"/>. With <see cref="LevelCount"/> set, each level takes
+        /// <see cref="HeatMapPalette.ColorForLevel"/> (level 0 is <see cref="HeatMapPalette.EmptyColor"/>); with
+        /// continuous shading each cell takes <see cref="HeatMapPalette.ColorAt"/> of its normalized value. The legend
+        /// uses the same colors. Glyphs still change per level, so the map stays readable when the renderer reduces
+        /// color to 256 or 16 colors or drops it.
+        /// </summary>
+        public HeatMapPalette? Palette
+        {
+            get { return _Palette; }
+            set { _Palette = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets how <see cref="Palette"/> colors a cell: the glyph foreground
+        /// (<see cref="HeatMapPaletteMode.Foreground"/>, the default) or a solid tile
+        /// (<see cref="HeatMapPaletteMode.Background"/>). Has no effect without a palette or while
+        /// <see cref="LevelStyles"/> is set. In background mode the zero level keeps only its foreground, and the selected
+        /// cell drops its tile background so <see cref="SelectionStyle"/> shows.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set to a value that is not a defined <see cref="HeatMapPaletteMode"/>.</exception>
+        public HeatMapPaletteMode PaletteMode
+        {
+            get { return _PaletteMode; }
+            set
+            {
+                if (value != HeatMapPaletteMode.Foreground && value != HeatMapPaletteMode.Background)
+                    throw new ArgumentOutOfRangeException(nameof(value), "PaletteMode must be Foreground or Background.");
+                _PaletteMode = value;
+            }
+        }
+
+        /// <summary>
         /// Gets or sets a value indicating whether a column label is drawn in full from its column and may run over
         /// following columns whose labels are empty (month names over weeks), truncated where the next non-empty label
         /// starts. Defaults to false: each column shows the start of its own label.
@@ -287,7 +371,7 @@ namespace TUIKit.Widgets
         /// Gets or sets a value indicating whether the map follows the theme passed to <see cref="ApplyTheme"/>. Defaults
         /// to false: <see cref="ApplyTheme"/> only remembers the theme. While true, labels draw from
         /// <see cref="Theme.Muted"/>, the selection from <see cref="Theme.Selection"/>, and cells (without
-        /// <see cref="LevelStyles"/>) from <see cref="Theme.Success"/>.
+        /// <see cref="LevelStyles"/> or <see cref="Palette"/>, which take precedence) from <see cref="Theme.Success"/>.
         /// </summary>
         public bool UseThemeStyles { get; set; }
 
@@ -566,8 +650,8 @@ namespace TUIKit.Widgets
             int gutter = RowLabelGutter();
             int header = _ColumnLabels.Count > 0 ? 1 : 0;
             int footer = (ShowLegend ? 1 : 0) + (ShowsDescription() ? 1 : 0);
-            int desiredWidth = Math.Min(available.Width, gutter + columns * _CellWidth);
-            int desiredHeight = Math.Min(available.Height, header + rows + footer);
+            int desiredWidth = Math.Min(available.Width, gutter + GridWidth(columns));
+            int desiredHeight = Math.Min(available.Height, header + GridHeight(rows) + footer);
             return new Size(desiredWidth, desiredHeight);
         }
 
@@ -586,7 +670,9 @@ namespace TUIKit.Widgets
 
             int gutter = RowLabelGutter();
             int header = _ColumnLabels.Count > 0 ? 1 : 0;
-            int visibleColumns = Math.Max(1, (width - gutter) / _CellWidth);
+            int stride = _CellWidth + _CellGap;
+            int rowStride = 1 + _RowGap;
+            int visibleColumns = Math.Max(1, (width - gutter + _CellGap) / stride);
             _LastGutter = gutter;
             _LastHeader = header;
             _LastVisibleColumns = visibleColumns;
@@ -608,13 +694,14 @@ namespace TUIKit.Widgets
             CellStyle labelStyle = theme != null ? theme.Muted : CellStyle.Default.WithForeground(LabelColor);
             CellStyle cellStyle = theme != null ? theme.Success : CellStyle.Default.WithForeground(CellColor);
             CellStyle selection = theme != null ? theme.Selection : SelectionStyle;
+            bool selecting = IsSelectable && HasSelection;
 
             if (header == 1)
                 DrawColumnLabels(surface, gutter, width, labelStyle);
 
             for (int r = 0; r < rows; r++)
             {
-                int y = header + r;
+                int y = header + r * rowStride;
                 if (y >= height)
                     break;
 
@@ -626,7 +713,7 @@ namespace TUIKit.Widgets
 
                 for (int c = _FirstVisibleColumn; c < columns; c++)
                 {
-                    int x = gutter + (c - _FirstVisibleColumn) * _CellWidth;
+                    int x = gutter + (c - _FirstVisibleColumn) * stride;
                     if (x >= width)
                         break;
 
@@ -634,10 +721,12 @@ namespace TUIKit.Widgets
                     if (blank != null && blank(r, c))
                         continue;
 
+                    double normalized = Normalize(_Cells[r, c], min, max);
                     int level = Level(_Cells[r, c], min, max);
                     string glyph = GlyphOf(level);
-                    CellStyle style = StyleOf(level, cellStyle);
-                    if (IsSelectable && r == _SelectedRow && c == _SelectedColumn && HasSelection)
+                    bool selected = selecting && r == _SelectedRow && c == _SelectedColumn;
+                    CellStyle style = StyleOf(level, normalized, cellStyle, selected);
+                    if (selected)
                         style = selection.Over(style);
 
                     for (int k = 0; k < _CellWidth && x + k < width; k++)
@@ -645,7 +734,7 @@ namespace TUIKit.Widgets
                 }
             }
 
-            int footerY = header + rows;
+            int footerY = header + GridHeight(rows);
             if (ShowLegend && footerY < height)
             {
                 DrawLegend(surface, gutter, footerY, width, labelStyle, cellStyle);
@@ -672,9 +761,11 @@ namespace TUIKit.Widgets
         private void DrawColumnLabels(ISurface surface, int gutter, int width, CellStyle labelStyle)
         {
             int columns = Columns;
+            int stride = _CellWidth + _CellGap;
+            int separation = _CellGap > 0 ? 1 : 0;
             for (int c = _FirstVisibleColumn; c < columns; c++)
             {
-                int x = gutter + (c - _FirstVisibleColumn) * _CellWidth;
+                int x = gutter + (c - _FirstVisibleColumn) * stride;
                 if (x >= width)
                     break;
                 if (c >= _ColumnLabels.Count || _ColumnLabels[c].Length == 0)
@@ -683,7 +774,8 @@ namespace TUIKit.Widgets
                 string label = _ColumnLabels[c];
                 if (!SpanColumnLabels)
                 {
-                    string shown = _CellWidth == 1 ? label.Substring(0, 1) : TextFit.Truncate(label, _CellWidth);
+                    int own = Math.Min(width - x, stride - separation);
+                    string shown = own == 1 ? label.Substring(0, 1) : TextFit.Truncate(label, own);
                     surface.DrawText(x, 0, shown, labelStyle);
                     continue;
                 }
@@ -691,7 +783,7 @@ namespace TUIKit.Widgets
                 int next = c + 1;
                 while (next < columns && (next >= _ColumnLabels.Count || _ColumnLabels[next].Length == 0))
                     next++;
-                int room = Math.Min(width - x, (next - c) * _CellWidth);
+                int room = Math.Min(width - x, (next - c) * stride - separation);
                 surface.DrawText(x, 0, TextFit.Truncate(label, room), labelStyle);
             }
         }
@@ -704,12 +796,20 @@ namespace TUIKit.Widgets
             for (int level = 0; level < levels && x + 1 < width; level++)
             {
                 x++;
-                surface.Set(x, y, Cell.Glyph(GlyphOf(level), StyleOf(level, cellStyle), 1));
+                double normalized = _LevelCount > 0 ? 0.0 : (double)level / (_Shades.Length - 1);
+                surface.Set(x, y, Cell.Glyph(GlyphOf(level), StyleOf(level, normalized, cellStyle, false), 1));
                 x++;
             }
 
             if (x + 1 < width)
                 surface.DrawText(x + 1, y, TextFit.Truncate(_LegendHighText, width - x - 1), labelStyle);
+        }
+
+        private static double Normalize(double raw, double min, double max)
+        {
+            double value = Sanitize(raw, min, max);
+            double span = max - min;
+            return span <= 0 ? 0.0 : (value - min) / span;
         }
 
         private int Level(double raw, double min, double max)
@@ -718,7 +818,7 @@ namespace TUIKit.Widgets
             double span = max - min;
             if (_LevelCount == 0)
             {
-                double normalized = span <= 0 ? 0.0 : (value - min) / span;
+                double normalized = Normalize(raw, min, max);
                 int index = (int)Math.Round(normalized * (_Shades.Length - 1), MidpointRounding.AwayFromZero);
                 return Math.Max(0, Math.Min(_Shades.Length - 1, index));
             }
@@ -742,16 +842,47 @@ namespace TUIKit.Widgets
             return _Shades[Math.Max(0, Math.Min(_Shades.Length - 1, shade))];
         }
 
-        private CellStyle StyleOf(int level, CellStyle fallback)
+        private CellStyle StyleOf(int level, double normalized, CellStyle fallback, bool selected)
         {
-            return _LevelCount > 0 && _LevelStyles != null ? _LevelStyles[level] : fallback;
+            if (_LevelCount > 0 && _LevelStyles != null)
+                return _LevelStyles[level];
+
+            HeatMapPalette? palette = _Palette;
+            if (palette == null)
+                return fallback;
+
+            Color color = _LevelCount > 0 ? palette.ColorForLevel(level, _LevelCount) : palette.ColorAt(normalized);
+            CellStyle style = CellStyle.Default.WithForeground(color);
+            bool empty = _LevelCount > 0 && level == 0;
+            if (_PaletteMode == HeatMapPaletteMode.Background && !empty && !selected)
+                style = style.WithBackground(color);
+            return style;
+        }
+
+        private int GridWidth(int columns)
+        {
+            return columns <= 0 ? 0 : columns * _CellWidth + (columns - 1) * _CellGap;
+        }
+
+        private int GridHeight(int rows)
+        {
+            return rows <= 0 ? 0 : rows + (rows - 1) * _RowGap;
         }
 
         private bool TryCellAt(int x, int y, out int row, out int column)
         {
-            row = y - _LastHeader;
-            column = x < _LastGutter ? -1 : _FirstVisibleColumn + (x - _LastGutter) / _CellWidth;
-            return row >= 0 && row < Rows && column >= 0 && column < Columns && column < _FirstVisibleColumn + Math.Max(1, _LastVisibleColumns);
+            row = -1;
+            column = -1;
+            int dy = y - _LastHeader;
+            int dx = x - _LastGutter;
+            int stride = _CellWidth + _CellGap;
+            int rowStride = 1 + _RowGap;
+            if (dy < 0 || dx < 0 || dy % rowStride != 0 || dx % stride >= _CellWidth)
+                return false;
+
+            row = dy / rowStride;
+            column = _FirstVisibleColumn + dx / stride;
+            return row < Rows && column < Columns && column < _FirstVisibleColumn + Math.Max(1, _LastVisibleColumns);
         }
 
         private bool CanSelect(int row, int column)
