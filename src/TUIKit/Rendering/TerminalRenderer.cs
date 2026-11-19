@@ -4,6 +4,7 @@ namespace TUIKit.Rendering
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Text;
+    using TUIKit.Compatibility;
     using TUIKit.Diagnostics;
     using TUIKit.Terminal;
 
@@ -22,6 +23,9 @@ namespace TUIKit.Rendering
         private readonly TerminalColorDepth _ColorDepth;
         private CellBuffer _Front;
         private CellBuffer _Back;
+        private BufferSurface _Surface;
+        private readonly StringBuilder _Diff = new StringBuilder();
+        private readonly Dictionary<int, Uri?> _Targets = new Dictionary<int, Uri?>();
         private Size _Size;
         private bool _RepaintPending;
         private bool _HyperlinksEnabled;
@@ -76,6 +80,7 @@ namespace TUIKit.Rendering
             _Size = new Size(width, height);
             _Front = new CellBuffer(width, height);
             _Back = new CellBuffer(width, height);
+            _Surface = new BufferSurface(_Back);
             _RepaintPending = true;
         }
 
@@ -92,10 +97,8 @@ namespace TUIKit.Rendering
         /// </exception>
         public bool Render(ITerminalBackend backend, Action<ISurface> draw)
         {
-            if (backend == null)
-                throw new ArgumentNullException(nameof(backend));
-            if (draw == null)
-                throw new ArgumentNullException(nameof(draw));
+            RuntimeCompat.ThrowIfNull(backend, nameof(backend));
+            RuntimeCompat.ThrowIfNull(draw, nameof(draw));
 
             long frameStart = TuiKitInstruments.Timestamp();
             Activity? frameSpan = TuiKitTelemetry.TraceFrames ? TuiKitInstruments.StartActivity(TuiKitTelemetryNames.SpanFrame) : null;
@@ -111,8 +114,7 @@ namespace TUIKit.Rendering
 
                 stageSpan = StartStage(frameSpan, stage);
                 _Back.Clear(CellStyle.Default);
-                BufferSurface surface = new BufferSurface(_Back);
-                draw(surface);
+                draw(_Surface);
                 bool hyperlinksEnabled = HyperlinkOutput.Enabled(Hyperlinks, backend.Capabilities.Hyperlinks);
                 if (hyperlinksEnabled != _HyperlinksEnabled)
                     _RepaintPending = true;
@@ -124,8 +126,6 @@ namespace TUIKit.Rendering
                 stageStart = TuiKitInstruments.Timestamp();
                 stageSpan = StartStage(frameSpan, stage);
                 string output = BuildDiff(out int rowsRepainted);
-                _Front.CopyFrom(_Back);
-                _RepaintPending = false;
                 EndStage(stage, stageStart, ref stageSpan);
                 TuiKitInstruments.Record(TuiKitInstruments.FrameRowsRepainted, rowsRepainted);
 
@@ -143,12 +143,18 @@ namespace TUIKit.Rendering
                 // the terminal presents it atomically. Emitting the pair only around a non-empty diff means
                 // an unchanged frame stays a true no-op. The pair is always balanced within one write, so a
                 // frame can never leave the terminal in a held state between frames.
+                // Until the flush succeeds the terminal may hold only part of this frame.
+                _RepaintPending = true;
                 if (SynchronizedOutput)
                     backend.Write(Ansi.BeginSynchronizedUpdate + output + Ansi.EndSynchronizedUpdate);
                 else
                     backend.Write(output);
 
                 backend.Flush();
+                if (_Front.Width != _Size.Width || _Front.Height != _Size.Height)
+                    _Front.Resize(_Size.Width, _Size.Height);
+                _Front.CopyFrom(_Back);
+                _RepaintPending = false;
                 EndStage(stage, stageStart, ref stageSpan);
                 TuiKitInstruments.Record(TuiKitInstruments.FrameOutputSize, output.Length);
 
@@ -207,8 +213,8 @@ namespace TUIKit.Rendering
                 return;
 
             _Size = size;
-            _Front.Resize(size.Width, size.Height);
             _Back.Resize(size.Width, size.Height);
+            _Surface = new BufferSurface(_Back);
             _RepaintPending = true;
         }
 
@@ -260,7 +266,8 @@ namespace TUIKit.Rendering
         {
             if (LinkResolver == null)
                 return;
-            Dictionary<int, Uri?> targets = new Dictionary<int, Uri?>();
+            Dictionary<int, Uri?> targets = _Targets;
+            targets.Clear();
             for (int y = 0; y < _Size.Height; y++)
             {
                 for (int x = 0; x < _Size.Width; x++)
@@ -284,7 +291,7 @@ namespace TUIKit.Rendering
         private string BuildDiff(out int rowsRepainted)
         {
             rowsRepainted = 0;
-            StringBuilder builder = new StringBuilder();
+            StringBuilder builder = _Diff.Clear();
             bool full = _RepaintPending || ForceFullRepaint;
 
             for (int row = 0; row < _Size.Height; row++)

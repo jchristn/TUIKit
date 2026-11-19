@@ -2,6 +2,7 @@ namespace TUIKit.Input
 {
     using System;
     using System.Collections.Generic;
+    using TUIKit.Compatibility;
     using TUIKit.Hosting;
     using TUIKit.Widgets;
 
@@ -32,8 +33,7 @@ namespace TUIKit.Input
         /// <exception cref="ArgumentException">Thrown when a command with the same id is already registered.</exception>
         public CommandRegistry Add(Command command)
         {
-            if (command == null)
-                throw new ArgumentNullException(nameof(command));
+            RuntimeCompat.ThrowIfNull(command, nameof(command));
 
             for (int i = 0; i < _Commands.Count; i++)
             {
@@ -52,8 +52,7 @@ namespace TUIKit.Input
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="app"/> is null.</exception>
         public void ApplyTo(TuiApplication app)
         {
-            if (app == null)
-                throw new ArgumentNullException(nameof(app));
+            RuntimeCompat.ThrowIfNull(app, nameof(app));
 
             for (int i = 0; i < _Commands.Count; i++)
             {
@@ -119,8 +118,7 @@ namespace TUIKit.Input
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is null.</exception>
         public Command? ResolveSlash(string input)
         {
-            if (input == null)
-                throw new ArgumentNullException(nameof(input));
+            RuntimeCompat.ThrowIfNull(input, nameof(input));
 
             string trimmed = input.Trim();
             if (trimmed.StartsWith("/", StringComparison.Ordinal))
@@ -133,7 +131,7 @@ namespace TUIKit.Input
 
             for (int i = 0; i < _Commands.Count; i++)
             {
-                if (_Commands[i].MatchesSlash(token))
+                if (_Commands[i].MatchesSlash(token) && _Commands[i].IsEnabled)
                     return _Commands[i];
             }
 

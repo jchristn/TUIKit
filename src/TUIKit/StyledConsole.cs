@@ -3,6 +3,7 @@ namespace TUIKit
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using TUIKit.Compatibility;
     using TUIKit.Rendering;
     using TUIKit.Terminal;
     using TUIKit.Widgets;
@@ -46,7 +47,8 @@ namespace TUIKit
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="output"/> is null.</exception>
         public StyledConsole(TextWriter output, TerminalColorDepth colorDepth)
         {
-            _Output = output ?? throw new ArgumentNullException(nameof(output));
+            RuntimeCompat.ThrowIfNull(output, nameof(output));
+            _Output = output;
             ColorDepth = colorDepth;
         }
 
@@ -97,8 +99,7 @@ namespace TUIKit
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public void Write(StyledText text)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             _Output.Write(AnsiText.Render(text, ColorDepth, EmitHyperlinks));
         }
@@ -123,8 +124,7 @@ namespace TUIKit
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="markup"/> is null.</exception>
         public void Markup(string markup)
         {
-            if (markup == null)
-                throw new ArgumentNullException(nameof(markup));
+            RuntimeCompat.ThrowIfNull(markup, nameof(markup));
 
             Write(TUIKit.Markup.Parse(markup));
         }
@@ -134,24 +134,22 @@ namespace TUIKit
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="markup"/> is null.</exception>
         public void MarkupLine(string markup)
         {
-            if (markup == null)
-                throw new ArgumentNullException(nameof(markup));
+            RuntimeCompat.ThrowIfNull(markup, nameof(markup));
 
             WriteLine(TUIKit.Markup.Parse(markup));
         }
 
-        /// <summary>Writes a literal string with no markup parsing and no styling.</summary>
+        /// <summary>Writes unstyled text without parsing markup. Tabs, carriage returns, and newlines are preserved; other control characters are removed.</summary>
         /// <param name="text">The literal text. Must not be null.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public void Write(string text)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
-            _Output.Write(text);
+            _Output.Write(AnsiText.DisplayText(text));
         }
 
-        /// <summary>Writes a literal string followed by a newline.</summary>
+        /// <summary>Writes text using the same control-character filtering as <see cref="Write(string)"/>, then appends a newline.</summary>
         /// <param name="text">The literal text. Must not be null.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public void WriteLine(string text)
@@ -193,8 +191,7 @@ namespace TUIKit
 
         private IReadOnlyList<string> RenderWidget(IWidget widget, int? width)
         {
-            if (widget == null)
-                throw new ArgumentNullException(nameof(widget));
+            RuntimeCompat.ThrowIfNull(widget, nameof(widget));
             if (width.HasValue && width.Value < 1)
                 throw new ArgumentOutOfRangeException(nameof(width), width.Value, "Width must be at least 1.");
 

@@ -43,6 +43,17 @@ namespace TUIKit.Terminal
         [DllImport("libc")]
         private static extern void cfmakeraw(byte[] termios);
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PollDescriptor
+        {
+            internal int Fd;
+            internal short Events;
+            internal short Returned;
+        }
+
+        [DllImport("libc", SetLastError = true)]
+        private static extern int poll(ref PollDescriptor descriptor, UIntPtr count, int milliseconds);
+
         [DllImport("libc", SetLastError = true, EntryPoint = "read")]
         private static extern IntPtr ReadNative(int fd, byte[] buffer, UIntPtr count);
 
@@ -52,22 +63,17 @@ namespace TUIKit.Terminal
         /// <summary>
         /// Reads up to <paramref name="count"/> bytes of raw input directly from standard input,
         /// bypassing <see cref="Console"/> (whose Unix implementation echoes and re-cooks the
-        /// terminal). Blocks until at least one byte is available while in raw mode.
+        /// terminal). Polls for readable input for up to 50 milliseconds before attempting a read.
         /// </summary>
         /// <param name="buffer">The destination buffer. Must not be null.</param>
         /// <param name="count">The maximum number of bytes to read.</param>
-        /// <returns>The number of bytes read, 0 at end of input, or -1 on error.</returns>
+        /// <returns>The number of bytes read, zero at end of input or if the poll fails or finds no readable input, or -1 if the read fails.</returns>
         internal static int ReadStdin(byte[] buffer, int count)
         {
-            while (true)
-            {
-                IntPtr result = ReadNative(StdInputFileDescriptor, buffer, (UIntPtr)count);
-                int read = (int)result;
-                if (read < 0 && Marshal.GetLastWin32Error() == Eintr)
-                    continue;
-
-                return read;
-            }
+            PollDescriptor descriptor = new PollDescriptor { Fd = StdInputFileDescriptor, Events = 1 }; // POLLIN
+            if (poll(ref descriptor, (UIntPtr)1, 50) <= 0 || (descriptor.Returned & 1) == 0)
+                return 0;
+            return checked((int)ReadNative(StdInputFileDescriptor, buffer, (UIntPtr)count).ToInt64());
         }
 
         /// <summary>
@@ -86,7 +92,7 @@ namespace TUIKit.Terminal
                 while (offset < length)
                 {
                     IntPtr result = WriteNative(StdOutputFileDescriptor, IntPtr.Add(basePointer, offset), (UIntPtr)(length - offset));
-                    int written = (int)result;
+                    int written = checked((int)result.ToInt64());
                     if (written < 0)
                     {
                         if (Marshal.GetLastWin32Error() == Eintr)
@@ -140,12 +146,20 @@ namespace TUIKit.Terminal
         /// The attributes returned by <see cref="EnterRawMode"/>. When null the call is a no-op, so it
         /// is safe to invoke even when raw mode was never entered.
         /// </param>
-        internal static void RestoreMode(byte[]? saved)
+        /// <returns>Zero on success or when nothing was saved; otherwise the native error number.</returns>
+        internal static int RestoreMode(byte[]? saved)
         {
-            if (saved == null)
-                return;
+            if (saved != null)
+            {
+                while (tcsetattr(StdInputFileDescriptor, SetAttributesNow, saved) != 0)
+                {
+                    int error = Marshal.GetLastWin32Error();
+                    if (error != Eintr)
+                        return error;
+                }
+            }
 
-            tcsetattr(StdInputFileDescriptor, SetAttributesNow, saved);
+            return 0;
         }
     }
 }

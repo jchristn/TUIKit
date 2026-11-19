@@ -3,6 +3,7 @@ namespace TUIKit.Modals
     using System;
     using System.Collections.Generic;
     using TUIKit;
+    using TUIKit.Compatibility;
     using TUIKit.Input;
     using TUIKit.Layout;
     using TUIKit.Widgets;
@@ -26,9 +27,9 @@ namespace TUIKit.Modals
         /// <exception cref="ArgumentException">Thrown when <paramref name="options"/> is empty.</exception>
         public SelectModal(string title, IReadOnlyList<string> options)
         {
-            _Title = title ?? throw new ArgumentNullException(nameof(title));
-            if (options == null)
-                throw new ArgumentNullException(nameof(options));
+            RuntimeCompat.ThrowIfNull(title, nameof(title));
+            RuntimeCompat.ThrowIfNull(options, nameof(options));
+            _Title = title;
             if (options.Count == 0)
                 throw new ArgumentException("At least one option is required.", nameof(options));
 
@@ -61,8 +62,7 @@ namespace TUIKit.Modals
         /// <inheritdoc/>
         public override void Render(ISurface surface)
         {
-            if (surface == null)
-                throw new ArgumentNullException(nameof(surface));
+            RuntimeCompat.ThrowIfNull(surface, nameof(surface));
 
             Padding pad = ContentPadding;
             int innerWidth = Math.Min(46, surface.Size.Width - 2 - pad.Horizontal);
@@ -79,8 +79,7 @@ namespace TUIKit.Modals
             surface.Fill(box, Cell.Blank(CellStyle.Default));
             surface.DrawBox(box, CellStyle.Default.WithForeground(Color.FromPalette(6)), _Title);
 
-            if (surface is BufferSurface buffer)
-                _List.Render(buffer.CreateView(new Rect(x + 1 + pad.Left, y + 1 + pad.Top, innerWidth, innerHeight)));
+            _List.Render(new SurfaceView(surface, new Rect(x + 1 + pad.Left, y + 1 + pad.Top, innerWidth, innerHeight)));
         }
     }
 }

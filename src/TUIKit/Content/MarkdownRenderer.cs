@@ -5,6 +5,7 @@ namespace TUIKit.Content
     using System.Threading;
     using System.Threading.Tasks;
     using TUIKit;
+    using TUIKit.Compatibility;
 
     /// <summary>
     /// Renders Markdown into styled rows. Two engines are available.
@@ -49,10 +50,8 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when an argument is null.</exception>
         public static IReadOnlyList<StyledText> Render(string markdown, MarkdownStyles styles)
         {
-            if (markdown == null)
-                throw new ArgumentNullException(nameof(markdown));
-            if (styles == null)
-                throw new ArgumentNullException(nameof(styles));
+            RuntimeCompat.ThrowIfNull(markdown, nameof(markdown));
+            RuntimeCompat.ThrowIfNull(styles, nameof(styles));
 
             List<StyledText> output = new List<StyledText>();
             string[] lines = markdown.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
@@ -133,10 +132,8 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> or <paramref name="options"/> is null.</exception>
         public static int MeasureWidth(string markdown, MarkdownRenderOptions options)
         {
-            if (markdown == null)
-                throw new ArgumentNullException(nameof(markdown));
-            if (options == null)
-                throw new ArgumentNullException(nameof(options));
+            RuntimeCompat.ThrowIfNull(markdown, nameof(markdown));
+            RuntimeCompat.ThrowIfNull(options, nameof(options));
 
             MarkdownRenderOptions measuring = options.Clone();
             measuring.Overflow = MarkdownOverflow.Clip;
@@ -187,8 +184,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="received"/> is null.</exception>
         public static string StreamingPrefix(string received)
         {
-            if (received == null)
-                throw new ArgumentNullException(nameof(received));
+            RuntimeCompat.ThrowIfNull(received, nameof(received));
 
             int lastNewline = received.LastIndexOf('\n');
             int partialStart = lastNewline + 1;
@@ -222,10 +218,8 @@ namespace TUIKit.Content
 
         private static void Validate(string markdown, int width, MarkdownRenderOptions options)
         {
-            if (markdown == null)
-                throw new ArgumentNullException(nameof(markdown));
-            if (options == null)
-                throw new ArgumentNullException(nameof(options));
+            RuntimeCompat.ThrowIfNull(markdown, nameof(markdown));
+            RuntimeCompat.ThrowIfNull(options, nameof(options));
             if (width < 1)
                 throw new ArgumentOutOfRangeException(nameof(width), width, "Width must be 1 or greater.");
         }
@@ -242,10 +236,8 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when an argument is null.</exception>
         public static StyledText? RenderLine(string line, MarkdownStyles styles, ref bool inCodeBlock)
         {
-            if (line == null)
-                throw new ArgumentNullException(nameof(line));
-            if (styles == null)
-                throw new ArgumentNullException(nameof(styles));
+            RuntimeCompat.ThrowIfNull(line, nameof(line));
+            RuntimeCompat.ThrowIfNull(styles, nameof(styles));
 
             string trimmed = line.TrimStart();
             CellStyle text = styles.Text;
@@ -373,10 +365,8 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> or <paramref name="styles"/> is null.</exception>
         public static StyledText RenderInline(string text, CellStyle baseStyle, MarkdownStyles styles)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
-            if (styles == null)
-                throw new ArgumentNullException(nameof(styles));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
+            RuntimeCompat.ThrowIfNull(styles, nameof(styles));
 
             List<StyledSpan> spans = new List<StyledSpan>();
             System.Text.StringBuilder plain = new System.Text.StringBuilder();
@@ -491,7 +481,7 @@ namespace TUIKit.Content
         }
 
         // True when the line [start, end) begins, after at most three spaces, with a pipe.
-        private static bool StartsWithPipe(string text, int start, int end)
+        internal static bool StartsWithPipe(string text, int start, int end)
         {
             int i = start;
             int spaces = 0;

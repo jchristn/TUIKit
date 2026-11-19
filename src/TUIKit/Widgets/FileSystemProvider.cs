@@ -44,7 +44,7 @@ namespace TUIKit.Widgets
             {
                 errorType = TuiKitInstruments.ErrorType(ex);
                 TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentIntegration, ex);
-                TuiKitInstruments.MarkError(span, ex);
+                TuiKitInstruments.MarkError(span, errorType, "Filesystem operation failed.");
             }
 
             if (roots.Count == 0)
@@ -73,7 +73,7 @@ namespace TUIKit.Widgets
             catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException || ex is ArgumentException)
             {
                 TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentIntegration, ex);
-                TuiKitInstruments.MarkError(span, ex);
+                TuiKitInstruments.MarkError(span, TuiKitInstruments.ErrorType(ex), "Filesystem operation failed.");
                 EndCall(TuiKitTelemetryNames.OperationGetChildren, start, span, TuiKitInstruments.ErrorType(ex), 0);
                 return Array.Empty<string>();
             }

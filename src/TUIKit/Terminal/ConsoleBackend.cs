@@ -1,11 +1,13 @@
 namespace TUIKit.Terminal
 {
+    using Microsoft.Win32.SafeHandles;
     using System;
     using System.Collections.Concurrent;
     using System.IO;
     using System.Runtime.InteropServices;
     using System.Text;
     using System.Threading;
+    using TUIKit.Compatibility;
 
     /// <summary>
     /// An <see cref="ITerminalBackend"/> backed by the real process console. On Windows it enables
@@ -32,7 +34,9 @@ namespace TUIKit.Terminal
 
         private Stream? _OutputStream;
         private Stream? _InputStream;
+        private readonly object _Lifecycle = new object();
         private Thread? _ReaderThread;
+        private volatile SafeFileHandle? _WindowsReaderHandle;
         private volatile bool _Running;
         private uint _OriginalOutputMode;
         private uint _OriginalInputMode;
@@ -102,10 +106,23 @@ namespace TUIKit.Terminal
         }
 
         /// <inheritdoc/>
+        /// <exception cref="System.IO.IOException">A previous Windows input reader did not stop within the shutdown timeout, or prior POSIX terminal settings could not be restored.</exception>
         public void Start()
+        {
+            lock (_Lifecycle)
+                StartSession();
+        }
+
+        private void StartSession()
         {
             if (_Running)
                 return;
+
+            if (_ReaderThread != null)
+                JoinReader(); // A previous Stop timed out; do not start two readers.
+
+            if (_SavedTermios != null)
+                RestoreSession(); // Finish a failed restore before saving another raw-mode snapshot.
 
             _Running = true;
 
@@ -154,8 +171,7 @@ namespace TUIKit.Terminal
         /// <inheritdoc/>
         public void Write(string data)
         {
-            if (data == null)
-                throw new ArgumentNullException(nameof(data));
+            RuntimeCompat.ThrowIfNull(data, nameof(data));
 
             lock (_WriteSync)
                 _WriteBuffer.Append(data);
@@ -192,8 +208,7 @@ namespace TUIKit.Terminal
         /// <inheritdoc/>
         public int ReadInput(byte[] buffer, int offset, int count)
         {
-            if (buffer == null)
-                throw new ArgumentNullException(nameof(buffer));
+            RuntimeCompat.ThrowIfNull(buffer, nameof(buffer));
             if (offset < 0 || offset > buffer.Length)
                 throw new ArgumentOutOfRangeException(nameof(offset));
             if (count < 0 || offset + count > buffer.Length)
@@ -210,12 +225,64 @@ namespace TUIKit.Terminal
         }
 
         /// <inheritdoc/>
+        /// <exception cref="System.IO.IOException">The Windows input reader did not stop within the shutdown timeout, or POSIX terminal settings could not be restored.</exception>
         public void Stop()
         {
+            lock (_Lifecycle)
+                StopSession();
+        }
+
+        private void StopSession()
+        {
             if (!_Running)
+            {
+                JoinReader();
+                if (_SavedTermios != null)
+                    RestoreSession();
                 return;
+            }
 
             _Running = false;
+            try
+            {
+                JoinReader();
+            }
+            finally
+            {
+                RestoreSession();
+            }
+        }
+
+        private void JoinReader()
+        {
+            if (_ReaderThread == null)
+                return;
+
+            if (_IsWindows)
+            {
+                // Retry in case Stop races the reader entering its synchronous read. Keep the
+                // thread reference on timeout: a failed handoff must not enable another reader.
+                for (int attempt = 0; !_ReaderThread.Join(25); attempt++)
+                {
+                    if (attempt >= 39)
+                        throw new IOException("The console input reader did not stop within one second.");
+
+                    SafeFileHandle? handle = _WindowsReaderHandle;
+                    if (handle != null && !handle.IsInvalid)
+                        _ = NativeConsole.CancelSynchronousIo(handle);
+                }
+                _WindowsReaderHandle?.Dispose();
+                _WindowsReaderHandle = null;
+            }
+            else
+            {
+                _ReaderThread.Join(); // POSIX reads already poll with a timeout.
+            }
+            _ReaderThread = null;
+        }
+
+        private void RestoreSession()
+        {
 
             try
             {
@@ -230,23 +297,25 @@ namespace TUIKit.Terminal
 
             if (_Interactive)
             {
-                // Suppress the process-exit net: a clean Stop has taken responsibility for the restore.
-                Interlocked.Exchange(ref _ExitHandled, 1);
-
-                if (_ProcessExitHandler != null)
-                {
-                    AppDomain.CurrentDomain.ProcessExit -= _ProcessExitHandler;
-                    _ProcessExitHandler = null;
-                }
-
                 if (_IsWindows)
                 {
                     RestoreWindowsMode();
                 }
                 else
                 {
-                    PosixTerminal.RestoreMode(_SavedTermios);
+                    int error = PosixTerminal.RestoreMode(_SavedTermios);
+                    if (error != 0)
+                        throw new IOException($"Could not restore standard input terminal settings (errno {error}).");
                     _SavedTermios = null;
+                }
+
+                // Remove the process-exit fallback only after the restore succeeds.
+                Interlocked.Exchange(ref _ExitHandled, 1);
+
+                if (_ProcessExitHandler != null)
+                {
+                    AppDomain.CurrentDomain.ProcessExit -= _ProcessExitHandler;
+                    _ProcessExitHandler = null;
                 }
             }
         }
@@ -316,7 +385,7 @@ namespace TUIKit.Terminal
             }
             else
             {
-                PosixTerminal.RestoreMode(_SavedTermios);
+                _ = PosixTerminal.RestoreMode(_SavedTermios); // Best effort: no caller remains to report failure to.
                 _SavedTermios = null;
             }
         }
@@ -339,6 +408,9 @@ namespace TUIKit.Terminal
 
         private void ReaderLoop()
         {
+            if (_IsWindows)
+                _WindowsReaderHandle = NativeConsole.OpenThread(NativeConsole.ThreadTerminate, false, NativeConsole.GetCurrentThreadId());
+
             byte[] buffer = new byte[1024];
             while (_Running)
             {
@@ -348,6 +420,10 @@ namespace TUIKit.Terminal
                     read = _IsWindows
                         ? (_InputStream != null ? _InputStream.Read(buffer, 0, buffer.Length) : -1)
                         : PosixTerminal.ReadStdin(buffer, buffer.Length);
+                }
+                catch (OperationCanceledException) when (!_Running)
+                {
+                    break;
                 }
                 catch (IOException)
                 {
@@ -366,6 +442,7 @@ namespace TUIKit.Terminal
         }
 
         /// <inheritdoc/>
+        /// <exception cref="System.IO.IOException">The Windows input reader did not stop within the shutdown timeout, or POSIX terminal settings could not be restored.</exception>
         public void Dispose()
         {
             if (_Disposed)

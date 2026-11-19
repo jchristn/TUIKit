@@ -1,5 +1,6 @@
 namespace TUIKit.Terminal
 {
+    using Microsoft.Win32.SafeHandles;
     using System;
     using System.Runtime.InteropServices;
 
@@ -9,6 +10,18 @@ namespace TUIKit.Terminal
     /// </summary>
     internal static class NativeConsole
     {
+        internal const uint ThreadTerminate = 0x0001; // Required by CancelSynchronousIo.
+
+        [DllImport("kernel32.dll")]
+        internal static extern uint GetCurrentThreadId();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        internal static extern SafeFileHandle OpenThread(uint access, bool inheritHandle, uint threadId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool CancelSynchronousIo(SafeFileHandle thread);
+
         internal const int StdInputHandle = -10;
         internal const int StdOutputHandle = -11;
 
