@@ -39,7 +39,8 @@ namespace TUIKit.Example
 
         internal HarnessApp(TuiApplication app)
         {
-            _App = app ?? throw new ArgumentNullException(nameof(app));
+            ArgumentNullException.ThrowIfNull(app);
+            _App = app;
             _State = new HarnessState(app.Notifications, () => app.NowMilliseconds);
             _Agent = new SimulatedAgent(_Transcript, _Tools, _State);
 
@@ -230,7 +231,7 @@ namespace TUIKit.Example
         {
             ChoiceModal palette = new ChoiceModal("Command Palette", new List<string> { "Help", "Settings", "Edit tags", "Select files", "Cycle theme", "Toggle debug", "Quit" });
             _App.Modals.Push(palette);
-            palette.Completion.ContinueWith(task =>
+            palette.Completion.ContinueWith(task => _App.Post(() =>
             {
                 int index = task.Result is int value ? value : -1;
                 switch (index)
@@ -259,14 +260,14 @@ namespace TUIKit.Example
                     default:
                         break;
                 }
-            }, System.Threading.Tasks.TaskScheduler.Default);
+            }), System.Threading.Tasks.TaskScheduler.Default);
         }
 
         private void OpenSettings()
         {
             SettingsModal settings = new SettingsModal(_App.Theme.Name, _App.ForceFullRepaint);
             _App.Modals.Push(settings);
-            settings.Completion.ContinueWith(task =>
+            settings.Completion.ContinueWith(task => _App.Post(() =>
             {
                 if (task.Result is SettingsResult result)
                 {
@@ -285,7 +286,7 @@ namespace TUIKit.Example
                         _App.NowMilliseconds,
                         2000);
                 }
-            }, System.Threading.Tasks.TaskScheduler.Default);
+            }), System.Threading.Tasks.TaskScheduler.Default);
         }
 
         private void OpenTagEditor()

@@ -3,6 +3,7 @@ namespace TUIKit.Input
     using System;
     using System.Collections.Generic;
     using System.Text;
+    using TUIKit.Compatibility;
 
     /// <summary>
     /// Decodes a stream of raw terminal input bytes into <see cref="InputEvent"/> values: printable
@@ -26,8 +27,7 @@ namespace TUIKit.Input
         /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="length"/> is out of range.</exception>
         public void Feed(byte[] data, int length)
         {
-            if (data == null)
-                throw new ArgumentNullException(nameof(data));
+            RuntimeCompat.ThrowIfNull(data, nameof(data));
             if (length < 0 || length > data.Length)
                 throw new ArgumentOutOfRangeException(nameof(length));
 
@@ -111,9 +111,9 @@ namespace TUIKit.Input
             return false;
         }
 
-        private int ParseControl(List<InputEvent> events)
+        private int ParseControl(List<InputEvent> events, int offset = 0, KeyModifiers modifiers = KeyModifiers.None)
         {
-            byte b = _Buffer[0];
+            byte b = _Buffer[offset];
             switch (b)
             {
                 case 0x0D:
@@ -122,23 +122,23 @@ namespace TUIKit.Input
                     // them distinct lets an application bind Ctrl+J (which falls through to the C0 handler
                     // below as Char 'j' + Ctrl) as a terminal-independent "insert newline" chord, since no
                     // terminal reports Shift+Enter or Ctrl+Enter without the enhanced keyboard protocol.
-                    events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Enter)));
+                    events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Enter, modifiers)));
                     return 1;
                 case 0x09:
-                    events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Tab)));
+                    events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Tab, modifiers)));
                     return 1;
                 case 0x08:
                 case 0x7F:
-                    events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Backspace)));
+                    events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Backspace, modifiers)));
                     return 1;
                 case 0x00:
-                    events.Add(InputEvent.FromKey(KeyEvent.Char(' ', KeyModifiers.Ctrl)));
+                    events.Add(InputEvent.FromKey(KeyEvent.Char(' ', modifiers | KeyModifiers.Ctrl)));
                     return 1;
                 default:
                     if (b >= 0x01 && b <= 0x1A)
                     {
                         int letter = 'a' + (b - 1);
-                        events.Add(InputEvent.FromKey(KeyEvent.Char(letter, KeyModifiers.Ctrl)));
+                        events.Add(InputEvent.FromKey(KeyEvent.Char(letter, modifiers | KeyModifiers.Ctrl)));
                         return 1;
                     }
 
@@ -185,6 +185,9 @@ namespace TUIKit.Input
                 events.Add(InputEvent.FromKey(KeyEvent.Special(KeyCode.Escape)));
                 return 1;
             }
+
+            if (second < 0x20 || second == 0x7F)
+                return 1 + ParseControl(events, 1, KeyModifiers.Alt);
 
             // Alt + character.
             int length = Utf8Length(second);
@@ -269,7 +272,17 @@ namespace TUIKit.Input
                 int rune = parameters.Length > 0 ? parameters[0] : 0;
                 KeyModifiers uMods = parameters.Length > 1 ? DecodeModifiers(parameters[1]) : KeyModifiers.None;
                 if (!release && rune > 0)
-                    events.Add(InputEvent.FromKey(KeyEvent.Char(rune, uMods)));
+                {
+                    KeyCode code = rune switch
+                    {
+                        9 => KeyCode.Tab,
+                        13 => KeyCode.Enter,
+                        27 => KeyCode.Escape,
+                        127 => KeyCode.Backspace,
+                        _ => KeyCode.Character
+                    };
+                    events.Add(InputEvent.FromKey(code == KeyCode.Character ? KeyEvent.Char(rune, uMods) : KeyEvent.Special(code, uMods)));
+                }
 
                 return total;
             }
@@ -571,9 +584,7 @@ namespace TUIKit.Input
                 if (colon >= 0)
                     token = token.Substring(0, colon);
 
-                int value;
-                int.TryParse(token, out value);
-                result[i] = value;
+                result[i] = int.TryParse(token, out int value) ? value : 0;
             }
 
             return result;

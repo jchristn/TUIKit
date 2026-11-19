@@ -4,6 +4,7 @@ namespace TUIKit.Content
     using System.Collections.Generic;
     using System.Threading;
     using TUIKit;
+    using TUIKit.Compatibility;
     using TUIKit.Input;
     using TUIKit.Theming;
     using TUIKit.Widgets;
@@ -25,7 +26,8 @@ namespace TUIKit.Content
     {
         private readonly string _Id;
         private readonly object _Sync = new object();
-        private readonly List<PaneLine> _Lines = new List<PaneLine>();
+        private readonly LineHistory _Lines = new LineHistory();
+
         private StyledText _Current = StyledText.Empty;
         private long _NextId = 1;
         private int _Capacity = 5000;
@@ -150,8 +152,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public void Write(string text)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             Write(Text.From(text));
         }
@@ -163,8 +164,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public void Write(StyledText text)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             lock (_Sync)
             {
@@ -190,8 +190,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public PaneLineHandle WriteLine(string text)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             return WriteLine(Text.From(text));
         }
@@ -204,8 +203,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public PaneLineHandle WriteLine(StyledText text)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             lock (_Sync)
             {
@@ -314,8 +312,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="markup"/> is null.</exception>
         public PaneLineHandle WriteMarkup(string markup)
         {
-            if (markup == null)
-                throw new ArgumentNullException(nameof(markup));
+            RuntimeCompat.ThrowIfNull(markup, nameof(markup));
 
             return WriteLine(Markup.Parse(markup));
         }
@@ -346,10 +343,8 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="markdown"/> or <paramref name="options"/> is null.</exception>
         public PaneLineHandle WriteMarkdown(string markdown, MarkdownRenderOptions options)
         {
-            if (markdown == null)
-                throw new ArgumentNullException(nameof(markdown));
-            if (options == null)
-                throw new ArgumentNullException(nameof(options));
+            RuntimeCompat.ThrowIfNull(markdown, nameof(markdown));
+            RuntimeCompat.ThrowIfNull(options, nameof(options));
 
             MarkdownRenderOptions snapshot = options.Clone();
             lock (_Sync)
@@ -377,8 +372,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
         public bool HandleMouse(MouseEvent mouse)
         {
-            if (mouse == null)
-                throw new ArgumentNullException(nameof(mouse));
+            RuntimeCompat.ThrowIfNull(mouse, nameof(mouse));
 
             if (mouse.Kind == MouseEventKind.Press && mouse.Button == MouseButton.Left)
             {
@@ -431,8 +425,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="surface"/> is null.</exception>
         public void Render(ISurface surface, CellStyle background)
         {
-            if (surface == null)
-                throw new ArgumentNullException(nameof(surface));
+            RuntimeCompat.ThrowIfNull(surface, nameof(surface));
 
             lock (_Sync)
             {
@@ -485,11 +478,24 @@ namespace TUIKit.Content
         /// <returns>The committed lines as plain strings. Never null.</returns>
         public IReadOnlyList<string> SnapshotPlainLines()
         {
+            long cursor = 0;
+            return SnapshotPlainLines(ref cursor);
+        }
+
+        // Append-only output: updates and clears do not replay or retract printed entries.
+        internal IReadOnlyList<string> SnapshotPlainLines(ref long cursor)
+        {
             lock (_Sync)
             {
-                List<string> result = new List<string>(_Lines.Count);
+                int first = _Lines.Count;
+                while (first > 0 && _Lines[first - 1].Id > cursor)
+                    first--;
+                if (first == _Lines.Count)
+                    return Array.Empty<string>();
+                cursor = _Lines[_Lines.Count - 1].Id;
+                List<string> result = new List<string>(_Lines.Count - first);
                 int width = _LastWidth > 0 ? _LastWidth : 80;
-                for (int i = 0; i < _Lines.Count; i++)
+                for (int i = first; i < _Lines.Count; i++)
                 {
                     if (!_Lines[i].IsMarkdown)
                     {
@@ -503,6 +509,21 @@ namespace TUIKit.Content
                 }
 
                 return result;
+            }
+        }
+
+        internal void DeferLine(long id, Func<StyledText> render)
+        {
+            lock (_Sync)
+            {
+                for (int i = _Lines.Count - 1; i >= 0; i--)
+                {
+                    if (_Lines[i].Id != id)
+                        continue;
+                    _Lines[i].DeferContent(render);
+                    Bump();
+                    return;
+                }
             }
         }
 
@@ -643,8 +664,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
         public void ApplyTheme(Theme theme)
         {
-            if (theme == null)
-                throw new ArgumentNullException(nameof(theme));
+            RuntimeCompat.ThrowIfNull(theme, nameof(theme));
 
             CellStyle style = theme.Resolve(Theme.SearchMatchRole, SearchHighlighter.DefaultStyle);
             lock (_Sync)

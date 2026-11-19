@@ -39,3 +39,20 @@ Thumbs.db
 
 # Misc
 *.log
+
+# Local artifacts; keep the maintained TUIKit spike reviewable.
+.inbox/
+spikes/*
+!spikes/AGENTS.md
+!spikes/Spikes.sln
+!spikes/Spike.TuiKit/
+artifacts/release/
+
+# Threadsmith local repository state; repo-owned examples/docs remain source.
+.threadsmith/*
+!.threadsmith/
+!.threadsmith/AGENTS.md
+!.threadsmith/*.example
+!.threadsmith/*.example.json
+!.threadsmith/prompts/
+!.threadsmith/prompts/**

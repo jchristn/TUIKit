@@ -2,6 +2,7 @@ namespace TUIKit.Input
 {
     using System;
     using System.Collections.Generic;
+    using TUIKit.Compatibility;
 
     /// <summary>
     /// An immutable description of an application command: a stable id, a human title, a category for
@@ -32,9 +33,15 @@ namespace TUIKit.Input
             if (string.IsNullOrEmpty(title))
                 throw new ArgumentException("Command title must not be null or empty.", nameof(title));
 
+            RuntimeCompat.ThrowIfNull(handler, nameof(handler));
+
             Id = id;
             Title = title;
-            Handler = handler ?? throw new ArgumentNullException(nameof(handler));
+            Handler = () =>
+            {
+                if (IsEnabled)
+                    handler();
+            };
             Category = string.IsNullOrEmpty(category) ? "General" : category;
             Chord = chord;
             IsEnabledPredicate = isEnabled;
@@ -61,7 +68,7 @@ namespace TUIKit.Input
         /// <summary>Gets the key chord that triggers the command, or null for none.</summary>
         public KeyChord? Chord { get; }
 
-        /// <summary>Gets the action invoked when the command runs. Never null.</summary>
+        /// <summary>Gets the action that checks whether the command is enabled before invoking its handler. Never null.</summary>
         public Action Handler { get; }
 
         /// <summary>Gets the enabled predicate, or null when the command is always enabled.</summary>

@@ -2,6 +2,7 @@ namespace TUIKit.Animation
 {
     using System;
     using System.Collections.Generic;
+    using TUIKit.Compatibility;
     using TUIKit.Reactive;
 
     /// <summary>
@@ -76,9 +77,11 @@ namespace TUIKit.Animation
             if (deltaMs < 0)
                 throw new ArgumentOutOfRangeException(nameof(deltaMs));
 
-            List<Action> due = new List<Action>();
+            List<Action>? due = null;
             lock (_Lock)
             {
+                if (_Entries.Count == 0)
+                    return;
                 for (int i = 0; i < _Entries.Count; i++)
                 {
                     TimerEntry entry = _Entries[i];
@@ -89,7 +92,7 @@ namespace TUIKit.Animation
                     if (entry.Accumulated < entry.IntervalMs)
                         continue;
 
-                    due.Add(entry.Callback);
+                    (due ??= new List<Action>()).Add(entry.Callback);
                     if (entry.Repeat)
                         entry.Accumulated -= entry.IntervalMs;
                     else
@@ -99,6 +102,8 @@ namespace TUIKit.Animation
                 _Entries.RemoveAll(e => e.Cancelled);
             }
 
+            if (due == null)
+                return;
             for (int i = 0; i < due.Count; i++)
                 due[i]();
         }
@@ -107,8 +112,7 @@ namespace TUIKit.Animation
         {
             if (intervalMs <= 0)
                 throw new ArgumentOutOfRangeException(nameof(intervalMs));
-            if (callback == null)
-                throw new ArgumentNullException(nameof(callback));
+            RuntimeCompat.ThrowIfNull(callback, nameof(callback));
 
             TimerEntry entry = new TimerEntry(intervalMs, repeat, callback);
             lock (_Lock)

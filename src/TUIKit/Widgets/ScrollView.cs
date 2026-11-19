@@ -2,6 +2,7 @@ namespace TUIKit.Widgets
 {
     using System;
     using TUIKit;
+    using TUIKit.Compatibility;
     using TUIKit.Input;
     using TUIKit.Theming;
 
@@ -64,6 +65,8 @@ namespace TUIKit.Widgets
         {
             get
             {
+                if (!ForwardKeys)
+                    return this;
                 if (_Child is IFocusContainer container)
                     return container.FocusedLeaf ?? container;
 
@@ -103,8 +106,7 @@ namespace TUIKit.Widgets
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="theme"/> is null.</exception>
         public void ApplyTheme(Theme theme)
         {
-            if (theme == null)
-                throw new ArgumentNullException(nameof(theme));
+            RuntimeCompat.ThrowIfNull(theme, nameof(theme));
 
             TrackStyle = theme.Border;
             ThumbStyle = theme.Accent;
@@ -167,7 +169,8 @@ namespace TUIKit.Widgets
         /// <exception cref="ArgumentOutOfRangeException">Thrown when a content dimension is not positive.</exception>
         public ScrollView(IWidget child, int contentWidth, int contentHeight)
         {
-            _Child = child ?? throw new ArgumentNullException(nameof(child));
+            RuntimeCompat.ThrowIfNull(child, nameof(child));
+            _Child = child;
             if (contentWidth <= 0)
                 throw new ArgumentOutOfRangeException(nameof(contentWidth), contentWidth, "Content width must be greater than zero.");
             if (contentHeight <= 0)
@@ -298,8 +301,7 @@ namespace TUIKit.Widgets
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="mouse"/> is null.</exception>
         public bool HandleMouse(MouseEvent mouse)
         {
-            if (mouse == null)
-                throw new ArgumentNullException(nameof(mouse));
+            RuntimeCompat.ThrowIfNull(mouse, nameof(mouse));
 
             if (ForwardMouse && mouse.Kind != MouseEventKind.Wheel && _Child is IMouseAware child)
             {
@@ -341,8 +343,7 @@ namespace TUIKit.Widgets
         /// <inheritdoc/>
         public void Render(ISurface surface)
         {
-            if (surface == null)
-                throw new ArgumentNullException(nameof(surface));
+            RuntimeCompat.ThrowIfNull(surface, nameof(surface));
 
             int viewWidth = surface.Size.Width;
             int viewHeight = surface.Size.Height;

@@ -7,7 +7,7 @@ namespace TUIKit.Hosting
     using System.IO;
     using System.Threading;
     using System.Threading.Tasks;
-    using TUIKit;
+    using TUIKit.Compatibility;
     using TUIKit.Content;
     using TUIKit.Diagnostics;
     using TUIKit.Input;
@@ -34,23 +34,25 @@ namespace TUIKit.Hosting
         private static int _ActiveCount;
 
         private readonly ITerminalBackend _Backend;
-        private readonly Dictionary<string, IWidget> _Content = new Dictionary<string, IWidget>(StringComparer.Ordinal);
-        private readonly Dictionary<string, Action> _Commands = new Dictionary<string, Action>(StringComparer.Ordinal);
-        private readonly Dictionary<string, int> _LineModeEmitted = new Dictionary<string, int>(StringComparer.Ordinal);
-        private readonly CommandRoutingTable _Routing = new CommandRoutingTable();
+        private readonly Dictionary<string, IWidget> _Content = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Action> _Commands = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, PaneCursor> _LineModeEmitted = new(StringComparer.Ordinal);
+        private readonly CommandRoutingTable _Routing = new();
         private readonly CommandRouter _Router;
-        private readonly ModalStack _Modals = new ModalStack();
-        private readonly NotificationCenter _Notifications = new NotificationCenter();
-        private readonly InputParser _Parser = new InputParser();
-        private readonly ClickSynthesizer _ClickSynthesizer = new ClickSynthesizer();
-        private readonly Stopwatch _Clock = new Stopwatch();
+        private readonly ModalStack _Modals = new();
+        private readonly NotificationCenter _Notifications = new();
+        private readonly InputParser _Parser = new();
+        private readonly ClickSynthesizer _ClickSynthesizer = new();
+        private readonly Stopwatch _Clock = new();
         private readonly byte[] _ReadBuffer = new byte[4096];
-        private readonly List<string> _FocusOrder = new List<string>();
-        private readonly ConcurrentQueue<PostedAction> _PostQueue = new ConcurrentQueue<PostedAction>();
-        private readonly List<HitTestEntry> _HitMap = new List<HitTestEntry>();
+        private readonly List<string> _FocusOrder = [];
+        private readonly object _PostGate = new();
+        private bool _PostsClosed;
+        private readonly ConcurrentQueue<PostedAction> _PostQueue = new();
+        private readonly List<HitTestEntry> _HitMap = [];
 
         private TerminalRenderer? _Renderer;
-        private Layout? _Layout;
+        private TUIKit.Layout.Layout? _Layout;
         private Theme _Theme = Theme.Dark;
         private string? _FocusContext;
         private string? _FocusedRegion;
@@ -107,14 +109,14 @@ namespace TUIKit.Hosting
         private int _PointerX = -1;
         private int _PointerY = -1;
         private long _PointerStillSinceMs;
-        private readonly Tooltip _Tooltip = new Tooltip();
-        private readonly List<object> _FocusScratch = new List<object>();
+        private readonly Tooltip _Tooltip = new();
+        private readonly List<object> _FocusScratch = [];
         private FocusPath _FocusPath = FocusPath.Empty;
         private bool _HighlightFocusedRegion;
-        private FocusFrameOptions _FocusFrameOptions = new FocusFrameOptions();
+        private FocusFrameOptions _FocusFrameOptions = new();
         private bool _JoinRegionBorders;
         private bool _AutoRepairFocus = true;
-        private readonly List<FocusScope> _RepairScratch = new List<FocusScope>();
+        private readonly List<FocusScope> _RepairScratch = [];
         private Size _FrameSize;
 
         /// <summary>
@@ -124,33 +126,25 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="backend"/> is null.</exception>
         public TuiApplication(ITerminalBackend backend)
         {
-            _Backend = backend ?? throw new ArgumentNullException(nameof(backend));
+            RuntimeCompat.ThrowIfNull(backend, nameof(backend));
+            _Backend = backend;
             _Router = new CommandRouter(_Routing);
         }
 
         /// <summary>
         /// Gets the command routing table.
         /// </summary>
-        public CommandRoutingTable Commands
-        {
-            get { return _Routing; }
-        }
+        public CommandRoutingTable Commands => _Routing;
 
         /// <summary>
         /// Gets the modal stack.
         /// </summary>
-        public ModalStack Modals
-        {
-            get { return _Modals; }
-        }
+        public ModalStack Modals => _Modals;
 
         /// <summary>
         /// Gets the notification center.
         /// </summary>
-        public NotificationCenter Notifications
-        {
-            get { return _Notifications; }
-        }
+        public NotificationCenter Notifications => _Notifications;
 
         /// <summary>
         /// Gets or sets the active theme. Defaults to <see cref="Theme.Dark"/>.
@@ -158,14 +152,21 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
         public Theme Theme
         {
-            get { return _Theme; }
+            get => _Theme;
             set
             {
-                _Theme = value ?? throw new ArgumentNullException(nameof(value));
+                RuntimeCompat.ThrowIfNull(value, nameof(value));
+                _Theme = value;
                 if (_ApplyThemeToWidgets)
+                {
                     ApplyThemeToAll();
+                }
+
                 if (_Modals.Top is DialogModal dialog)
+                {
                     dialog.ApplyFocusTheme(_Theme);
+                }
+
                 _RenderRequested = true;
                 _Renderer?.Invalidate();
             }
@@ -181,12 +182,15 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool ApplyThemeToWidgets
         {
-            get { return _ApplyThemeToWidgets; }
+            get => _ApplyThemeToWidgets;
             set
             {
                 _ApplyThemeToWidgets = value;
                 if (value)
+                {
                     ApplyThemeToAll();
+                }
+
                 _Renderer?.Invalidate();
             }
         }
@@ -201,11 +205,14 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentOutOfRangeException">Thrown when out of range.</exception>
         public int IdleFps
         {
-            get { return _IdleFps; }
+            get => _IdleFps;
             set
             {
-                if (value < 0 || value > 240)
+                if (value is < 0 or > 240)
+                {
                     throw new ArgumentOutOfRangeException(nameof(value), value, "Idle FPS must be between 0 and 240.");
+                }
+
                 _IdleFps = value;
             }
         }
@@ -217,11 +224,14 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentOutOfRangeException">Thrown when negative.</exception>
         public int IdleAfterMilliseconds
         {
-            get { return _IdleAfterMs; }
+            get => _IdleAfterMs;
             set
             {
                 if (value < 0)
+                {
                     throw new ArgumentOutOfRangeException(nameof(value), value, "Idle delay must be zero or greater.");
+                }
+
                 _IdleAfterMs = value;
             }
         }
@@ -229,10 +239,7 @@ namespace TUIKit.Hosting
         /// <summary>
         /// Gets a value indicating whether the session is currently idle-throttled (see <see cref="IdleFps"/>).
         /// </summary>
-        public bool IsIdle
-        {
-            get { return _IdleFps > 0 && NowMilliseconds - _LastActivityMs >= _IdleAfterMs; }
-        }
+        public bool IsIdle => _IdleFps > 0 && NowMilliseconds - _LastActivityMs >= _IdleAfterMs;
 
         /// <summary>
         /// Asks the loop to compose the next frame even while idle-throttled, for state changes the host
@@ -250,8 +257,7 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool ShowTooltips
         {
-            get { return _ShowTooltips; }
-            set { _ShowTooltips = value; }
+            get => _ShowTooltips; set => _ShowTooltips = value;
         }
 
         /// <summary>
@@ -261,11 +267,14 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentOutOfRangeException">Thrown when negative.</exception>
         public int TooltipDelayMilliseconds
         {
-            get { return _TooltipDelayMs; }
+            get => _TooltipDelayMs;
             set
             {
                 if (value < 0)
+                {
                     throw new ArgumentOutOfRangeException(nameof(value), value, "Tooltip delay must be zero or greater.");
+                }
+
                 _TooltipDelayMs = value;
             }
         }
@@ -273,10 +282,7 @@ namespace TUIKit.Hosting
         /// <summary>
         /// Gets the tooltip renderer the host uses, for styling.
         /// </summary>
-        public Tooltip Tooltip
-        {
-            get { return _Tooltip; }
-        }
+        public Tooltip Tooltip => _Tooltip;
 
         /// <summary>
         /// Gets or sets the region layout. Must be set before panes are useful. Choose one construction
@@ -289,15 +295,17 @@ namespace TUIKit.Hosting
         /// Thrown when a non-null layout is assigned after regions were already added with
         /// <see cref="AddRegion"/>, <see cref="AddPane"/>, or <see cref="AddWidget"/>.
         /// </exception>
-        public Layout? Layout
+        public TUIKit.Layout.Layout? Layout
         {
-            get { return _Layout; }
+            get => _Layout;
             set
             {
                 if (value != null && _IncrementalRegions)
+                {
                     throw new InvalidOperationException(
-                        "The layout was already built incrementally with AddRegion/AddPane/AddWidget; "
-                        + "assigning Layout would discard those regions. Use one construction path.");
+                                        "The layout was already built incrementally with AddRegion/AddPane/AddWidget; "
+                                        + "assigning Layout would discard those regions. Use one construction path.");
+                }
 
                 _Layout = value;
                 _Renderer?.Invalidate();
@@ -312,8 +320,7 @@ namespace TUIKit.Hosting
         /// </summary>
         public string? FocusContext
         {
-            get { return _FocusContext; }
-            set { _FocusContext = value; }
+            get => _FocusContext; set => _FocusContext = value;
         }
 
         /// <summary>
@@ -321,10 +328,7 @@ namespace TUIKit.Hosting
         /// is focused. Focusable widgets join the focus ring in bind order; the first one bound is
         /// focused by default.
         /// </summary>
-        public string? FocusedRegion
-        {
-            get { return _FocusedRegion; }
-        }
+        public string? FocusedRegion => _FocusedRegion;
 
         /// <summary>
         /// Gets where keyboard focus is right now: the focused region and the chain of widgets from that
@@ -333,10 +337,7 @@ namespace TUIKit.Hosting
         /// before every frame, so it reflects focus moves made inside containers as well as between
         /// regions. Never null; <see cref="FocusPath.Empty"/> when nothing holds focus. Read on the UI thread.
         /// </summary>
-        public FocusPath CurrentFocusPath
-        {
-            get { return _FocusPath; }
-        }
+        public FocusPath CurrentFocusPath => _FocusPath;
 
         /// <summary>
         /// Raised on the UI thread when <see cref="CurrentFocusPath"/> changes, whether focus moved between
@@ -357,7 +358,7 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool HighlightFocusedRegion
         {
-            get { return _HighlightFocusedRegion; }
+            get => _HighlightFocusedRegion;
             set
             {
                 _HighlightFocusedRegion = value;
@@ -378,8 +379,7 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool AutoRepairFocus
         {
-            get { return _AutoRepairFocus; }
-            set { _AutoRepairFocus = value; }
+            get => _AutoRepairFocus; set => _AutoRepairFocus = value;
         }
 
         /// <summary>
@@ -392,7 +392,7 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool JoinRegionBorders
         {
-            get { return _JoinRegionBorders; }
+            get => _JoinRegionBorders;
             set
             {
                 _JoinRegionBorders = value;
@@ -413,7 +413,9 @@ namespace TUIKit.Hosting
         {
             Region? region = FindRegion(regionId);
             if (region == null || _FrameSize.Width <= 0 || _FrameSize.Height <= 0)
+            {
                 return null;
+            }
 
             return region.Resolve(_FrameSize).Intersect(new Rect(0, 0, _FrameSize.Width, _FrameSize.Height));
         }
@@ -430,7 +432,9 @@ namespace TUIKit.Hosting
         {
             Region? region = FindRegion(regionId);
             if (region == null || _FrameSize.Width <= 0 || _FrameSize.Height <= 0)
+            {
                 return null;
+            }
 
             return region.ContentRect(_FrameSize).Intersect(new Rect(0, 0, _FrameSize.Width, _FrameSize.Height));
         }
@@ -444,10 +448,11 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when set to null.</exception>
         public FocusFrameOptions FocusFrameOptions
         {
-            get { return _FocusFrameOptions; }
+            get => _FocusFrameOptions;
             set
             {
-                _FocusFrameOptions = value ?? throw new ArgumentNullException(nameof(value));
+                RuntimeCompat.ThrowIfNull(value, nameof(value));
+                _FocusFrameOptions = value;
                 _RenderRequested = true;
             }
         }
@@ -455,10 +460,7 @@ namespace TUIKit.Hosting
         /// <summary>
         /// Gets the region ids of focusable bound widgets in tab order. Never null.
         /// </summary>
-        public IReadOnlyList<string> FocusOrder
-        {
-            get { return _FocusOrder; }
-        }
+        public IReadOnlyList<string> FocusOrder => _FocusOrder;
 
         /// <summary>
         /// Gets or sets an optional pre-filter consulted for every key before focus-scoped commands, the
@@ -477,8 +479,7 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool EnableMouseRouting
         {
-            get { return _EnableMouseRouting; }
-            set { _EnableMouseRouting = value; }
+            get => _EnableMouseRouting; set => _EnableMouseRouting = value;
         }
 
         /// <summary>
@@ -489,11 +490,14 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentOutOfRangeException">Thrown when set to less than 1.</exception>
         public int SequenceTimeoutMilliseconds
         {
-            get { return _SequenceTimeoutMs; }
+            get => _SequenceTimeoutMs;
             set
             {
                 if (value < 1)
+                {
                     throw new ArgumentOutOfRangeException(nameof(value), value, "Sequence timeout must be at least 1 millisecond.");
+                }
+
                 _SequenceTimeoutMs = value;
             }
         }
@@ -509,8 +513,7 @@ namespace TUIKit.Hosting
         /// </summary>
         public CtrlCPolicy CtrlCPolicy
         {
-            get { return _CtrlCPolicy; }
-            set { _CtrlCPolicy = value; }
+            get => _CtrlCPolicy; set => _CtrlCPolicy = value;
         }
 
         /// <summary>
@@ -524,11 +527,13 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool MouseCaptureEnabled
         {
-            get { return _MouseCaptureEnabled; }
+            get => _MouseCaptureEnabled;
             set
             {
                 if (_MouseCaptureEnabled == value)
+                {
                     return;
+                }
 
                 _MouseCaptureEnabled = value;
                 if (_Started && _Backend.IsInteractive)
@@ -537,7 +542,9 @@ namespace TUIKit.Hosting
                     {
                         string enable = BuildMouseEnableSequence();
                         if (enable.Length > 0)
+                        {
                             _Backend.Write(enable);
+                        }
                     }
                     else
                     {
@@ -548,7 +555,9 @@ namespace TUIKit.Hosting
                 }
 
                 if (!value)
+                {
                     ClearHover(KeyModifiers.None);
+                }
             }
         }
 
@@ -564,11 +573,13 @@ namespace TUIKit.Hosting
         /// </summary>
         public MouseTrackingMode MouseTrackingMode
         {
-            get { return _MouseTrackingMode; }
+            get => _MouseTrackingMode;
             set
             {
                 if (_MouseTrackingMode == value)
+                {
                     return;
+                }
 
                 _MouseTrackingMode = value;
                 if (_Started && _Backend.IsInteractive && _MouseCaptureEnabled)
@@ -576,12 +587,17 @@ namespace TUIKit.Hosting
                     _Backend.Write(Ansi.DisableMouse);
                     string enable = BuildMouseEnableSequence();
                     if (enable.Length > 0)
+                    {
                         _Backend.Write(enable);
+                    }
+
                     _Backend.Flush();
                 }
 
                 if (value == MouseTrackingMode.None)
+                {
                     ClearHover(KeyModifiers.None);
+                }
             }
         }
 
@@ -609,12 +625,14 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool MouseTextSelectionEnabled
         {
-            get { return _MouseTextSelectionEnabled; }
+            get => _MouseTextSelectionEnabled;
             set
             {
                 _MouseTextSelectionEnabled = value;
                 if (!value)
+                {
                     ClearTextSelection();
+                }
             }
         }
 
@@ -622,10 +640,7 @@ namespace TUIKit.Hosting
         /// Gets a value indicating whether a non-empty text selection currently exists. Thread-safety:
         /// read on the application loop thread, the same thread that mutates the selection.
         /// </summary>
-        public bool HasTextSelection
-        {
-            get { return _SelActive; }
-        }
+        public bool HasTextSelection => _SelActive;
 
         /// <summary>
         /// Gets or sets the style used to paint selected cells. When <c>null</c> (the default) selected
@@ -651,16 +666,18 @@ namespace TUIKit.Hosting
         public string GetSelectedText()
         {
             if (!_SelActive || _LastRoot == null)
+            {
                 return string.Empty;
+            }
 
-            System.Text.StringBuilder builder = new System.Text.StringBuilder();
+            System.Text.StringBuilder builder = new();
             int top = Math.Min(_SelAnchorY, _SelFocusY);
             int bottom = Math.Max(_SelAnchorY, _SelFocusY);
             int rightExclusive = _SelRegionRect.Right;
 
             for (int y = top; y <= bottom; y++)
             {
-                System.Text.StringBuilder row = new System.Text.StringBuilder();
+                System.Text.StringBuilder row = new();
                 ComputeSelectionRowSpan(y, out int startX, out int endX);
                 int x = startX;
                 while (x <= endX && x < rightExclusive)
@@ -677,7 +694,10 @@ namespace TUIKit.Hosting
                 }
 
                 if (y != top)
+                {
                     builder.Append('\n');
+                }
+
                 builder.Append(TrimTrailingSpaces(row.ToString()));
             }
 
@@ -704,8 +724,7 @@ namespace TUIKit.Hosting
         /// </summary>
         public Action<ISurface>? RenderOverlay
         {
-            get { return _OnRenderOverlay; }
-            set { _OnRenderOverlay = value; }
+            get => _OnRenderOverlay; set => _OnRenderOverlay = value;
         }
 
         /// <summary>
@@ -716,8 +735,7 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool AutoRenderNotifications
         {
-            get { return _AutoRenderNotifications; }
-            set { _AutoRenderNotifications = value; }
+            get => _AutoRenderNotifications; set => _AutoRenderNotifications = value;
         }
 
         /// <summary>
@@ -727,11 +745,14 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentOutOfRangeException">Thrown when out of range.</exception>
         public int TargetFps
         {
-            get { return _TargetFps; }
+            get => _TargetFps;
             set
             {
-                if (value < 1 || value > 240)
+                if (value is < 1 or > 240)
+                {
                     throw new ArgumentOutOfRangeException(nameof(value), value, "Target FPS must be between 1 and 240.");
+                }
+
                 _TargetFps = value;
             }
         }
@@ -739,12 +760,11 @@ namespace TUIKit.Hosting
         /// <summary>Gets or sets OSC 8 policy. Defaults to Auto using backend capabilities. Safe to set before starting.</summary>
         public HyperlinkMode Hyperlinks
         {
-            get { return _Hyperlinks; }
+            get => _Hyperlinks;
             set
             {
                 _Hyperlinks = value;
-                if (_Renderer != null)
-                    _Renderer.Hyperlinks = value;
+                _Renderer?.Hyperlinks = value;
             }
         }
 
@@ -757,40 +777,30 @@ namespace TUIKit.Hosting
         /// </summary>
         public bool ForceFullRepaint
         {
-            get { return _ForceFullRepaint; }
+            get => _ForceFullRepaint;
             set
             {
                 _ForceFullRepaint = value;
-                if (_Renderer != null)
-                    _Renderer.ForceFullRepaint = value;
+                _Renderer?.ForceFullRepaint = value;
             }
         }
 
         /// <summary>
         /// Gets a value indicating whether the run loop is active.
         /// </summary>
-        public bool IsRunning
-        {
-            get { return _Running; }
-        }
+        public bool IsRunning => _Running;
 
         /// <summary>
         /// Gets a value indicating whether the session is currently suspended by
         /// <see cref="SuspendAsync"/>. While suspended the render and input loops are inert and the
         /// terminal is handed back to whatever program the caller is running.
         /// </summary>
-        public bool IsSuspended
-        {
-            get { return _Suspended; }
-        }
+        public bool IsSuspended => _Suspended;
 
         /// <summary>
         /// Gets the milliseconds elapsed since the application started, used for notification timing.
         /// </summary>
-        public long NowMilliseconds
-        {
-            get { return _Clock.ElapsedMilliseconds; }
-        }
+        public long NowMilliseconds => _Clock.ElapsedMilliseconds;
 
         /// <summary>
         /// Raised for a key that was not consumed by a modal or a command binding, so the application
@@ -841,12 +851,11 @@ namespace TUIKit.Hosting
         /// </summary>
         public LinkRegistry? Links
         {
-            get { return _Links; }
+            get => _Links;
             set
             {
                 _Links = value;
-                if (_Renderer != null)
-                    _Renderer.LinkResolver = value == null ? null : ResolveLinkUri;
+                _Renderer?.LinkResolver = value == null ? null : ResolveLinkUri;
             }
         }
 
@@ -854,10 +863,7 @@ namespace TUIKit.Hosting
         /// Gets the link currently under the pointer, or null when none (or when <see cref="Links"/>
         /// is not set). Updated on pointer motion and cleared on focus loss and capture shutoff.
         /// </summary>
-        public Link? HoveredLink
-        {
-            get { return _HoveredLink; }
-        }
+        public Link? HoveredLink => _HoveredLink;
 
         /// <summary>
         /// Raised for an unmodified left click on a rendered URI hyperlink while mouse capture is on.
@@ -906,20 +912,32 @@ namespace TUIKit.Hosting
         public void Bind(string regionId, IWidget widget)
         {
             if (string.IsNullOrEmpty(regionId))
+            {
                 throw new ArgumentException("Region id must not be null or empty.", nameof(regionId));
-            if (widget == null)
-                throw new ArgumentNullException(nameof(widget));
+            }
+
+            RuntimeCompat.ThrowIfNull(widget, nameof(widget));
+
+            if (_LineModeEmitted.TryGetValue(regionId, out PaneCursor cursor) && !ReferenceEquals(cursor.Pane, widget))
+            {
+                _LineModeEmitted.Remove(regionId);
+            }
 
             _Content[regionId] = widget;
             if (_ApplyThemeToWidgets)
+            {
                 ThemeApplier.Apply(widget, _Theme);
+            }
+
             _RenderRequested = true;
 
             if (widget is IFocusable && !_FocusOrder.Contains(regionId))
             {
                 _FocusOrder.Add(regionId);
                 if (_FocusedRegion == null && !(widget is IFocusStop stop && !stop.IsFocusStop))
+                {
                     SetFocusInternal(regionId);
+                }
             }
         }
 
@@ -932,16 +950,15 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="configure"/> is null.</exception>
         public Region AddRegion(string id, Action<RegionBuilder> configure)
         {
-            if (configure == null)
-                throw new ArgumentNullException(nameof(configure));
+            RuntimeCompat.ThrowIfNull(configure, nameof(configure));
 
-            RegionBuilder builder = new RegionBuilder(id);
+            RegionBuilder builder = new(id);
             configure(builder);
             Region region = builder.Build();
 
-            List<Region> regions = _Layout != null ? new List<Region>(_Layout.Regions) : new List<Region>();
+            List<Region> regions = _Layout != null ? new List<Region>(_Layout.Regions) : [];
             regions.Add(region);
-            _Layout = new Layout(regions);
+            _Layout = new TUIKit.Layout.Layout(regions);
             _IncrementalRegions = true;
             _Renderer?.Invalidate();
             return region;
@@ -957,7 +974,7 @@ namespace TUIKit.Hosting
         public Pane AddPane(string id, Action<RegionBuilder>? configure = null)
         {
             AddRegion(id, configure ?? (r => r.FillWidth().FillHeight()));
-            Pane pane = new Pane(id);
+            Pane pane = new(id);
             Bind(id, pane);
             return pane;
         }
@@ -975,8 +992,7 @@ namespace TUIKit.Hosting
         public TWidget AddWidget<TWidget>(string id, TWidget widget, Action<RegionBuilder>? configure = null)
             where TWidget : IWidget
         {
-            if (widget == null)
-                throw new ArgumentNullException(nameof(widget));
+            RuntimeCompat.ThrowIfNull(widget, nameof(widget));
 
             AddRegion(id, configure ?? (r => r.FillWidth().FillHeight()));
             Bind(id, widget);
@@ -993,9 +1009,11 @@ namespace TUIKit.Hosting
         public void RegisterCommand(string commandId, Action handler)
         {
             if (string.IsNullOrEmpty(commandId))
+            {
                 throw new ArgumentException("Command id must not be null or empty.", nameof(commandId));
-            if (handler == null)
-                throw new ArgumentNullException(nameof(handler));
+            }
+
+            RuntimeCompat.ThrowIfNull(handler, nameof(handler));
 
             _Commands[commandId] = handler;
         }
@@ -1014,9 +1032,11 @@ namespace TUIKit.Hosting
         public void Bind(string chord, Action action)
         {
             if (string.IsNullOrEmpty(chord))
+            {
                 throw new ArgumentException("Chord must not be null or empty.", nameof(chord));
-            if (action == null)
-                throw new ArgumentNullException(nameof(action));
+            }
+
+            RuntimeCompat.ThrowIfNull(action, nameof(action));
 
             string[] steps = chord.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
             if (steps.Length == 2)
@@ -1031,8 +1051,10 @@ namespace TUIKit.Hosting
             }
 
             if (steps.Length != 1)
+            {
                 throw new ArgumentException(
                     "A key binding must be a single chord or two space-separated chords.", nameof(chord));
+            }
 
             KeyChord parsed = KeyChord.Parse(steps[0]);
             string id = "bind:" + parsed;
@@ -1053,8 +1075,7 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="statusBar"/> is null.</exception>
         public KeyHintResolver BindKeyHints(StatusBar statusBar, KeyHintResolver? resolver = null)
         {
-            if (statusBar == null)
-                throw new ArgumentNullException(nameof(statusBar));
+            RuntimeCompat.ThrowIfNull(statusBar, nameof(statusBar));
 
             KeyHintResolver active = resolver ?? new KeyHintResolver();
             statusBar.HintSource = () => active.Resolve(_FocusPath);
@@ -1082,9 +1103,14 @@ namespace TUIKit.Hosting
         public void Focus(string regionId)
         {
             if (string.IsNullOrEmpty(regionId))
+            {
                 throw new ArgumentException("Region id must not be null or empty.", nameof(regionId));
+            }
+
             if (!_FocusOrder.Contains(regionId))
+            {
                 throw new InvalidOperationException("Region '" + regionId + "' is not a focusable bound widget.");
+            }
 
             SetFocusInternal(regionId);
         }
@@ -1115,13 +1141,18 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="modal"/> is null.</exception>
         public Task<object?> ShowAsync(Modal modal)
         {
-            if (modal == null)
-                throw new ArgumentNullException(nameof(modal));
+            RuntimeCompat.ThrowIfNull(modal, nameof(modal));
 
             if (_ApplyThemeToWidgets)
+            {
                 ThemeApplier.Apply(modal, _Theme);
+            }
+
             if (modal is DialogModal dialog)
+            {
                 dialog.ApplyFocusTheme(_Theme);
+            }
+
             _Modals.Push(modal);
             _RenderRequested = true;
             return modal.Completion;
@@ -1139,8 +1170,7 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="modal"/> is null.</exception>
         public async Task<T?> ShowAsync<T>(Modal modal)
         {
-            if (modal == null)
-                throw new ArgumentNullException(nameof(modal));
+            RuntimeCompat.ThrowIfNull(modal, nameof(modal));
 
             object? result = await ShowAsync(modal).ConfigureAwait(false);
             return result is T typed ? typed : default;
@@ -1151,18 +1181,26 @@ namespace TUIKit.Hosting
         /// this to marshal work back onto the render/input thread — for example from a modal
         /// continuation or a background task — so it can safely mutate UI state. Thread-safe; may be
         /// called from any thread. Queued actions run in the order posted, and any exception they throw
-        /// propagates out of the loop.
+        /// propagates out of the loop. Pending actions are discarded on loop exit or teardown;
+        /// new posts are discarded until another session or loop starts.
         /// </summary>
         /// <param name="action">The action to run on the loop thread. Must not be null.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is null.</exception>
         public void Post(Action action)
         {
-            if (action == null)
-                throw new ArgumentNullException(nameof(action));
+            RuntimeCompat.ThrowIfNull(action, nameof(action));
 
             Activity? current = Activity.Current;
             ActivityContext parent = current != null ? current.Context : default(ActivityContext);
-            _PostQueue.Enqueue(new PostedAction(action, parent, TuiKitInstruments.Timestamp()));
+            lock (_PostGate)
+            {
+                if (_PostsClosed)
+                {
+                    (action.Target as AcknowledgedPost)?.Discard();
+                    return;
+                }
+                _PostQueue.Enqueue(new PostedAction(action, parent, TuiKitInstruments.Timestamp()));
+            }
             TuiKitInstruments.Add(TuiKitInstruments.PostEnqueued, 1);
             TuiKitInstruments.Add(TuiKitInstruments.PostQueueDepth, 1);
         }
@@ -1177,10 +1215,9 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> is null.</exception>
         public async Task<bool> ConfirmAsync(string message, string confirmLabel = "Yes", string cancelLabel = "No")
         {
-            if (message == null)
-                throw new ArgumentNullException(nameof(message));
+            RuntimeCompat.ThrowIfNull(message, nameof(message));
 
-            MessageModal modal = new MessageModal("Confirm", message, new[] { confirmLabel, cancelLabel });
+            MessageModal modal = new("Confirm", message, new[] { confirmLabel, cancelLabel });
             object? result = await ShowAsync(modal).ConfigureAwait(false);
             return result is int index && index == 0;
         }
@@ -1194,10 +1231,9 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> is null.</exception>
         public async Task<string?> PromptAsync(string title, string initial = "")
         {
-            if (title == null)
-                throw new ArgumentNullException(nameof(title));
+            RuntimeCompat.ThrowIfNull(title, nameof(title));
 
-            PromptModal modal = new PromptModal(title, initial);
+            PromptModal modal = new(title, initial);
             object? result = await ShowAsync(modal).ConfigureAwait(false);
             return result as string;
         }
@@ -1211,12 +1247,11 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="title"/> or <paramref name="options"/> is null.</exception>
         public async Task<int> SelectAsync(string title, params string[] options)
         {
-            if (title == null)
-                throw new ArgumentNullException(nameof(title));
-            if (options == null)
-                throw new ArgumentNullException(nameof(options));
+            RuntimeCompat.ThrowIfNull(title, nameof(title));
 
-            SelectModal modal = new SelectModal(title, options);
+            RuntimeCompat.ThrowIfNull(options, nameof(options));
+
+            SelectModal modal = new(title, options);
             object? result = await ShowAsync(modal).ConfigureAwait(false);
             return result is int index ? index : -1;
         }
@@ -1230,8 +1265,7 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="registry"/> is null.</exception>
         public async Task<Command?> ShowCommandPaletteAsync(CommandRegistry registry)
         {
-            if (registry == null)
-                throw new ArgumentNullException(nameof(registry));
+            RuntimeCompat.ThrowIfNull(registry, nameof(registry));
 
             object? result = await ShowAsync(new CommandPaletteModal(registry)).ConfigureAwait(false);
             return result as Command;
@@ -1247,8 +1281,7 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="registry"/> is null.</exception>
         public async Task ShowKeyHelpAsync(CommandRegistry registry, IEnumerable<KeyHelpEntry>? extra = null)
         {
-            if (registry == null)
-                throw new ArgumentNullException(nameof(registry));
+            RuntimeCompat.ThrowIfNull(registry, nameof(registry));
 
             KeyHelpModal modal = KeyHelpModal.FromCommands(registry.Commands);
             if (extra != null)
@@ -1256,7 +1289,9 @@ namespace TUIKit.Hosting
                 foreach (KeyHelpEntry entry in extra)
                 {
                     if (entry != null)
+                    {
                         modal.Add(entry.Category, entry.Keys, entry.Description);
+                    }
                 }
             }
 
@@ -1281,8 +1316,7 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public void Notify(string text, NotificationSeverity severity = NotificationSeverity.Info, int? timeoutMilliseconds = null)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             _Notifications.Add(text, severity, NowMilliseconds, timeoutMilliseconds);
             _RenderRequested = true;
@@ -1301,8 +1335,7 @@ namespace TUIKit.Hosting
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public Notification Notify(string text, NotificationSeverity severity, string? title, int? timeoutMilliseconds, params NotificationAction[] actions)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             Notification notification = _Notifications.Add(text, severity, NowMilliseconds, timeoutMilliseconds, title, actions);
             _RenderRequested = true;
@@ -1321,10 +1354,9 @@ namespace TUIKit.Hosting
         /// <paramref name="options"/> is null.</exception>
         public Notification Notify(string text, NotificationSeverity severity, NotificationOptions options)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
-            if (options == null)
-                throw new ArgumentNullException(nameof(options));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
+
+            RuntimeCompat.ThrowIfNull(options, nameof(options));
 
             Notification notification = _Notifications.Add(text, severity, NowMilliseconds, options);
             _RenderRequested = true;
@@ -1341,7 +1373,10 @@ namespace TUIKit.Hosting
         {
             bool ran = _Notifications.InvokeLatestAction(NowMilliseconds);
             if (ran)
+            {
                 _RenderRequested = true;
+            }
+
             return ran;
         }
 
@@ -1361,16 +1396,23 @@ namespace TUIKit.Hosting
         public void Start()
         {
             if (_Started)
+            {
                 return;
+            }
 
             // Read once per session: the stop path releases exactly what this start claimed, even if the
             // backend's answer changes in between.
-            bool claims = !(_Backend is ISharedTerminalBackend shared) || shared.ClaimsTerminal;
+            bool claims = _Backend is not ISharedTerminalBackend shared || shared.ClaimsTerminal;
             if (claims && Interlocked.Increment(ref _ActiveCount) != 1)
             {
                 Interlocked.Decrement(ref _ActiveCount);
                 TuiKitInstruments.Add(TuiKitInstruments.SessionStarts, 1, TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeRejected);
                 throw new InvalidOperationException("The terminal is a singleton resource; only one TuiApplication may run at a time.");
+            }
+
+            lock (_PostGate)
+            {
+                _PostsClosed = false;
             }
 
             _ClaimedTerminal = claims;
@@ -1382,11 +1424,13 @@ namespace TUIKit.Hosting
             _Renderer = new TerminalRenderer(
                 Math.Max(1, _Backend.Size.Width),
                 Math.Max(1, _Backend.Size.Height),
-                _Backend.Capabilities.ColorDepth);
-            _Renderer.SynchronizedOutput = _Backend.Capabilities.SynchronizedOutput;
-            _Renderer.Hyperlinks = _Hyperlinks;
-            _Renderer.LinkResolver = _Links == null ? null : ResolveLinkUri;
-            _Renderer.ForceFullRepaint = _ForceFullRepaint;
+                _Backend.Capabilities.ColorDepth)
+            {
+                SynchronizedOutput = _Backend.Capabilities.SynchronizedOutput,
+                Hyperlinks = _Hyperlinks,
+                LinkResolver = _Links == null ? null : ResolveLinkUri,
+                ForceFullRepaint = _ForceFullRepaint
+            };
 
             _SessionStartTimestamp = TuiKitInstruments.Timestamp();
             TuiKitInstruments.Add(TuiKitInstruments.SessionStarts, 1, TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeOk);
@@ -1402,7 +1446,9 @@ namespace TUIKit.Hosting
                 _Backend.Flush();
 
                 if (claims)
+                {
                     InstallSafetyNet();
+                }
             }
         }
 
@@ -1417,14 +1463,21 @@ namespace TUIKit.Hosting
             {
                 string enableMouse = BuildMouseEnableSequence();
                 if (enableMouse.Length > 0)
+                {
                     _Backend.Write(enableMouse);
+                }
             }
 
             if (_Backend.Capabilities.FocusReporting)
+            {
                 _Backend.Write(Ansi.EnableFocusReporting);
+            }
+
             _Backend.Write(Ansi.EnableBracketedPaste);
             if (_Backend.Capabilities.EnhancedKeyboard)
+            {
                 _Backend.Write(Ansi.PushKittyKeyboard);
+            }
         }
 
         // Writes the escape sequences that return the terminal to its pristine, cooked state: it undoes
@@ -1434,10 +1487,16 @@ namespace TUIKit.Hosting
         private void ExitInteractiveModes()
         {
             if (_Backend.Capabilities.EnhancedKeyboard)
+            {
                 _Backend.Write(Ansi.PopKittyKeyboard);
+            }
+
             _Backend.Write(Ansi.DisableBracketedPaste);
             if (_Backend.Capabilities.FocusReporting)
+            {
                 _Backend.Write(Ansi.DisableFocusReporting);
+            }
+
             _Backend.Write(Ansi.DisableMouse);
             _Backend.Write(Ansi.EndSynchronizedUpdate);
             _Backend.Write(Ansi.ShowCursor);
@@ -1493,10 +1552,16 @@ namespace TUIKit.Hosting
         // race for it on different threads.
         private void Teardown()
         {
+            ClosePostQueue();
             if (!_Started)
+            {
                 return;
+            }
+
             if (Interlocked.CompareExchange(ref _TornDown, 1, 0) != 0)
+            {
                 return;
+            }
 
             _Running = false;
 
@@ -1519,7 +1584,7 @@ namespace TUIKit.Hosting
                     ExitInteractiveModes();
                     _Backend.Flush();
                 }
-                catch (Exception ex) when (ex is IOException || ex is ObjectDisposedException || ex is NotSupportedException)
+                catch (Exception ex) when (ex is IOException or ObjectDisposedException or NotSupportedException)
                 {
                     TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentTeardown, ex);
 
@@ -1534,7 +1599,9 @@ namespace TUIKit.Hosting
             _Backend.Stop();
             _Started = false;
             if (!_ClaimedTerminal)
+            {
                 return;
+            }
 
             _ClaimedTerminal = false;
             Interlocked.Decrement(ref _ActiveCount);
@@ -1560,7 +1627,14 @@ namespace TUIKit.Hosting
         public async Task RunAsync(CancellationToken cancellationToken)
         {
             if (!_Started)
+            {
                 Start();
+            }
+
+            lock (_PostGate)
+            {
+                _PostsClosed = false;
+            }
 
             _Running = true;
             _StopRequested = false;
@@ -1572,7 +1646,10 @@ namespace TUIKit.Hosting
                 {
                     PumpInputOnce();
                     if (ShouldRenderFrame())
+                    {
                         RenderOnce();
+                    }
+
                     await Task.Delay(frameDelay, cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -1582,6 +1659,7 @@ namespace TUIKit.Hosting
             }
             finally
             {
+                ClosePostQueue();
                 _Running = false;
             }
         }
@@ -1610,8 +1688,7 @@ namespace TUIKit.Hosting
         /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled before suspending.</exception>
         public async Task SuspendAsync(Func<Task> whileSuspended, CancellationToken cancellationToken = default)
         {
-            if (whileSuspended == null)
-                throw new ArgumentNullException(nameof(whileSuspended));
+            RuntimeCompat.ThrowIfNull(whileSuspended, nameof(whileSuspended));
 
             if (!_Started || !_Backend.IsInteractive)
             {
@@ -1664,7 +1741,9 @@ namespace TUIKit.Hosting
             // While suspended the terminal belongs to whatever program the caller is running; the
             // backend's input path is torn down, so reading or dispatching would be meaningless.
             if (_Suspended)
+            {
                 return;
+            }
 
             DrainPostQueue();
 
@@ -1678,7 +1757,9 @@ namespace TUIKit.Hosting
             else
             {
                 foreach (InputEvent inputEvent in _Parser.Flush())
+                {
                     Dispatch(inputEvent);
+                }
             }
         }
 
@@ -1688,12 +1769,16 @@ namespace TUIKit.Hosting
         public void RenderOnce()
         {
             if (_Renderer == null)
+            {
                 return;
+            }
 
             // Suspended: the terminal is in its cooked state for an external program. Painting a frame
             // now would corrupt that program's screen, so the loop idles until SuspendAsync resumes.
             if (_Suspended)
+            {
                 return;
+            }
 
             DrainPostQueue();
 
@@ -1710,7 +1795,9 @@ namespace TUIKit.Hosting
             _Renderer.Render(_Backend, Compose);
             RefreshFocusPath();
             if (_ClaimedTerminal)
+            {
                 TuiKitInstruments.SetSessionShape(_TargetFps, _Renderer.Size.Width, _Renderer.Size.Height);
+            }
         }
 
         /// <summary>
@@ -1724,7 +1811,9 @@ namespace TUIKit.Hosting
         public CellBuffer? CaptureFrame()
         {
             if (_Renderer == null || !_Backend.IsInteractive)
+            {
                 return null;
+            }
 
             return _Renderer.CopyLastFrame();
         }
@@ -1771,7 +1860,9 @@ namespace TUIKit.Hosting
             foreach (KeyValuePair<string, IWidget> entry in _Content)
             {
                 if (entry.Value is Pane pane)
+                {
                     total += pane.Version;
+                }
             }
 
             return total;
@@ -1780,7 +1871,9 @@ namespace TUIKit.Hosting
         private void ApplyThemeToAll()
         {
             foreach (KeyValuePair<string, IWidget> entry in _Content)
+            {
                 ThemeApplier.Apply(entry.Value, _Theme);
+            }
 
             _Notifications.ApplyTheme(_Theme);
             _Tooltip.ApplyTheme(_Theme);
@@ -1791,17 +1884,26 @@ namespace TUIKit.Hosting
         private void RenderTooltip(ISurface root)
         {
             if (!_ShowTooltips || _PointerX < 0 || _Modals.IsActive)
+            {
                 return;
+            }
+
             if (NowMilliseconds - _PointerStillSinceMs < _TooltipDelayMs)
+            {
                 return;
+            }
 
             HitTestEntry? hit = HitTest(_PointerX, _PointerY);
-            if (hit == null || !(hit.Widget is ITooltipProvider provider))
+            if (hit == null || hit.Widget is not ITooltipProvider provider)
+            {
                 return;
+            }
 
             string? text = provider.GetTooltip(_PointerX - hit.Rect.X, _PointerY - hit.Rect.Y);
             if (!string.IsNullOrEmpty(text))
+            {
                 _Tooltip.Render(root, _PointerX, _PointerY, text!);
+            }
         }
 
         private void Compose(ISurface root)
@@ -1818,7 +1920,10 @@ namespace TUIKit.Hosting
                 // the stored screen-cell rectangle, so drop any selection when the surface changes size.
                 _LastRoot = root as BufferSurface;
                 if (_SelActive && size != _LastComposeSize)
+                {
                     ClearSelectionState();
+                }
+
                 _LastComposeSize = size;
             }
 
@@ -1838,23 +1943,33 @@ namespace TUIKit.Hosting
                     // Joined borders need every background down first, then every border, so shared edges
                     // can merge; the focused frame goes last so it stays whole over a shared line.
                     for (int i = 0; i < _Layout.Regions.Count; i++)
+                    {
                         FillRegionBackground(root, _Layout.Regions[i], size);
+                    }
 
                     Region? focusedRegion = null;
                     for (int i = 0; i < _Layout.Regions.Count; i++)
                     {
                         Region region = _Layout.Regions[i];
                         if (ShowsRegionFocus(region))
+                        {
                             focusedRegion = region;
+                        }
                         else
+                        {
                             DrawRegionBorder(root, region, size, false, true);
+                        }
                     }
 
                     if (focusedRegion != null)
+                    {
                         DrawRegionBorder(root, focusedRegion, size, true, true);
+                    }
 
                     for (int i = 0; i < _Layout.Regions.Count; i++)
+                    {
                         RenderRegionContent(root, bufferSurface, _Layout.Regions[i], size);
+                    }
                 }
                 else
                 {
@@ -1871,17 +1986,23 @@ namespace TUIKit.Hosting
             // Paint the highlight over the composed regions but under the overlay and modal layers, so
             // dialogs and overlays still draw on top of a selection.
             if (_MouseTextSelectionEnabled && _SelActive && root is BufferSurface selectionSurface)
+            {
                 PaintSelection(selectionSurface);
+            }
 
             _OnRenderOverlay?.Invoke(root);
 
             RenderTooltip(root);
 
             if (_Modals.IsActive)
+            {
                 _Modals.Render(root);
+            }
 
             if (_AutoRenderNotifications)
+            {
                 _Notifications.Render(root, NowMilliseconds);
+            }
         }
 
         // A region shows the focused treatment while it holds focus, opted in, and no modal sits on top:
@@ -1897,17 +2018,23 @@ namespace TUIKit.Hosting
         private void FillRegionBackground(ISurface root, Region region, Size size)
         {
             if (!region.HasBackground)
+            {
                 return;
+            }
 
             Rect fill = region.Resolve(size).Intersect(new Rect(0, 0, size.Width, size.Height));
             if (!fill.IsEmpty)
+            {
                 root.Fill(fill, Cell.Blank(ResolveRegionBackground(region)));
+            }
         }
 
         private void DrawRegionBorder(ISurface root, Region region, Size size, bool focused, bool join)
         {
             if (!region.HasBorder)
+            {
                 return;
+            }
 
             Rect frame = region.Resolve(size).Intersect(new Rect(0, 0, size.Width, size.Height));
             if (_HighlightFocusedRegion || region.FocusedBorder.HasValue)
@@ -1931,19 +2058,27 @@ namespace TUIKit.Hosting
 
             BorderStyle borderStyle = _Theme.UseAsciiBorders ? BorderStyle.Ascii : region.Border;
             if (join)
+            {
                 root.DrawJoinedBox(frame, _Theme.Border, borderStyle, region.BorderTitle);
+            }
             else
+            {
                 root.DrawBox(frame, _Theme.Border, borderStyle, region.BorderTitle);
+            }
         }
 
         private void RenderRegionContent(ISurface root, BufferSurface? bufferSurface, Region region, Size size)
         {
             if (!_Content.TryGetValue(region.Id, out IWidget? widget))
+            {
                 return;
+            }
 
             Rect rect = region.ContentRect(size).Intersect(new Rect(0, 0, size.Width, size.Height));
             if (rect.IsEmpty)
+            {
                 return;
+            }
 
             _HitMap.Add(new HitTestEntry(region.Id, widget, rect));
 
@@ -1963,10 +2098,14 @@ namespace TUIKit.Hosting
         private CellStyle ResolveRegionBackground(Region region)
         {
             if (region.Background.HasValue)
+            {
                 return _Theme.Text.WithBackground(region.Background.Value);
+            }
 
             if (region.BackgroundRole != null)
+            {
                 return _Theme.Text.WithBackground(_Theme.GetStyle(region.BackgroundRole).Background);
+            }
 
             return _Theme.Text;
         }
@@ -1975,17 +2114,20 @@ namespace TUIKit.Hosting
         {
             foreach (KeyValuePair<string, IWidget> entry in _Content)
             {
-                if (!(entry.Value is Pane pane))
+                if (entry.Value is not Pane pane)
+                {
                     continue;
+                }
 
-                IReadOnlyList<string> lines = pane.SnapshotPlainLines();
-                if (!_LineModeEmitted.TryGetValue(entry.Key, out int emitted))
-                    emitted = 0;
+                long cursor = _LineModeEmitted.TryGetValue(entry.Key, out PaneCursor previous) && previous.Pane == pane ? previous.Id : 0;
+                IReadOnlyList<string> lines = pane.SnapshotPlainLines(ref cursor);
 
-                for (int i = emitted; i < lines.Count; i++)
+                for (int i = 0; i < lines.Count; i++)
+                {
                     _Backend.Write(lines[i] + "\n");
+                }
 
-                _LineModeEmitted[entry.Key] = lines.Count;
+                _LineModeEmitted[entry.Key] = new PaneCursor(pane, cursor);
             }
 
             _Backend.Flush();
@@ -2036,18 +2178,22 @@ namespace TUIKit.Hosting
                 throw;
             }
 
-            TagList tags = new TagList();
-            tags.Add(TuiKitTelemetryNames.AttrInputKind, kind);
-            tags.Add(TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeOk);
+            TagList tags = new()
+            {
+                { TuiKitTelemetryNames.AttrInputKind, kind },
+                { TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeOk }
+            };
             TuiKitInstruments.Record(TuiKitInstruments.InputDispatchDuration, TuiKitInstruments.SecondsSince(start), in tags);
         }
 
         private static bool RecordDispatchFailure(Exception ex, string kind, long start)
         {
-            TagList tags = new TagList();
-            tags.Add(TuiKitTelemetryNames.AttrInputKind, kind);
-            tags.Add(TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeError);
-            tags.Add(TuiKitTelemetryNames.AttrErrorType, TuiKitInstruments.ErrorType(ex));
+            TagList tags = new()
+            {
+                { TuiKitTelemetryNames.AttrInputKind, kind },
+                { TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeError },
+                { TuiKitTelemetryNames.AttrErrorType, TuiKitInstruments.ErrorType(ex) }
+            };
             TuiKitInstruments.Record(TuiKitInstruments.InputDispatchDuration, TuiKitInstruments.SecondsSince(start), in tags);
             TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentInput, ex);
             return false;
@@ -2055,21 +2201,15 @@ namespace TUIKit.Hosting
 
         private static string InputKindName(InputEventKind kind)
         {
-            switch (kind)
+            return kind switch
             {
-                case InputEventKind.Key:
-                    return "key";
-                case InputEventKind.Mouse:
-                    return "mouse";
-                case InputEventKind.Paste:
-                    return "paste";
-                case InputEventKind.FocusGained:
-                    return "focus_gained";
-                case InputEventKind.FocusLost:
-                    return "focus_lost";
-                default:
-                    return "other";
-            }
+                InputEventKind.Key => "key",
+                InputEventKind.Mouse => "mouse",
+                InputEventKind.Paste => "paste",
+                InputEventKind.FocusGained => "focus_gained",
+                InputEventKind.FocusLost => "focus_lost",
+                _ => "other",
+            };
         }
 
         private static void RouteKey(string route)
@@ -2099,7 +2239,10 @@ namespace TUIKit.Hosting
                     break;
                 case InputEventKind.Mouse:
                     if (inputEvent.Mouse != null)
+                    {
                         DispatchMouse(inputEvent.Mouse);
+                    }
+
                     break;
                 case InputEventKind.FocusGained:
                     TerminalFocusChanged?.Invoke(true);
@@ -2126,7 +2269,9 @@ namespace TUIKit.Hosting
             }
 
             if (RoutePasteToFocus && OfferPasteToFocus(text))
+            {
                 return;
+            }
 
             PasteReceived?.Invoke(text);
         }
@@ -2135,10 +2280,14 @@ namespace TUIKit.Hosting
         {
             IFocusable? focused = FocusedWidget;
             if (focused == null)
+            {
                 return false;
+            }
 
             if (focused is IFocusContainer container && container.FocusedLeaf is IPasteTarget leaf && !ReferenceEquals(leaf, focused))
+            {
                 return leaf.HandlePaste(text);
+            }
 
             return focused is IPasteTarget target && target.HandlePaste(text);
         }
@@ -2229,9 +2378,14 @@ namespace TUIKit.Hosting
             {
                 RouteKey("focus_traversal");
                 if ((key.Modifiers & KeyModifiers.Shift) != 0)
+                {
                     FocusPrevious();
+                }
                 else
+                {
                     FocusNext();
+                }
+
                 return;
             }
 
@@ -2265,7 +2419,9 @@ namespace TUIKit.Hosting
             {
                 int clickCount = _ClickSynthesizer.RegisterPress(mouse.Button, mouse.X, mouse.Y, NowMilliseconds);
                 if (clickCount != mouse.ClickCount)
+                {
                     mouse = mouse.WithClickCount(clickCount);
+                }
             }
 
             UpdateLinkHover(mouse);
@@ -2296,17 +2452,23 @@ namespace TUIKit.Hosting
             }
 
             if (HandleHyperlinkMouse(mouse))
+            {
                 return;
+            }
 
             // Built-in text selection runs before widget routing so a drag over a widget that consumes
             // mouse (a TextEditor, a scrollable pane) is still captured as a selection. It is inert
             // unless enabled and the mouse is captured; a press is never consumed, so click-to-focus and
             // caret placement still work.
             if (_MouseTextSelectionEnabled && _MouseCaptureEnabled && HandleSelectionMouse(mouse))
+            {
                 return;
+            }
 
             if (_EnableMouseRouting && RouteMouse(mouse))
+            {
                 return;
+            }
 
             MouseReceived?.Invoke(mouse);
         }
@@ -2333,21 +2495,32 @@ namespace TUIKit.Hosting
 
             Uri? pressed = _PressedHyperlink;
             if (pressed == null)
+            {
                 return false;
-            if (mouse.Kind == MouseEventKind.Move || mouse.Kind == MouseEventKind.Leave || mouse.Kind == MouseEventKind.Wheel)
+            }
+
+            if (mouse.Kind is MouseEventKind.Move or MouseEventKind.Leave or MouseEventKind.Wheel)
             {
                 if (mouse.Kind != MouseEventKind.Move || mouse.X != _HyperlinkPressPosition.X || mouse.Y != _HyperlinkPressPosition.Y)
+                {
                     _PressedHyperlink = null;
+                }
+
                 return true;
             }
             if (mouse.Kind != MouseEventKind.Release)
+            {
                 return false;
+            }
 
             _PressedHyperlink = null;
             if (mouse.Button == MouseButton.Left && mouse.Modifiers == KeyModifiers.None
                 && mouse.X == _HyperlinkPressPosition.X && mouse.Y == _HyperlinkPressPosition.Y
                 && string.Equals(pressed.AbsoluteUri, _Renderer?.HyperlinkAt(mouse.X, mouse.Y)?.AbsoluteUri, StringComparison.Ordinal))
+            {
                 activated(pressed);
+            }
+
             return true;
         }
 
@@ -2357,17 +2530,21 @@ namespace TUIKit.Hosting
             UpdateHover(hit, mouse);
 
             if (hit == null)
+            {
                 return false;
+            }
 
             // Click-to-focus is a side effect; it does not, by itself, swallow the event.
             // A widget that cannot take focus right now (disabled, hidden, or a container with nothing focusable,
             // such as a HeatMap that is not selectable) does not take it from a click either.
             if (mouse.Kind == MouseEventKind.Press && hit.Widget is IFocusable && FocusScope.IsFocusable(hit.Widget) && _FocusOrder.Contains(hit.RegionId))
+            {
                 SetFocusInternal(hit.RegionId);
+            }
 
             if (hit.Widget is IMouseAware aware)
             {
-                MouseEvent local = new MouseEvent(
+                MouseEvent local = new(
                     mouse.Kind, mouse.Button, mouse.X - hit.Rect.X, mouse.Y - hit.Rect.Y, mouse.Modifiers, mouse.ClickCount);
                 return aware.HandleMouse(local);
             }
@@ -2385,12 +2562,17 @@ namespace TUIKit.Hosting
             if (mouse.Kind == MouseEventKind.Wheel)
             {
                 if (_SelActive)
+                {
                     ClearTextSelection();
+                }
+
                 return false;
             }
 
             if (mouse.Button != MouseButton.Left && mouse.Kind != MouseEventKind.Release)
+            {
                 return false;
+            }
 
             switch (mouse.Kind)
             {
@@ -2399,7 +2581,9 @@ namespace TUIKit.Hosting
                     ClearSelectionState();
                     HitTestEntry? hit = HitTest(mouse.X, mouse.Y);
                     if (hit == null)
+                    {
                         return false;
+                    }
 
                     _SelRegionRect = hit.Rect;
                     _SelAnchorX = ClampInt(mouse.X, hit.Rect.Left, hit.Rect.Right - 1);
@@ -2413,12 +2597,16 @@ namespace TUIKit.Hosting
 
                 case MouseEventKind.Move:
                     if (!_SelDragging || mouse.Button != MouseButton.Left)
+                    {
                         return false;
+                    }
 
                     int focusX = ClampInt(mouse.X, _SelRegionRect.Left, _SelRegionRect.Right - 1);
                     int focusY = ClampInt(mouse.Y, _SelRegionRect.Top, _SelRegionRect.Bottom - 1);
                     if (!_SelMoved && (focusX != _SelAnchorX || focusY != _SelAnchorY))
+                    {
                         _SelMoved = true;
+                    }
 
                     _SelFocusX = focusX;
                     _SelFocusY = focusY;
@@ -2494,7 +2682,9 @@ namespace TUIKit.Hosting
                     // The leading cell of a wide glyph carries the whole two-column glyph and its reverse
                     // attribute covers both columns; painting the continuation would double the grapheme.
                     if (under.IsContinuation)
+                    {
                         continue;
+                    }
 
                     string grapheme = string.IsNullOrEmpty(under.Grapheme) ? " " : under.Grapheme;
                     int width = under.Width > 0 ? under.Width : 1;
@@ -2508,7 +2698,9 @@ namespace TUIKit.Hosting
         {
             string text = GetSelectedText();
             if (text.Length == 0)
+            {
                 return;
+            }
 
             if (_Backend.IsInteractive)
             {
@@ -2524,7 +2716,9 @@ namespace TUIKit.Hosting
         {
             int end = value.Length;
             while (end > 0 && value[end - 1] == ' ')
+            {
                 end--;
+            }
 
             return value.Substring(0, end);
         }
@@ -2543,7 +2737,9 @@ namespace TUIKit.Hosting
             }
 
             if (hit == null && _HoverRegionId == null)
+            {
                 return;
+            }
 
             DeliverLeave(mouse.Modifiers, mouse.X, mouse.Y);
 
@@ -2551,7 +2747,7 @@ namespace TUIKit.Hosting
             {
                 if (hit.Widget is IMouseAware aware)
                 {
-                    MouseEvent enter = new MouseEvent(
+                    MouseEvent enter = new(
                         MouseEventKind.Enter,
                         MouseButton.None,
                         ClampInt(mouse.X - hit.Rect.X, 0, hit.Rect.Width - 1),
@@ -2574,7 +2770,7 @@ namespace TUIKit.Hosting
         {
             if (_HoverWidget is IMouseAware aware && _HoverRect.Width > 0 && _HoverRect.Height > 0)
             {
-                MouseEvent leave = new MouseEvent(
+                MouseEvent leave = new(
                     MouseEventKind.Leave,
                     MouseButton.None,
                     ClampInt(pointerX - _HoverRect.X, 0, _HoverRect.Width - 1),
@@ -2599,7 +2795,9 @@ namespace TUIKit.Hosting
             }
 
             if (_HoverRegionId == null)
+            {
                 return;
+            }
 
             DeliverLeave(modifiers, _HoverRect.X, _HoverRect.Y);
         }
@@ -2611,7 +2809,9 @@ namespace TUIKit.Hosting
                 foreach (Link link in _Links.Links)
                 {
                     if (link.Id == id)
+                    {
                         return link.Uri;
+                    }
                 }
             }
             return null;
@@ -2620,9 +2820,14 @@ namespace TUIKit.Hosting
         private void UpdateLinkHover(MouseEvent mouse)
         {
             if (_Links == null)
+            {
                 return;
-            if (mouse.Kind != MouseEventKind.Move && mouse.Kind != MouseEventKind.Press)
+            }
+
+            if (mouse.Kind is not MouseEventKind.Move and not MouseEventKind.Press)
+            {
                 return;
+            }
 
             Link? link = _Links.HitTest(mouse.X, mouse.Y);
             if (!ReferenceEquals(link, _HoveredLink))
@@ -2634,34 +2839,38 @@ namespace TUIKit.Hosting
 
         private string BuildMouseEnableSequence()
         {
-            switch (_MouseTrackingMode)
+            return _MouseTrackingMode switch
             {
-                case MouseTrackingMode.None:
-                    return string.Empty;
-                case MouseTrackingMode.ButtonsAndDrag:
-                    return Ansi.EnableMouse + Ansi.DisableAnyMotion;
-                default:
-                    return Ansi.EnableMouse;
-            }
+                MouseTrackingMode.None => string.Empty,
+                MouseTrackingMode.ButtonsAndDrag => Ansi.EnableMouse + Ansi.DisableAnyMotion,
+                _ => Ansi.EnableMouse,
+            };
         }
 
         private static int ClampInt(int value, int min, int max)
         {
             if (value < min)
+            {
                 return min;
+            }
+
             if (value > max)
+            {
                 return max;
+            }
 
             return value;
         }
 
         private HitTestEntry? HitTest(int x, int y)
         {
-            Point point = new Point(x, y);
+            Point point = new(x, y);
             for (int i = _HitMap.Count - 1; i >= 0; i--)
             {
                 if (_HitMap[i].Rect.Contains(point))
+                {
                     return _HitMap[i];
+                }
             }
 
             return null;
@@ -2672,7 +2881,9 @@ namespace TUIKit.Hosting
             get
             {
                 if (_FocusedRegion != null && _Content.TryGetValue(_FocusedRegion, out IWidget? widget) && widget is IFocusable focusable)
+                {
                     return focusable;
+                }
 
                 return null;
             }
@@ -2681,7 +2892,9 @@ namespace TUIKit.Hosting
         private bool MoveFocus(int direction)
         {
             if (_FocusOrder.Count == 0)
+            {
                 return false;
+            }
 
             int current = _FocusedRegion != null ? _FocusOrder.IndexOf(_FocusedRegion) : -1;
             int next = current < 0
@@ -2703,7 +2916,9 @@ namespace TUIKit.Hosting
 
             // Entering a hierarchical container focuses its first descendant (forward) or last (backward).
             if (_Content.TryGetValue(_FocusOrder[next], out IWidget? entered) && entered is IFocusContainer container)
+            {
                 container.FocusEdge(direction > 0);
+            }
 
             return true;
         }
@@ -2711,10 +2926,14 @@ namespace TUIKit.Hosting
         private void SetFocusInternal(string? regionId)
         {
             if (string.Equals(_FocusedRegion, regionId, StringComparison.Ordinal))
+            {
                 return;
+            }
 
             if (_FocusedRegion != null && _Content.TryGetValue(_FocusedRegion, out IWidget? previous) && previous is IFocusAware previousAware)
+            {
                 previousAware.OnFocusChanged(false);
+            }
 
             _FocusedRegion = regionId;
 
@@ -2722,7 +2941,9 @@ namespace TUIKit.Hosting
             {
                 _FocusContext = regionId;
                 if (_Content.TryGetValue(regionId, out IWidget? next) && next is IFocusAware nextAware)
+                {
                     nextAware.OnFocusChanged(true);
+                }
             }
 
             _Renderer?.Invalidate();
@@ -2733,7 +2954,9 @@ namespace TUIKit.Hosting
         private Region? FindRegion(string regionId)
         {
             if (string.IsNullOrEmpty(regionId))
+            {
                 throw new ArgumentException("Region id must not be null or empty.", nameof(regionId));
+            }
 
             return _Layout?.FindById(regionId);
         }
@@ -2744,13 +2967,20 @@ namespace TUIKit.Hosting
         internal bool IsRegionShown(string regionId)
         {
             if (_Layout == null)
+            {
                 return true;
+            }
 
             Region? region = _Layout.FindById(regionId);
             if (region == null)
+            {
                 return false;
+            }
+
             if (_FrameSize.Width <= 0 || _FrameSize.Height <= 0)
+            {
                 return true;
+            }
 
             return !region.ContentRect(_FrameSize).Intersect(new Rect(0, 0, _FrameSize.Width, _FrameSize.Height)).IsEmpty;
         }
@@ -2762,7 +2992,7 @@ namespace TUIKit.Hosting
 
         internal string HitMapSignature()
         {
-            System.Text.StringBuilder builder = new System.Text.StringBuilder();
+            System.Text.StringBuilder builder = new();
             for (int i = 0; i < _HitMap.Count; i++)
             {
                 HitTestEntry entry = _HitMap[i];
@@ -2780,37 +3010,53 @@ namespace TUIKit.Hosting
         private void RepairFocusPath()
         {
             if (!_AutoRepairFocus)
+            {
                 return;
+            }
 
             string? region = _FocusedRegion;
             if (region == null || !_Content.TryGetValue(region, out IWidget? root))
+            {
                 return;
+            }
 
             _RepairScratch.Clear();
             object? current = root;
             for (int depth = 0; current != null && depth < 64; depth++)
             {
                 if (current is FocusScope scope)
+                {
                     _RepairScratch.Add(scope);
-                if (!(current is IFocusPathNode node))
+                }
+
+                if (current is not IFocusPathNode node)
+                {
                     break;
+                }
 
                 IFocusable? child = node.FocusedChild;
                 if (child == null || ReferenceEquals(child, current))
+                {
                     break;
+                }
+
                 current = child;
             }
 
             for (int i = _RepairScratch.Count - 1; i >= 0; i--)
             {
                 if (_RepairScratch[i].AutoRepair)
+                {
                     _RepairScratch[i].RepairFocus();
+                }
             }
 
             _RepairScratch.Clear();
             bool hidden = root is IHideable hideable && !hideable.IsVisible;
             if ((hidden || IsEmptyContainer(root)) && HasOtherTabStopRegion(region))
+            {
                 MoveFocus(1);
+            }
         }
 
         // A region widget with nothing to focus: an empty FocusScope (or FramedStack), or a widget that
@@ -2835,7 +3081,9 @@ namespace TUIKit.Hosting
                     && _Content.TryGetValue(candidate, out IWidget? widget)
                     && IsRegionTabStop(widget)
                     && IsRegionShown(candidate))
+                {
                     return true;
+                }
             }
 
             return false;
@@ -2848,16 +3096,40 @@ namespace TUIKit.Hosting
             _FocusScratch.Clear();
             string? region = _FocusedRegion;
             if (region != null && _Content.TryGetValue(region, out IWidget? root))
+            {
                 FocusPath.Collect(root, _FocusScratch);
+            }
             else
+            {
                 region = null;
+            }
 
             if (_FocusPath.SameAs(region, _FocusScratch))
+            {
                 return;
+            }
 
-            _FocusPath = _FocusScratch.Count == 0 ? FocusPath.Empty : new FocusPath(region, new List<object>(_FocusScratch));
+            _FocusPath = _FocusScratch.Count == 0 ? FocusPath.Empty : new FocusPath(region, [.. _FocusScratch]);
             _RenderRequested = true;
             FocusPathChanged?.Invoke(_FocusPath);
+        }
+
+        private void ClosePostQueue()
+        {
+            int dropped = 0;
+            lock (_PostGate)
+            {
+                _PostsClosed = true;
+                while (_PostQueue.TryDequeue(out PostedAction? posted))
+                {
+                    (posted.Action.Target as AcknowledgedPost)?.Discard();
+                    dropped++;
+                }
+            }
+            if (dropped != 0)
+            {
+                TuiKitInstruments.Add(TuiKitInstruments.PostQueueDepth, -dropped);
+            }
         }
 
         private void DrainPostQueue()
@@ -2871,7 +3143,9 @@ namespace TUIKit.Hosting
             }
 
             if (ran)
+            {
                 RefreshFocusPath();
+            }
         }
 
         private static void RunPosted(PostedAction posted)
@@ -2917,9 +3191,14 @@ namespace TUIKit.Hosting
                     // (now - long.MinValue) overflows to a small value that would spuriously satisfy the
                     // window, exiting on the very first Ctrl+C. Only a real prior timestamp counts.
                     if (_LastCtrlC != long.MinValue && now - _LastCtrlC <= 500)
+                    {
                         RequestStop();
+                    }
                     else
+                    {
                         _Notifications.Add("Press Ctrl+C again to exit", NotificationSeverity.Info, now, 1500);
+                    }
+
                     _LastCtrlC = now;
                     break;
                 default:
@@ -2930,7 +3209,9 @@ namespace TUIKit.Hosting
         private void InvokeCommand(string? commandId)
         {
             if (commandId == null)
+            {
                 return;
+            }
 
             if (!_Commands.TryGetValue(commandId, out Action? handler))
             {
@@ -2956,16 +3237,21 @@ namespace TUIKit.Hosting
             {
                 TuiKitInstruments.Record(TuiKitInstruments.CommandDuration, TuiKitInstruments.SecondsSince(start), TuiKitTelemetryNames.AttrOutcome, outcome);
                 if (outcome == TuiKitTelemetryNames.OutcomeOk)
+                {
                     TuiKitInstruments.Add(TuiKitInstruments.CommandInvocations, 1, TuiKitTelemetryNames.AttrOutcome, outcome);
+                }
+
                 TuiKitInstruments.Stop(span);
             }
         }
 
         private static bool RecordCommandFailure(Exception ex, Activity? span, ref string outcome)
         {
-            TagList tags = new TagList();
-            tags.Add(TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeError);
-            tags.Add(TuiKitTelemetryNames.AttrErrorType, TuiKitInstruments.ErrorType(ex));
+            TagList tags = new()
+            {
+                { TuiKitTelemetryNames.AttrOutcome, TuiKitTelemetryNames.OutcomeError },
+                { TuiKitTelemetryNames.AttrErrorType, TuiKitInstruments.ErrorType(ex) }
+            };
             TuiKitInstruments.Add(TuiKitInstruments.CommandInvocations, 1, in tags);
             return RecordFailure(TuiKitTelemetryNames.ComponentCommand, ex, span, ref outcome);
         }
@@ -2979,7 +3265,9 @@ namespace TUIKit.Hosting
         public void Dispose()
         {
             if (_Disposed)
+            {
                 return;
+            }
 
             _Disposed = true;
             Stop();

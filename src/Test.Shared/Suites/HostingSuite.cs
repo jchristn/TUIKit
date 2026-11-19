@@ -14,6 +14,7 @@
     using TUIKit.Modals;
     using TUIKit.Terminal;
     using TUIKit.Theming;
+    using TUIKit.Widgets;
 
     /// <summary>
     /// Touchstone suite covering the application host: frame composition of panes bound to regions,
@@ -220,6 +221,34 @@
                                 string output = backend.PeekOutput();
                                 Check.True(output.Contains("first line\n"), "Plain line output, no escapes");
                                 Check.False(output.Contains(Esc), "No escape sequences in line mode");
+                                app.Stop();
+                            }
+
+                            return Task.CompletedTask;
+                        }),
+
+                    new TestCaseDescriptor("Hosting", "LineModeRebind", "Line output resumes only for an uninterrupted pane binding",
+                        _ =>
+                        {
+                            HeadlessBackend backend = new HeadlessBackend(80, 24, TerminalCapabilities.Full, false);
+                            using (TuiApplication app = new TuiApplication(backend))
+                            {
+                                Pane pane = new Pane("log");
+                                app.BindPane("log", pane);
+                                app.Start();
+                                pane.WriteLine("first");
+                                app.RenderOnce();
+                                Check.Equal("first\n", backend.TakeOutput(), "Initial binding emits the pane");
+
+                                app.BindPane("log", pane);
+                                pane.WriteLine("second");
+                                app.RenderOnce();
+                                Check.Equal("second\n", backend.TakeOutput(), "Same pane resumes without replay");
+
+                                app.Bind("log", new Label(Text.From("replacement")));
+                                app.BindPane("log", pane);
+                                app.RenderOnce();
+                                Check.Equal("first\nsecond\n", backend.TakeOutput(), "Intervening widget cleared the cursor at bind time");
                                 app.Stop();
                             }
 

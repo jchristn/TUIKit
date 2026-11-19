@@ -1,8 +1,13 @@
 namespace TUIKit.Content
 {
     using System;
+    using System.ComponentModel;
     using System.Diagnostics;
+    using System.IO;
+    using System.Linq;
     using System.Runtime.InteropServices;
+    using System.Threading.Tasks;
+    using TUIKit.Compatibility;
     using TUIKit.Diagnostics;
 
     /// <summary>
@@ -23,8 +28,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public static string BuildWriteSequence(string text)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             return ClipboardWriter.BuildSequence(text);
         }
@@ -116,12 +120,20 @@ namespace TUIKit.Content
                         return false;
                     }
 
-                    string result = process.StandardOutput.ReadToEnd();
-                    if (!process.WaitForExit(1000))
+                    Stopwatch clock = Stopwatch.StartNew();
+                    Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+                    Task stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null);
+                    Task drained = Task.WhenAll(stdout, stderr);
+                    if (!process.WaitForExit(Math.Max(0, 1000 - (int)clock.ElapsedMilliseconds)) ||
+                        !drained.Wait(Math.Max(0, 1000 - (int)clock.ElapsedMilliseconds)))
                     {
                         try
                         {
-                            process.Kill();
+                            if (!process.HasExited)
+                            {
+                                RuntimeCompat.KillProcessTree(process);
+                                process.WaitForExit(250);
+                            }
                         }
                         catch (InvalidOperationException ex)
                         {
@@ -139,12 +151,14 @@ namespace TUIKit.Content
                         return false;
                     }
 
-                    output = result.TrimEnd('\r', '\n');
+                    output = stdout.GetAwaiter().GetResult().TrimEnd('\r', '\n');
                     outcome = TuiKitTelemetryNames.OutcomeOk;
                     return true;
                 }
             }
-            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception || ex is InvalidOperationException || ex is System.IO.IOException)
+            catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or IOException ||
+                (ex is AggregateException drains && drains.InnerException != null &&
+                 drains.InnerExceptions.All(error => error is IOException or ObjectDisposedException)))
             {
                 errorType = TuiKitInstruments.ErrorType(ex);
                 TuiKitInstruments.RecordError(TuiKitTelemetryNames.ComponentIntegration, ex);

@@ -3,6 +3,8 @@ namespace TUIKit.Widgets
     using System;
     using System.Threading;
     using System.Threading.Tasks;
+    using TUIKit.Compatibility;
+    using TUIKit.Hosting;
 
     /// <summary>
     /// The async plumbing for a server-backed <see cref="DataTable{T}"/> in <see cref="DataTablePagingMode.Remote"/>
@@ -47,7 +49,11 @@ namespace TUIKit.Widgets
         public Func<Exception, string> ErrorText
         {
             get { return _ErrorText; }
-            set { _ErrorText = value ?? throw new ArgumentNullException(nameof(value)); }
+            set
+            {
+                RuntimeCompat.ThrowIfNull(value, nameof(value));
+                _ErrorText = value;
+            }
         }
 
         /// <summary>
@@ -73,9 +79,13 @@ namespace TUIKit.Widgets
         /// <exception cref="InvalidOperationException">Thrown when the table is not in <see cref="DataTablePagingMode.Remote"/> mode.</exception>
         public DataTableLoader(DataTable<T> table, Func<DataTablePageRequest, CancellationToken, Task<DataTablePage<T>>> load, Action<Action> post)
         {
-            _Table = table ?? throw new ArgumentNullException(nameof(table));
-            _Load = load ?? throw new ArgumentNullException(nameof(load));
-            _Post = post ?? throw new ArgumentNullException(nameof(post));
+            RuntimeCompat.ThrowIfNull(table, nameof(table));
+            RuntimeCompat.ThrowIfNull(load, nameof(load));
+            RuntimeCompat.ThrowIfNull(post, nameof(post));
+
+            _Table = table;
+            _Load = load;
+            _Post = post;
             if (table.PagingMode != DataTablePagingMode.Remote)
                 throw new InvalidOperationException("DataTableLoader requires a table in PagingMode Remote; this table is in " + table.PagingMode + " mode.");
 
@@ -89,12 +99,13 @@ namespace TUIKit.Widgets
 
         /// <summary>
         /// Loads the table's current request (<see cref="DataTable{T}.CurrentRequest"/>), superseding any load in
-        /// progress. The returned task completes when this load has bound, failed, or been superseded; it does not
+        /// progress. The returned task completes when this load has bound, failed, been superseded, or been discarded by a stopped host; it does not
         /// throw for a load failure (the table shows it) and completes as cancelled only when
         /// <paramref name="token"/> is cancelled.
         /// </summary>
         /// <param name="token">Cancels this load.</param>
         /// <returns>A task that completes when the load is finished.</returns>
+        /// <exception cref="OperationCanceledException">Thrown when <paramref name="token"/> is cancelled.</exception>
         /// <exception cref="ObjectDisposedException">Thrown after <see cref="Dispose()"/>.</exception>
         public Task LoadAsync(CancellationToken token = default)
         {
@@ -168,6 +179,7 @@ namespace TUIKit.Widgets
         private async Task LoadRequestAsync(DataTablePageRequest request, CancellationToken token)
         {
             CancellationTokenSource source = CancellationTokenSource.CreateLinkedTokenSource(token);
+            CancellationToken session = source.Token;
             CancellationTokenSource? previous;
             long generation;
             lock (_Sync)
@@ -192,45 +204,62 @@ namespace TUIKit.Widgets
 
             try
             {
-                Task<DataTablePage<T>> pending = _Load(request, source.Token);
+                Task<DataTablePage<T>> pending = _Load(request, session);
                 if (pending == null)
                     throw new InvalidOperationException("The load delegate returned a null task.");
 
                 DataTablePage<T> page = await pending.ConfigureAwait(false);
-                source.Token.ThrowIfCancellationRequested();
+                session.ThrowIfCancellationRequested();
                 if (page == null)
                     throw new InvalidOperationException("The load delegate returned a null page.");
 
-                _Post(() =>
-                {
-                    if (!IsCurrent(generation))
-                        return;
-
-                    Finish(generation);
-                    _Table.BindPage(page.Rows, request.PageNumber, page.TotalRows);
-                });
+                await PostTransitionAsync(generation, () => _Table.BindPage(page.Rows, request.PageNumber, page.TotalRows), session).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (source.IsCancellationRequested)
+            catch (OperationCanceledException) when (session.IsCancellationRequested)
+            {
+                // Share cancellation cleanup with a bind or error transition interrupted in the UI queue.
+            }
+            catch (Exception ex)
+            {
+                await PostTransitionAsync(generation, () =>
+                {
+                    _Table.SetError(_ErrorText(ex) ?? string.Empty);
+                    LoadFailed?.Invoke(this, ex);
+                }, session).ConfigureAwait(false);
+            }
+
+            if (session.IsCancellationRequested)
             {
                 if (IsCurrent(generation))
                 {
                     Finish(generation);
-                    _Post(() => _Table.ClearLoadState());
+                    // The same token may have stopped the UI loop. Queue cleanup, but do not await it.
+                    _Post(() =>
+                    {
+                        if (IsCurrent(generation))
+                            _Table.ClearLoadState();
+                    });
                 }
 
                 token.ThrowIfCancellationRequested();
             }
-            catch (Exception ex) when (!(ex is OperationCanceledException && source.IsCancellationRequested))
-            {
-                _Post(() =>
-                {
-                    if (!IsCurrent(generation))
-                        return;
+        }
 
+        private async Task PostTransitionAsync(long generation, Action transition, CancellationToken session)
+        {
+            AcknowledgedPost post = new AcknowledgedPost(() =>
+            {
+                if (IsCurrent(generation) && !session.IsCancellationRequested)
+                {
                     Finish(generation);
-                    _Table.SetError(_ErrorText(ex) ?? string.Empty);
-                    LoadFailed?.Invoke(this, ex);
-                });
+                    transition();
+                }
+            });
+            using (session.Register(post.Discard))
+            {
+                _Post(post.Run);
+                if (!await post.Completion.ConfigureAwait(false))
+                    Finish(generation);
             }
         }
 

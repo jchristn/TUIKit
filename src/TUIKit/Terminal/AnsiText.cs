@@ -3,6 +3,7 @@ namespace TUIKit.Terminal
     using System;
     using System.Text;
     using TUIKit;
+    using TUIKit.Compatibility;
 
     /// <summary>
     /// Renders <see cref="StyledText"/> to a flowing string of SGR escape sequences and text, with a
@@ -10,7 +11,8 @@ namespace TUIKit.Terminal
     /// <see cref="TUIKit.Rendering.TerminalRenderer"/>, this emits <b>no cursor movement</b> — the
     /// result is meant to be written at the current cursor position (for example by
     /// <see cref="TUIKit.StyledConsole"/>). When the depth is <see cref="TerminalColorDepth.None"/>,
-    /// the plain text is returned with no escape sequences. All members are thread-safe.
+    /// no SGR sequences are emitted. Input text retains tabs, carriage returns, and newlines;
+    /// other control characters are removed. All members are thread-safe.
     /// </summary>
     public static class AnsiText
     {
@@ -28,6 +30,23 @@ namespace TUIKit.Terminal
             return Render(text, depth, false);
         }
 
+        private static bool IsUnsafe(char c) => char.IsControl(c) && c != '\n' && c != '\r' && c != '\t';
+
+        internal static string DisplayText(string value)
+        {
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (!IsUnsafe(value[i]))
+                    continue;
+                StringBuilder clean = new StringBuilder(value.Length).Append(value, 0, i);
+                for (; i < value.Length; i++)
+                    if (!IsUnsafe(value[i]))
+                        clean.Append(value[i]);
+                return clean.ToString();
+            }
+            return value;
+        }
+
         /// <summary>Renders text with independently selected color and OSC 8 output.</summary>
         /// <param name="text">The text. Must not be null.</param>
         /// <param name="depth">The color depth; None suppresses SGR only.</param>
@@ -36,11 +55,10 @@ namespace TUIKit.Terminal
         /// <exception cref="ArgumentNullException">The text is null.</exception>
         public static string Render(StyledText text, TerminalColorDepth depth, bool hyperlinks)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             if (depth == TerminalColorDepth.None && !hyperlinks)
-                return text.ToPlainString();
+                return DisplayText(text.ToPlainString());
 
             System.Collections.Generic.IReadOnlyList<StyledSpan> spans = text.Spans;
             if (spans.Count == 0)
@@ -60,13 +78,15 @@ namespace TUIKit.Terminal
                 if (!hyperlinks || span.Style.Hyperlink == null)
                 {
                     HyperlinkOutput.Transition(builder, ref currentLink, null);
-                    builder.Append(span.Text);
+                    builder.Append(DisplayText(span.Text));
                 }
                 else
                 {
                     for (int j = 0; j < span.Text.Length; j++)
                     {
                         char c = span.Text[j];
+                        if (IsUnsafe(c))
+                            continue;
                         HyperlinkOutput.Transition(builder, ref currentLink,
                             c != '\r' && c != '\n' ? span.Style.Hyperlink : null);
                         builder.Append(c);
@@ -91,8 +111,7 @@ namespace TUIKit.Terminal
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="markup"/> is null.</exception>
         public static string Render(string markup, TerminalColorDepth depth)
         {
-            if (markup == null)
-                throw new ArgumentNullException(nameof(markup));
+            RuntimeCompat.ThrowIfNull(markup, nameof(markup));
 
             return Render(Markup.Parse(markup), depth);
         }

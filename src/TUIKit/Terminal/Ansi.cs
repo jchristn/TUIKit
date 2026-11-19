@@ -3,6 +3,7 @@ namespace TUIKit.Terminal
     using System;
     using System.Globalization;
     using System.Text;
+    using TUIKit.Compatibility;
 
     /// <summary>
     /// Builds the ANSI/VT escape sequences TUIKit emits. Sequences are returned as strings so a
@@ -241,8 +242,7 @@ namespace TUIKit.Terminal
         /// <exception cref="ArgumentException">The URI or identifier is unsafe or unsupported.</exception>
         public static string OpenHyperlink(string? id, string uri)
         {
-            if (uri == null)
-                throw new ArgumentNullException(nameof(uri));
+            RuntimeCompat.ThrowIfNull(uri, nameof(uri));
             Uri? target = HyperlinkOutput.TryTarget(uri);
             if (target == null)
                 throw new ArgumentException("An absolute HTTP, HTTPS, file, or mailto URI is required.", nameof(uri));
@@ -273,12 +273,28 @@ namespace TUIKit.Terminal
 
         private static void AppendColor(StringBuilder builder, Color color, TerminalColorDepth depth, bool foreground)
         {
-            if (color.Kind == ColorKind.Default)
+            if (depth == TerminalColorDepth.None || color.Kind == ColorKind.Default)
                 return;
 
             if (color.Kind == ColorKind.Palette)
             {
-                AppendPalette(builder, color.PaletteIndex, foreground);
+                byte index = color.PaletteIndex;
+                if (depth == TerminalColorDepth.Ansi16)
+                {
+                    if (index >= 232)
+                    {
+                        byte gray = (byte)(8 + 10 * (index - 232));
+                        index = ColorQuantizer.ToAnsi16(gray, gray, gray);
+                    }
+                    else if (index >= 16)
+                    {
+                        int cube = index - 16;
+                        index = ColorQuantizer.ToAnsi16(CubeChannel(cube / 36), CubeChannel(cube / 6 % 6), CubeChannel(cube % 6));
+                    }
+                    AppendAnsi16(builder, index, foreground);
+                }
+                else
+                    AppendPalette(builder, index, foreground);
                 return;
             }
 
@@ -302,6 +318,8 @@ namespace TUIKit.Terminal
                     break;
             }
         }
+
+        private static byte CubeChannel(int level) => (byte)(level == 0 ? 0 : 55 + 40 * level);
 
         private static void AppendPalette(StringBuilder builder, byte index, bool foreground)
         {

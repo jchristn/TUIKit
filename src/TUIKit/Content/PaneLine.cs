@@ -4,10 +4,18 @@ namespace TUIKit.Content
     using System.Collections.Generic;
     using System.Threading;
     using TUIKit;
+    using TUIKit.Compatibility;
 
     internal sealed class PaneLine
     {
         private StyledText _Content;
+        private Func<StyledText>? _PendingContent;
+
+        internal void DeferContent(Func<StyledText> render)
+        {
+            Content = StyledText.Empty;
+            _PendingContent = render;
+        }
         private int _CachedWidth = -1;
         private IReadOnlyList<StyledText>? _CachedRows;
         private string? _MarkdownSource;
@@ -17,9 +25,18 @@ namespace TUIKit.Content
 
         internal StyledText Content
         {
-            get { return _Content; }
+            get
+            {
+                if (_PendingContent != null)
+                {
+                    _Content = _PendingContent();
+                    _PendingContent = null;
+                }
+                return _Content;
+            }
             set
             {
+                _PendingContent = null;
                 _Content = value;
                 _MarkdownSource = null;
                 _MarkdownOptions = null;
@@ -46,8 +63,12 @@ namespace TUIKit.Content
 
         internal void SetMarkdown(string source, MarkdownRenderOptions options)
         {
-            _MarkdownSource = source ?? throw new ArgumentNullException(nameof(source));
-            _MarkdownOptions = options ?? throw new ArgumentNullException(nameof(options));
+            RuntimeCompat.ThrowIfNull(source, nameof(source));
+            RuntimeCompat.ThrowIfNull(options, nameof(options));
+
+            _MarkdownSource = source;
+            _MarkdownOptions = options;
+            _PendingContent = null;
             _Content = StyledText.Empty;
             _CachedRows = null;
             _CachedWidth = -1;
@@ -61,7 +82,7 @@ namespace TUIKit.Content
                 if (_MarkdownSource != null && _MarkdownOptions != null)
                     _CachedRows = MarkdownRenderer.RenderCore(_MarkdownSource, Math.Max(1, width), _MarkdownOptions, CancellationToken.None);
                 else
-                    _CachedRows = TextWrapper.Wrap(_Content, width);
+                    _CachedRows = TextWrapper.Wrap(Content, width);
 
                 _CachedWidth = width;
             }

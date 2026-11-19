@@ -4,6 +4,7 @@ namespace TUIKit.Content
     using System.Collections.Generic;
     using System.Text;
     using TUIKit;
+    using TUIKit.Compatibility;
 
     /// <summary>
     /// Projects a stream of text and keyed status lines onto a scrollback <see cref="Pane"/>. Streaming
@@ -28,7 +29,10 @@ namespace TUIKit.Content
         private MarkdownStyles _Styles = MarkdownStyles.Default;
         private bool _RenderWhileStreaming = true;
         private bool _InCodeBlock;
-        private int _Processed;
+        private StringBuilder _Partial = new StringBuilder();
+        private bool _HasLineInput;
+        private bool _CanDefer;
+        private bool _HeldPipeRow;
         private int _Emitted;
         private MarkdownRenderOptions? _RenderOptions;
         private MarkdownRenderOptions? _BlockOptions;
@@ -41,7 +45,8 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="pane"/> is null.</exception>
         public StreamingTranscript(Pane pane)
         {
-            _Pane = pane ?? throw new ArgumentNullException(nameof(pane));
+            RuntimeCompat.ThrowIfNull(pane, nameof(pane));
+            _Pane = pane;
         }
 
         /// <summary>
@@ -74,8 +79,7 @@ namespace TUIKit.Content
             get { lock (_Sync) { return _Styles; } }
             set
             {
-                if (value == null)
-                    throw new ArgumentNullException(nameof(value));
+                RuntimeCompat.ThrowIfNull(value, nameof(value));
 
                 lock (_Sync) { _Styles = value; }
             }
@@ -91,24 +95,24 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="text"/> is null.</exception>
         public void AppendText(string text)
         {
-            if (text == null)
-                throw new ArgumentNullException(nameof(text));
+            RuntimeCompat.ThrowIfNull(text, nameof(text));
 
             lock (_Sync)
             {
-                _Block.Append(text);
                 if (_RenderOptions != null && _BlockOptions == null)
                     _BlockOptions = _RenderOptions;
 
-                if (_BlockOptions != null && _RenderWhileStreaming)
+                if (_BlockOptions == null && _RenderWhileStreaming)
                 {
-                    StreamMarkdownBlock();
+                    StreamLines(text);
                     return;
                 }
 
+                _Block.Append(text);
                 if (_RenderWhileStreaming)
                 {
-                    StreamLines(false);
+                    if (!_HeldPipeRow || text.IndexOf('\n') >= 0)
+                        StreamMarkdownBlock();
                     return;
                 }
 
@@ -154,9 +158,9 @@ namespace TUIKit.Content
 
                 if (_RenderWhileStreaming)
                 {
-                    if (_Block.Length > 0)
+                    if (_HasLineInput)
                     {
-                        StreamLines(true);
+                        CommitLine(_Partial.ToString().Replace("\r", string.Empty));
                         if (_Emitted == 0)
                             _Pane.WriteLine(StyledText.Empty);
                     }
@@ -164,7 +168,9 @@ namespace TUIKit.Content
                     _Block.Clear();
                     _LiveLine = null;
                     _InCodeBlock = false;
-                    _Processed = 0;
+                    _Partial = new StringBuilder();
+                    _HasLineInput = false;
+                    _CanDefer = false;
                     _Emitted = 0;
                     return;
                 }
@@ -202,8 +208,7 @@ namespace TUIKit.Content
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is null.</exception>
         public PaneLineHandle Track(string key)
         {
-            if (key == null)
-                throw new ArgumentNullException(nameof(key));
+            RuntimeCompat.ThrowIfNull(key, nameof(key));
 
             lock (_Sync)
             {
@@ -226,10 +231,8 @@ namespace TUIKit.Content
         /// <exception cref="KeyNotFoundException">Thrown when <paramref name="key"/> was never tracked.</exception>
         public bool Update(string key, string content)
         {
-            if (key == null)
-                throw new ArgumentNullException(nameof(key));
-            if (content == null)
-                throw new ArgumentNullException(nameof(content));
+            RuntimeCompat.ThrowIfNull(key, nameof(key));
+            RuntimeCompat.ThrowIfNull(content, nameof(content));
 
             lock (_Sync)
             {
@@ -250,10 +253,8 @@ namespace TUIKit.Content
         /// <exception cref="KeyNotFoundException">Thrown when <paramref name="key"/> was never tracked.</exception>
         public bool Update(string key, StyledText content)
         {
-            if (key == null)
-                throw new ArgumentNullException(nameof(key));
-            if (content == null)
-                throw new ArgumentNullException(nameof(content));
+            RuntimeCompat.ThrowIfNull(key, nameof(key));
+            RuntimeCompat.ThrowIfNull(content, nameof(content));
 
             lock (_Sync)
             {
@@ -264,34 +265,47 @@ namespace TUIKit.Content
             }
         }
 
-        // Commits every completed source line after _Processed, then shows the trailing partial line on the
-        // live line (or, when finishing, commits it too). Must be called under _Sync.
-        private void StreamLines(bool finish)
+        private void StreamLines(string chunk)
         {
-            string block = _Block.ToString();
-            while (true)
+            if (chunk.Length == 0)
+                return;
+            _HasLineInput = true;
+            int start = 0;
+            int newline;
+            while ((newline = chunk.IndexOf('\n', start)) >= 0)
             {
-                int newline = block.IndexOf('\n', _Processed);
-                if (newline < 0)
-                    break;
-
-                string line = block.Substring(_Processed, newline - _Processed);
-                _Processed = newline + 1;
+                lock (_Partial)
+                    _Partial.Append(chunk, start, newline - start);
+                string line = _Partial.ToString();
                 CommitLine(line.EndsWith("\r", StringComparison.Ordinal) ? line.Substring(0, line.Length - 1) : line);
+                _Partial = new StringBuilder();
+                _CanDefer = false;
+                start = newline + 1;
             }
-
-            string partial = block.Substring(_Processed);
-            if (finish)
-            {
-                CommitLine(partial.Replace("\r", string.Empty));
-                _Processed = block.Length;
-                return;
-            }
-
-            if (partial.Length == 0)
+            if (start == chunk.Length)
                 return;
 
+            StringBuilder pending = _Partial;
+            lock (pending)
+                pending.Append(chunk, start, chunk.Length - start);
             bool inCode = _InCodeBlock;
+            if (_CanDefer && _LiveLine != null)
+            {
+                // Capture a prefix, not the transcript lock: readers hold the pane lock.
+                int length = pending.Length;
+                MarkdownStyles styles = _Styles;
+                _Pane.DeferLine(_LiveLine.Id, () =>
+                {
+                    string snapshot;
+                    lock (pending)
+                        snapshot = pending.ToString(0, length);
+                    return MarkdownRenderer.RenderLine(snapshot.Replace("\r", string.Empty), styles, ref inCode)!;
+                });
+                return;
+            }
+            string partial = pending.ToString();
+            string trimmed = partial.Replace("\r", string.Empty).TrimStart();
+            _CanDefer = trimmed.Length >= 3 && !trimmed.StartsWith("```", StringComparison.Ordinal);
             StyledText? rendered = MarkdownRenderer.RenderLine(partial.Replace("\r", string.Empty), _Styles, ref inCode);
             if (rendered == null)
             {
@@ -331,7 +345,9 @@ namespace TUIKit.Content
         // Shows everything received so far as one Markdown block. Must be called under _Sync.
         private void StreamMarkdownBlock()
         {
-            string source = MarkdownRenderer.StreamingPrefix(_Block.ToString());
+            string block = _Block.ToString();
+            _HeldPipeRow = MarkdownRenderer.StartsWithPipe(block, block.LastIndexOf('\n') + 1, block.Length);
+            string source = MarkdownRenderer.StreamingPrefix(block);
 
             if (source.Trim().Length == 0)
                 return;
@@ -361,7 +377,7 @@ namespace TUIKit.Content
             _LiveLine = null;
             _BlockOptions = null;
             _InCodeBlock = false;
-            _Processed = 0;
+            _HeldPipeRow = false;
             _Emitted = 0;
         }
 
